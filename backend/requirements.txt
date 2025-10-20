@@ -1,4 +1,5 @@
 Flask
 psycopg2-binary
 Flask-SQLAlchemy
-=======
+bcrypt
+Flask-Login
