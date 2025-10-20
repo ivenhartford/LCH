@@ -7,3 +7,8 @@ from . import db
 def home():
     pets = Pet.query.all()
     return render_template('index.html', pets=pets)
+=======
+
+@app.route('/')
+def home():
+    return render_template('index.html')

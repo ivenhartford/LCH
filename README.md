@@ -82,3 +82,16 @@ To set up and run the development environment on your local machine, follow thes
     -   `templates/`: Contains HTML templates.
 -   `requirements.txt`: Lists the Python dependencies for the project.
 -   `run.py`: The entry point to run the Flask application.
+=======
+## Directory Structure
+
+- `app/`: The main application folder.
+  - `__init__.py`: Initializes the Flask application.
+  - `routes.py`: Defines the routes for the application.
+  - `models.py`: Defines the database models.
+  - `static/`: Contains static files such as CSS and Javascript.
+    - `css/`: Contains CSS files.
+    - `js/`: Contains Javascript files.
+  - `templates/`: Contains HTML templates.
+    - `index.html`: The main index page.
+- `requirements.txt`: Lists the Python dependencies for the project.
