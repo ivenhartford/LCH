@@ -22,3 +22,4 @@ backend/.env
 logs/
 frontend/.env
 frontend/.env.development
+*.db
