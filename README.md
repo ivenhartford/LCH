@@ -90,6 +90,31 @@ This project is divided into two main parts: a `backend` Flask application and a
     ```
     The React application will open in your web browser at the port specified in your `.env.development` file (default is `http://localhost:3000`).
 
+## Creating an Administrator User
+
+To create an administrator user, you can use the Flask shell.
+
+1.  **Open a new terminal** and navigate to the `backend` directory.
+
+2.  **Activate your virtual environment.**
+
+3.  **Start the Flask shell:**
+    ```bash
+    flask shell
+    ```
+
+4.  **In the shell, run the following commands:**
+    ```python
+    from app import db
+    from app.models import User
+
+    # Create a new user
+    admin = User(username='admin', role='administrator')
+    admin.set_password('your_password')  # Choose a strong password
+    db.session.add(admin)
+    db.session.commit()
+    ```
+
 ## Running in Production
 
 To run the application in a production-like environment:
