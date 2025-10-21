@@ -22,3 +22,13 @@ class Pet(db.Model):
 
     def __repr__(self):
         return f'<Pet {self.name}>'
+
+class Appointment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(100), nullable=False)
+    start_time = db.Column(db.DateTime, nullable=False)
+    end_time = db.Column(db.DateTime, nullable=False)
+    description = db.Column(db.Text)
+
+    def __repr__(self):
+        return f'<Appointment {self.title}>'

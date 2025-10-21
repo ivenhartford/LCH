@@ -1,10 +1,14 @@
 import os
-from flask import jsonify, send_from_directory, request
+from flask import jsonify, send_from_directory, request, Blueprint
 from flask import current_app as app
-from .models import db, User, Pet
+from .models import db, User, Pet, Appointment
 from flask_login import login_user, logout_user, login_required, current_user
+from datetime import datetime
 from functools import wraps
+from datetime import datetime
 from flask import abort
+
+bp = Blueprint('main', __name__)
 
 def admin_required(f):
     @wraps(f)
@@ -14,7 +18,7 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-@app.route('/api/register', methods=['POST'])
+@bp.route('/api/register', methods=['POST'])
 def register():
     data = request.get_json()
     username = data.get('username')
@@ -30,7 +34,7 @@ def register():
 
     return jsonify({'message': 'User created successfully'}), 201
 
-@app.route('/api/login', methods=['POST'])
+@bp.route('/api/login', methods=['POST'])
 def login():
     data = request.get_json()
     username = data.get('username')
@@ -45,31 +49,31 @@ def login():
     app.logger.warning(f"Failed login attempt for username: {username}.")
     return jsonify({'message': 'Invalid credentials'}), 401
 
-@app.route('/api/check_session')
+@bp.route('/api/check_session')
 def check_session():
     if current_user.is_authenticated:
         return jsonify({'id': current_user.id, 'username': current_user.username, 'role': current_user.role})
     return jsonify({}), 401
 
-@app.route('/api/logout')
+@bp.route('/api/logout')
 @login_required
 def logout():
     logout_user()
     return jsonify({'message': 'Logged out successfully'})
 
-@app.route('/api/users', methods=['GET'])
+@bp.route('/api/users', methods=['GET'])
 @admin_required
 def get_users():
     users = User.query.all()
     return jsonify([{'id': user.id, 'username': user.username, 'role': user.role} for user in users])
 
-@app.route('/api/users/<int:user_id>', methods=['GET'])
+@bp.route('/api/users/<int:user_id>', methods=['GET'])
 @admin_required
 def get_user(user_id):
     user = User.query.get_or_404(user_id)
     return jsonify({'id': user.id, 'username': user.username, 'role': user.role})
 
-@app.route('/api/users/<int:user_id>', methods=['PUT'])
+@bp.route('/api/users/<int:user_id>', methods=['PUT'])
 @admin_required
 def update_user(user_id):
     user = User.query.get_or_404(user_id)
@@ -81,7 +85,7 @@ def update_user(user_id):
     db.session.commit()
     return jsonify({'message': 'User updated successfully'})
 
-@app.route('/api/users/<int:user_id>', methods=['DELETE'])
+@bp.route('/api/users/<int:user_id>', methods=['DELETE'])
 @admin_required
 def delete_user(user_id):
     user = User.query.get_or_404(user_id)
@@ -89,13 +93,43 @@ def delete_user(user_id):
     db.session.commit()
     return jsonify({'message': 'User deleted successfully'})
 
-@app.route('/api/pets')
+@bp.route('/api/pets')
 def get_pets():
     pets = Pet.query.all()
     return jsonify([{'name': pet.name, 'breed': pet.breed, 'owner': pet.owner} for pet in pets])
 
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
+@bp.route('/api/appointments', methods=['GET'])
+@login_required
+def get_appointments():
+    appointments = Appointment.query.all()
+    return jsonify([{
+        'id': apt.id,
+        'title': apt.title,
+        'start': apt.start_time.isoformat(),
+        'end': apt.end_time.isoformat(),
+        'description': apt.description
+    } for apt in appointments])
+
+@bp.route('/api/appointments', methods=['POST'])
+@login_required
+def create_appointment():
+    data = request.get_json()
+    start_time = datetime.fromisoformat(data['start'])
+    end_time = datetime.fromisoformat(data['end'])
+
+    new_appointment = Appointment(
+        title=data['title'],
+        start_time=start_time,
+        end_time=end_time,
+        description=data.get('description')
+    )
+    db.session.add(new_appointment)
+    db.session.commit()
+
+    return jsonify({'message': 'Appointment created successfully'}), 201
+
+@bp.route('/', defaults={'path': ''})
+@bp.route('/<path:path>')
 def serve(path):
     static_folder = app.config.get('STATIC_FOLDER')
     if path != "" and os.path.exists(os.path.join(static_folder, path)):
