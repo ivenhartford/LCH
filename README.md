@@ -52,23 +52,18 @@ This project is divided into two main parts: a `backend` Flask application and a
         GRANT ALL PRIVILEGES ON DATABASE vet_clinic_db TO vet_clinic_user;
         ```
 
-5.  **Configure the `DATABASE_URL` Environment Variable:**
-    The Flask app connects to the database using this environment variable.
+5.  **Configure Environment Variables:**
+    The backend uses a `.env` file for configuration. Copy the example file and edit it with your local settings.
     ```bash
-    # For Unix/macOS (replace with your actual credentials)
-    export DATABASE_URL="postgresql://vet_clinic_user:your_password@localhost:5432/vet_clinic_db"
-
-    # For Windows (Command Prompt)
-    set DATABASE_URL="postgresql://vet_clinic_user:your_password@localhost:5432/vet_clinic_db"
+    cp .env.example .env
     ```
-
-    _Note: If you do not set this variable, the application will attempt to connect to a local PostgreSQL database named `vet_clinic` by default._
+    Now, open `.env` and set your `DATABASE_URL`, `SECRET_KEY`, and other values as needed.
 
 6.  **Run the backend server:**
     ```bash
     python run.py
     ```
-    The Flask API server will start on `http://localhost:5000`.
+    The Flask API server will start on the host and port specified in your `.env` file (default is `http://0.0.0.0:5000`).
 
 ### Frontend Setup (React App)
 
@@ -82,11 +77,18 @@ This project is divided into two main parts: a `backend` Flask application and a
     npm install
     ```
 
-3.  **Run the frontend development server:**
+3.  **Configure Environment Variables:**
+    The frontend uses a `.env.development` file for local configuration. Copy the example file:
+    ```bash
+    cp .env.example .env.development
+    ```
+    You can edit `.env.development` to change the `PORT` for the React development server or the `REACT_APP_API_PROXY` location.
+
+4.  **Run the frontend development server:**
     ```bash
     npm start
     ```
-    The React application will open in your web browser at `http://localhost:3000`. The app is configured to proxy API requests to the Flask backend, so you can interact with the full application from this address.
+    The React application will open in your web browser at the port specified in your `.env.development` file (default is `http://localhost:3000`).
 
 ## Running in Production
 
@@ -105,6 +107,10 @@ To run the application in a production-like environment:
     python run.py
     ```
     You can now access the production-ready application at `http://localhost:5000`.
+
+## Logging
+
+The backend application is configured to log to a rotating file located at `logs/vet_clinic.log`. The log directory will be created automatically if it doesn't exist. Logs are rotated when they reach 10KB, and up to 10 backup files are kept.
 
 ## Testing
 
@@ -131,9 +137,13 @@ npm test
         -   `__init__.py`: Initializes the Flask application and the database.
         -   `routes.py`: Defines the API routes.
         -   `models.py`: Defines the database models.
+    -   `config.py`: Loads configuration from environment variables.
+    -   `.env.example`: Example environment variables for the backend.
     -   `requirements.txt`: Python dependencies.
     -   `run.py`: Entry point to run the Flask server.
 -   `frontend/`: The React front-end application.
     -   `public/`: Public assets and `index.html` template.
     -   `src/`: React source code.
+        -   `setupProxy.js`: Configures the API proxy for the development server.
+    -   `.env.example`: Example environment variables for the frontend.
     -   `package.json`: Node.js dependencies and scripts.

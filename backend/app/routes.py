@@ -39,8 +39,10 @@ def login():
 
     if user and user.check_password(password):
         login_user(user)
+        app.logger.info(f"User {username} logged in successfully.")
         return jsonify({'message': 'Logged in successfully'}), 200
 
+    app.logger.warning(f"Failed login attempt for username: {username}.")
     return jsonify({'message': 'Invalid credentials'}), 401
 
 @app.route('/api/check_session')

@@ -14,7 +14,7 @@ def app():
     """Create and configure a new app instance for each test."""
     static_folder = tempfile.mkdtemp()
 
-    app = create_app({
+    app = create_app(config_overrides={
         "TESTING": True,
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
         "STATIC_FOLDER": static_folder

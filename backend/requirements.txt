@@ -4,3 +4,4 @@ Flask-SQLAlchemy
 bcrypt
 Flask-Login
 pytest
+python-dotenv

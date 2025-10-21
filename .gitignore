@@ -18,3 +18,7 @@ package-lock.json
 
 # Build artifacts
 frontend/build/
+backend/.env
+logs/
+frontend/.env
+frontend/.env.development
