@@ -9,7 +9,7 @@ login_manager = LoginManager()
 def create_app():
     app = Flask(__name__, static_folder='../../frontend/build', static_url_path='/')
 
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:////tmp/app.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://localhost/vet_clinic')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'a_secret_key')
 

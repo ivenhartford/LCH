@@ -62,6 +62,8 @@ This project is divided into two main parts: a `backend` Flask application and a
     set DATABASE_URL="postgresql://vet_clinic_user:your_password@localhost:5432/vet_clinic_db"
     ```
 
+    _Note: If you do not set this variable, the application will attempt to connect to a local PostgreSQL database named `vet_clinic` by default._
+
 6.  **Run the backend server:**
     ```bash
     python run.py
