@@ -106,6 +106,24 @@ To run the application in a production-like environment:
     ```
     You can now access the production-ready application at `http://localhost:5000`.
 
+## Testing
+
+### Backend (pytest)
+
+To run the backend tests, navigate to the project root and run:
+
+```bash
+pytest backend/tests
+```
+
+### Frontend (Jest)
+
+To run the frontend tests, navigate to the `frontend` directory and run:
+
+```bash
+npm test
+```
+
 ## Directory Structure
 
 -   `backend/`: The Flask API application.

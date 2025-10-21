@@ -1,8 +1,19 @@
 import { render, screen } from '@testing-library/react';
 import App from './App';
 
-test('renders login page when not authenticated', () => {
+beforeEach(() => {
+  jest.spyOn(window, 'fetch').mockResolvedValue({
+    ok: true,
+    json: async () => ({ id: 1, username: 'testuser', role: 'user' }),
+  });
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
+test('renders learn react link', async () => {
   render(<App />);
-  const linkElement = screen.getByText(/Username/i);
+  const linkElement = await screen.findByText(/Application/i);
   expect(linkElement).toBeInTheDocument();
 });

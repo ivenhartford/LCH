@@ -6,12 +6,17 @@ from flask_login import LoginManager
 db = SQLAlchemy()
 login_manager = LoginManager()
 
-def create_app():
-    app = Flask(__name__, static_folder='../../frontend/build', static_url_path='/')
+def create_app(config_overrides=None):
+    app = Flask(__name__, static_folder=None, static_url_path='/')
 
+    app.config['STATIC_FOLDER'] = '../../frontend/build'
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://localhost/vet_clinic')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'a_secret_key')
+    app.config['TESTING'] = False
+
+    if config_overrides:
+        app.config.update(config_overrides)
 
     db.init_app(app)
     login_manager.init_app(app)
