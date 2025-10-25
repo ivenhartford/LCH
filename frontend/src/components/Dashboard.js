@@ -4,7 +4,7 @@ import MyCalendar from './Calendar';
 
 function Dashboard() {
   return (
-    <div>
+    <div style={{ padding: '20px' }}>
       <NavigationBar />
       <MyCalendar />
     </div>
