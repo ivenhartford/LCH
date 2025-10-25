@@ -3,19 +3,32 @@ import logging
 from logging.handlers import RotatingFileHandler
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
+from flask_restx import Api
 from flask_login import LoginManager
 
 db = SQLAlchemy()
+migrate = Migrate()
 login_manager = LoginManager()
+api = Api(
+    version='1.0',
+    title='Lenox Cat Hospital API',
+    description='Veterinary Practice Management System API',
+    doc='/api/docs'
+)
 
-from config import Config
+from config import config_by_name
 
-def create_app(config_class=Config, config_overrides=None):
+def create_app(config_name=None, config_overrides=None):
+    # Get config name from environment or use default
+    if config_name is None:
+        config_name = os.environ.get('FLASK_ENV', 'development')
+
+    config_class = config_by_name.get(config_name, config_by_name['default'])
+
     app = Flask(__name__, static_folder=None, static_url_path='/')
     app.config.from_object(config_class)
     app.config['STATIC_FOLDER'] = '../../frontend/build'
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['TESTING'] = False
 
     if config_overrides:
         app.config.update(config_overrides)
@@ -33,6 +46,7 @@ def create_app(config_class=Config, config_overrides=None):
         app.logger.info('Vet Clinic startup')
 
     db.init_app(app)
+    migrate.init_app(app, db)
 
     from . import models
     with app.app_context():
@@ -44,6 +58,10 @@ def create_app(config_class=Config, config_overrides=None):
     def load_user(user_id):
         return models.User.query.get(int(user_id))
 
+    # Initialize API with app first
+    api.init_app(app)
+
+    # Then register routes blueprint
     from . import routes
     app.register_blueprint(routes.bp)
 
