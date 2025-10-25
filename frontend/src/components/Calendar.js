@@ -70,15 +70,17 @@ const MyCalendar = () => {
 
   return (
     <div>
-      <Calendar
-        localizer={localizer}
-        events={events}
-        startAccessor="start"
-        endAccessor="end"
-        style={{ height: 500 }}
-        selectable
-        onSelectSlot={handleSelectSlot}
-      />
+      <div style={{ height: '600px', margin: '20px 0' }}>
+        <Calendar
+          localizer={localizer}
+          events={events}
+          startAccessor="start"
+          endAccessor="end"
+          style={{ height: '100%' }}
+          selectable
+          onSelectSlot={handleSelectSlot}
+        />
+      </div>
       <Modal
         isOpen={modalIsOpen}
         onRequestClose={closeModal}
