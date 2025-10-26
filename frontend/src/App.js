@@ -123,7 +123,12 @@ function App() {
   return (
     <ErrorBoundary>
       <QueryProvider>
-        <BrowserRouter>
+        <BrowserRouter
+          future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true,
+          }}
+        >
           <Routes>
             {/* Login Route - No layout */}
             <Route
