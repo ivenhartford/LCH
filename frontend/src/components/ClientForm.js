@@ -101,7 +101,6 @@ function ClientForm() {
 
   // Fetch existing client data (edit mode only)
   const {
-    data: client,
     isLoading: isLoadingClient,
     isError: isClientError,
     error: clientError,

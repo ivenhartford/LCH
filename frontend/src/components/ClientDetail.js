@@ -15,6 +15,12 @@ import {
   Chip,
   Divider,
   IconButton,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -87,6 +93,40 @@ function ClientDetail() {
     retry: 2,
   });
 
+  // Fetch client's patients
+  const {
+    data: patientsData,
+    isLoading: isPatientsLoading,
+  } = useQuery({
+    queryKey: ['patients', 'by-owner', clientId],
+    queryFn: async () => {
+      const startTime = performance.now();
+      logger.logAction('Fetching client patients', { clientId });
+
+      const response = await fetch(`/api/patients?owner_id=${clientId}&per_page=100`, {
+        credentials: 'include',
+      });
+
+      const duration = performance.now() - startTime;
+
+      if (!response.ok) {
+        logger.logAPICall('GET', `/api/patients?owner_id=${clientId}`, response.status, duration, 'Fetch failed');
+        throw new Error('Failed to fetch patients');
+      }
+
+      const data = await response.json();
+      logger.logAPICall('GET', `/api/patients?owner_id=${clientId}`, response.status, duration);
+      logger.info('Client patients fetched', {
+        clientId,
+        count: data.patients.length,
+      });
+
+      return data.patients || [];
+    },
+    enabled: Boolean(clientId),
+    staleTime: 30000,
+  });
+
   // Handle navigation
   const handleBack = () => {
     logger.logAction('Navigate back to client list');
@@ -96,6 +136,16 @@ function ClientDetail() {
   const handleEdit = () => {
     logger.logAction('Navigate to edit client', { clientId });
     navigate(`/clients/${clientId}/edit`);
+  };
+
+  const handleAddPatient = () => {
+    logger.logAction('Navigate to add patient for client', { clientId });
+    navigate(`/patients/new?owner_id=${clientId}`);
+  };
+
+  const handleViewPatient = (patientId) => {
+    logger.logAction('Navigate to patient detail', { patientId, clientId });
+    navigate(`/patients/${patientId}`);
   };
 
   // Loading state
@@ -299,15 +349,75 @@ function ClientDetail() {
               title="Patients (Cats)"
               avatar={<PetsIcon />}
               action={
-                <Button size="small" variant="outlined">
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={handleAddPatient}
+                >
                   Add Patient
                 </Button>
               }
             />
             <CardContent>
-              <Alert severity="info">
-                Patient management coming soon (Phase 1.2)
-              </Alert>
+              {isPatientsLoading ? (
+                <Box display="flex" justifyContent="center" p={3}>
+                  <CircularProgress size={30} />
+                </Box>
+              ) : patientsData && patientsData.length > 0 ? (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Name</TableCell>
+                        <TableCell>Breed</TableCell>
+                        <TableCell>Age</TableCell>
+                        <TableCell>Sex</TableCell>
+                        <TableCell>Status</TableCell>
+                        <TableCell></TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {patientsData.map((patient) => (
+                        <TableRow key={patient.id} hover>
+                          <TableCell>
+                            <Typography variant="body2" fontWeight="medium">
+                              {patient.name}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>{patient.breed || 'Unknown'}</TableCell>
+                          <TableCell>{patient.age_display || 'Unknown'}</TableCell>
+                          <TableCell>{patient.sex || '-'}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={patient.status}
+                              size="small"
+                              color={
+                                patient.status === 'Active'
+                                  ? 'success'
+                                  : patient.status === 'Deceased'
+                                  ? 'error'
+                                  : 'default'
+                              }
+                            />
+                          </TableCell>
+                          <TableCell align="right">
+                            <Button
+                              size="small"
+                              onClick={() => handleViewPatient(patient.id)}
+                            >
+                              View
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              ) : (
+                <Alert severity="info">
+                  No patients yet. Click "Add Patient" to add a cat for this client.
+                </Alert>
+              )}
             </CardContent>
           </Card>
         </Grid>

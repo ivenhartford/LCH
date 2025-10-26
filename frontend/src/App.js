@@ -9,6 +9,9 @@ import Login from './components/Login';
 import Clients from './components/Clients';
 import ClientDetail from './components/ClientDetail';
 import ClientForm from './components/ClientForm';
+import Patients from './components/Patients';
+import PatientDetail from './components/PatientDetail';
+import PatientForm from './components/PatientForm';
 import logger from './utils/logger';
 import './App.css';
 
@@ -147,19 +150,10 @@ function App() {
                       <Route path="/clients/new" element={<ClientForm />} />
                       <Route path="/clients/:clientId" element={<ClientDetail />} />
                       <Route path="/clients/:clientId/edit" element={<ClientForm />} />
-                      <Route
-                        path="/patients"
-                        element={
-                          <Box>
-                            <Typography variant="h4">
-                              Patients
-                            </Typography>
-                            <Typography color="text.secondary">
-                              Patient management coming soon (Phase 1.2)
-                            </Typography>
-                          </Box>
-                        }
-                      />
+                      <Route path="/patients" element={<Patients />} />
+                      <Route path="/patients/new" element={<PatientForm />} />
+                      <Route path="/patients/:patientId" element={<PatientDetail />} />
+                      <Route path="/patients/:patientId/edit" element={<PatientForm />} />
                       <Route
                         path="/medical-records"
                         element={
