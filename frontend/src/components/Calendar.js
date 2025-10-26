@@ -154,6 +154,26 @@ const MyCalendar = () => {
 
   return (
     <div>
+      {/* Header with New Appointment button */}
+      <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h2 style={{ margin: 0 }}>Appointments Calendar</h2>
+        <button
+          onClick={() => navigate('/appointments/new')}
+          style={{
+            padding: '10px 20px',
+            backgroundColor: '#2563eb',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '500',
+          }}
+        >
+          + New Appointment
+        </button>
+      </div>
+
       {/* Status filter */}
       <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', alignItems: 'center' }}>
         <label htmlFor="status-filter">Filter by status:</label>
