@@ -6,6 +6,9 @@ import QueryProvider from './providers/QueryProvider';
 import MainLayout from './components/layout/MainLayout';
 import Dashboard from './components/Dashboard';
 import Login from './components/Login';
+import Clients from './components/Clients';
+import ClientDetail from './components/ClientDetail';
+import ClientForm from './components/ClientForm';
 import logger from './utils/logger';
 import './App.css';
 
@@ -140,19 +143,10 @@ function App() {
                     <Routes>
                       <Route path="/" element={<Dashboard />} />
                       <Route path="/calendar" element={<Dashboard />} />
-                      <Route
-                        path="/clients"
-                        element={
-                          <Box>
-                            <Typography variant="h4">
-                              Clients
-                            </Typography>
-                            <Typography color="text.secondary">
-                              Client management coming soon (Phase 1.2)
-                            </Typography>
-                          </Box>
-                        }
-                      />
+                      <Route path="/clients" element={<Clients />} />
+                      <Route path="/clients/new" element={<ClientForm />} />
+                      <Route path="/clients/:clientId" element={<ClientDetail />} />
+                      <Route path="/clients/:clientId/edit" element={<ClientForm />} />
                       <Route
                         path="/patients"
                         element={
