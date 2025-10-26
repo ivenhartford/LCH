@@ -1,6 +1,8 @@
 # Lenox Cat Hospital - Veterinary Practice Management Suite
 
-A comprehensive practice management software suite for a veterinary clinic, built with a modern React frontend and Flask backend API.
+A comprehensive practice management software suite for a **feline-only veterinary clinic**, built with a modern React frontend and Flask backend API.
+
+> **Note:** Lenox Cat Hospital specializes exclusively in feline care. All patients in the system are cats, and the application is designed specifically for cat-only veterinary practice management.
 
 ## Technology Stack
 
@@ -159,9 +161,10 @@ flask db history
 - Flask-Migrate for database migrations
 - Flask-RESTX for API documentation (in progress)
 - Multi-environment configuration (dev, testing, production)
-- SQLAlchemy ORM with models for User, Pet, Appointment
+- SQLAlchemy ORM with models for User, Pet (Cat patients), Appointment, Client
 - Rotating file logging (`logs/vet_clinic.log`)
 - Input validation with marshmallow
+- **Feline-only data model:** All pets are cats (species defaults to 'Cat')
 
 ### ✅ Frontend Infrastructure
 - **Material-UI** component library with custom theme
@@ -187,6 +190,55 @@ flask db history
 - Header with user menu and logout
 - Mobile-responsive design
 
+## Features Implemented (Phase 1.2)
+
+### ✅ Client Management Module
+Complete CRUD functionality for managing clients (cat owners):
+
+**Backend API:**
+- `GET /api/clients` - List clients with pagination, search, and filtering
+  - Search by name, email, or phone
+  - Filter by active/inactive status
+  - Pagination support (configurable page size)
+- `GET /api/clients/<id>` - Get single client details
+- `POST /api/clients` - Create new client
+- `PUT /api/clients/<id>` - Update existing client
+- `DELETE /api/clients/<id>` - Soft delete (deactivate) client
+- `DELETE /api/clients/<id>?hard=true` - Hard delete (admin only)
+- Marshmallow schemas for request/response validation
+- Comprehensive error handling and logging
+- **25 comprehensive unit tests** covering all endpoints (100% passing)
+
+**Client Data Model:**
+- Personal info (first name, last name, email, phones)
+- Address (line 1, line 2, city, state, ZIP)
+- Communication preferences (email/phone/SMS, reminders)
+- Account balance and credit limit
+- Notes and alerts
+- Active/inactive status
+- Timestamps (created_at, updated_at)
+
+**Frontend UI:**
+- **Client List Page** (`/clients`):
+  - Material-UI table with pagination
+  - Search by name, email, or phone
+  - Filter by active/inactive status
+  - Sortable columns
+  - Click row to view details
+- **Client Detail Page** (`/clients/:id`):
+  - Complete client information display
+  - Account balance highlighted
+  - Communication preferences
+  - Notes and alerts
+  - Edit button
+- **Client Create/Edit Form** (`/clients/new`, `/clients/:id/edit`):
+  - Comprehensive form with 15+ fields
+  - Zod validation schema
+  - React Hook Form integration
+  - Real-time validation feedback
+  - Unsaved changes warning
+- **Comprehensive logging** of all user actions and API calls
+
 ## Testing
 
 ### Backend Tests (pytest)
@@ -200,6 +252,22 @@ pytest backend/tests --cov=backend/app
 
 # Run specific test file
 pytest backend/tests/test_routes.py
+
+# Run Client API tests (Phase 1.2)
+pytest backend/tests/test_client_api.py -v
+```
+
+**Client API Test Coverage:**
+- 25 comprehensive tests covering all CRUD operations
+- Tests for authentication and authorization
+- Tests for validation and error handling
+- Tests for pagination and search
+- Tests for soft delete vs hard delete
+- Integration tests for full lifecycle
+
+```bash
+# All tests passing
+============================= 25 passed in 13.44s =============================
 ```
 
 ### Frontend Tests (Jest)
@@ -242,7 +310,7 @@ npm test -- --coverage
 ├── backend/
 │   ├── app/
 │   │   ├── __init__.py          # Flask app initialization
-│   │   ├── models.py            # Database models (User, Pet, Appointment)
+│   │   ├── models.py            # Database models (User, Client, Pet/Cat, Appointment)
 │   │   └── routes.py            # API routes
 │   ├── migrations/              # Alembic migrations
 │   ├── tests/                   # Backend tests
@@ -390,21 +458,34 @@ npm install
 
 ## Development Status
 
-**Current Phase:** Phase 1.1 - COMPLETE ✅
+**Current Phase:** Phase 1.2 - COMPLETE ✅
 
-**Completed:**
+**Phase 1.1 - Infrastructure (COMPLETE):**
 - ✅ Backend infrastructure (Flask-Migrate, Flask-RESTX, configs)
 - ✅ Frontend infrastructure (logging, error handling, Material-UI, React Query)
 - ✅ Layout components (Header, Sidebar, MainLayout)
 - ✅ Form system (React Hook Form + Zod)
 - ✅ Authentication and protected routes
 - ✅ Calendar/appointment view
+- ✅ Feline-only clinic data model (all pets are cats)
 
-**Next Phase:** Phase 1.2 - Client Management Module (Week 2)
-- Enhanced Client model
-- Client CRUD API endpoints
-- Client List and Detail pages
-- Client Create/Edit forms
+**Phase 1.2 - Client Management (COMPLETE):**
+- ✅ Enhanced Client model with 20+ fields
+- ✅ Client API endpoints (GET, POST, PUT, DELETE)
+- ✅ Marshmallow schemas for validation
+- ✅ 25 comprehensive unit tests for API (100% passing)
+- ✅ Client List page with search, filter, and pagination
+- ✅ Client Detail page with full information display
+- ✅ Client Create/Edit form with Zod validation
+- ✅ Comprehensive logging throughout
+- ✅ Soft delete and hard delete support
+
+**Next Phase:** Phase 1.2 (continued) - Patient Management Module
+- Enhanced Patient (Cat) model
+- Patient CRUD API endpoints
+- Patient List and Detail pages
+- Link patients to clients
+- Cat breed management
 
 See **ROADMAP.md** for complete development plan.
 
