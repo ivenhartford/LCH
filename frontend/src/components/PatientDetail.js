@@ -16,6 +16,13 @@ import {
   Divider,
   IconButton,
   Avatar,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Link,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -25,7 +32,9 @@ import {
   Pets as PetsIcon,
   CreditCard as InsuranceIcon,
   Verified as ChipIcon,
+  EventNote as EventNoteIcon,
 } from '@mui/icons-material';
+import { format } from 'date-fns';
 import logger from '../utils/logger';
 
 /**
@@ -88,6 +97,29 @@ function PatientDetail() {
     staleTime: 30000,
     retry: 2,
   });
+
+  // Fetch appointments for this patient
+  const {
+    data: appointmentsData,
+    isLoading: loadingAppointments,
+  } = useQuery({
+    queryKey: ['appointments', 'patient', patientId],
+    queryFn: async () => {
+      const response = await fetch(`/api/appointments?patient_id=${patientId}&per_page=100`, {
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch appointments');
+      }
+
+      const data = await response.json();
+      return data.appointments || [];
+    },
+    enabled: Boolean(patientId),
+  });
+
+  const appointments = appointmentsData || [];
 
   // Handle navigation
   const handleBack = () => {
@@ -400,6 +432,109 @@ function PatientDetail() {
                   </Grid>
                 )}
               </Grid>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Appointment History */}
+        <Grid item xs={12}>
+          <Card>
+            <CardHeader
+              title="Appointment History"
+              avatar={<EventNoteIcon />}
+              action={
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => navigate('/appointments/new')}
+                >
+                  Book Appointment
+                </Button>
+              }
+            />
+            <CardContent>
+              {loadingAppointments ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                  <CircularProgress size={40} />
+                </Box>
+              ) : appointments.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  No appointments recorded for this patient yet.
+                </Typography>
+              ) : (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Date</TableCell>
+                        <TableCell>Title</TableCell>
+                        <TableCell>Type</TableCell>
+                        <TableCell>Status</TableCell>
+                        <TableCell>Staff</TableCell>
+                        <TableCell>Actions</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {appointments
+                        .sort((a, b) => new Date(b.start_time) - new Date(a.start_time))
+                        .map((appointment) => (
+                          <TableRow key={appointment.id} hover>
+                            <TableCell>
+                              {format(new Date(appointment.start_time), 'MMM dd, yyyy HH:mm')}
+                            </TableCell>
+                            <TableCell>{appointment.title}</TableCell>
+                            <TableCell>
+                              {appointment.appointment_type_name ? (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Box
+                                    sx={{
+                                      width: 12,
+                                      height: 12,
+                                      borderRadius: '50%',
+                                      backgroundColor: appointment.appointment_type_color || '#2563eb',
+                                    }}
+                                  />
+                                  <Typography variant="body2">
+                                    {appointment.appointment_type_name}
+                                  </Typography>
+                                </Box>
+                              ) : (
+                                <Typography variant="body2" color="text.secondary">
+                                  —
+                                </Typography>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                label={appointment.status.replace('_', ' ')}
+                                size="small"
+                                color={
+                                  appointment.status === 'completed' ? 'success' :
+                                  appointment.status === 'cancelled' ? 'error' :
+                                  appointment.status === 'in_progress' ? 'warning' :
+                                  'default'
+                                }
+                                sx={{ textTransform: 'capitalize' }}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              {appointment.assigned_staff_name || '—'}
+                            </TableCell>
+                            <TableCell>
+                              <Link
+                                component="button"
+                                variant="body2"
+                                onClick={() => navigate(`/appointments/${appointment.id}`)}
+                              >
+                                View
+                              </Link>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
             </CardContent>
           </Card>
         </Grid>
