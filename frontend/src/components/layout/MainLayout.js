@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Box, Toolbar, CssBaseline } from '@mui/material';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { ThemeProvider } from '@mui/material/styles';
 import Header from './Header';
 import Sidebar, { drawerWidth } from './Sidebar';
+import theme from '../../theme';
 import logger from '../../utils/logger';
 
 /**
@@ -19,41 +20,9 @@ import logger from '../../utils/logger';
  * - Responsive design (mobile-friendly)
  * - Persistent sidebar on desktop
  * - Temporary drawer on mobile
- * - Material-UI theme integration
+ * - Clean, modern Material-UI theme
  * - Comprehensive logging
  */
-
-// Create Material-UI theme
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#1976d2', // Blue
-    },
-    secondary: {
-      main: '#dc004e', // Pink/Red
-    },
-  },
-  typography: {
-    fontFamily: [
-      '-apple-system',
-      'BlinkMacSystemFont',
-      '"Segoe UI"',
-      'Roboto',
-      '"Helvetica Neue"',
-      'Arial',
-      'sans-serif',
-    ].join(','),
-  },
-  components: {
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          textTransform: 'none', // Disable uppercase
-        },
-      },
-    },
-  },
-});
 
 const MainLayout = ({ user, onLogout, children }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -116,10 +85,7 @@ const MainLayout = ({ user, onLogout, children }) => {
             p: 3,
             width: { sm: `calc(100% - ${drawerWidth}px)` },
             minHeight: '100vh',
-            backgroundColor: (theme) =>
-              theme.palette.mode === 'light'
-                ? theme.palette.grey[100]
-                : theme.palette.grey[900],
+            backgroundColor: 'background.default',
           }}
         >
           <Toolbar /> {/* Spacer for AppBar */}
