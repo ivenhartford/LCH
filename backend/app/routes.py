@@ -1,8 +1,11 @@
 import os
 from flask import jsonify, send_from_directory, request, Blueprint
 from flask import current_app as app
-from .models import db, User, Pet, Appointment, Client
-from .schemas import client_schema, clients_schema, client_update_schema
+from .models import db, User, Patient, Pet, Appointment, Client
+from .schemas import (
+    client_schema, clients_schema, client_update_schema,
+    patient_schema, patients_schema, patient_update_schema
+)
 from flask_login import login_user, logout_user, login_required, current_user
 from datetime import datetime
 from functools import wraps
@@ -356,6 +359,259 @@ def delete_client(client_id):
         app.logger.error(f"Error deleting client {client_id}: {str(e)}", exc_info=True)
         if 'not found' in str(e).lower():
             return jsonify({'error': 'Client not found'}), 404
+        return jsonify({'error': 'Internal server error'}), 500
+
+# ============================================================================
+# Patient (Cat) Management API Endpoints
+# ============================================================================
+
+@bp.route('/api/patients', methods=['GET'])
+@login_required
+def get_patients():
+    """
+    Get list of patients (cats) with optional search and pagination
+    Query params:
+        - page: Page number (default 1)
+        - per_page: Items per page (default 50)
+        - search: Search term (searches name, owner name, breed, microchip)
+        - status: Filter by status (Active, Inactive, Deceased)
+        - owner_id: Filter by specific owner/client
+    """
+    try:
+        # Get query parameters
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+        search = request.args.get('search', '').strip()
+        status_filter = request.args.get('status', '').strip()
+        owner_id = request.args.get('owner_id', type=int)
+
+        app.logger.info(f"GET /api/patients - User: {current_user.username}, Page: {page}, Search: '{search}', Status: '{status_filter}', Owner: {owner_id}")
+
+        # Build query
+        query = Patient.query
+
+        # Filter by status
+        if status_filter:
+            query = query.filter_by(status=status_filter)
+        else:
+            # Default: show only active patients
+            query = query.filter_by(status='Active')
+
+        # Filter by owner
+        if owner_id:
+            query = query.filter_by(owner_id=owner_id)
+
+        # Apply search filter if provided
+        if search:
+            search_filter = f"%{search}%"
+            query = query.join(Client).filter(
+                db.or_(
+                    Patient.name.ilike(search_filter),
+                    Patient.breed.ilike(search_filter),
+                    Patient.color.ilike(search_filter),
+                    Patient.microchip_number.ilike(search_filter),
+                    Client.first_name.ilike(search_filter),
+                    Client.last_name.ilike(search_filter)
+                )
+            )
+
+        # Order by name
+        query = query.order_by(Patient.name)
+
+        # Paginate results
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        patients = pagination.items
+
+        app.logger.info(f"Found {pagination.total} patients, returning page {page} of {pagination.pages}")
+
+        # Serialize patients
+        result = patients_schema.dump(patients)
+
+        return jsonify({
+            'patients': result,
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': pagination.total,
+                'pages': pagination.pages,
+                'has_next': pagination.has_next,
+                'has_prev': pagination.has_prev
+            }
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting patients: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@bp.route('/api/patients/<int:patient_id>', methods=['GET'])
+@login_required
+def get_patient(patient_id):
+    """Get a specific patient by ID"""
+    try:
+        app.logger.info(f"GET /api/patients/{patient_id} - User: {current_user.username}")
+
+        patient = Patient.query.get_or_404(patient_id)
+
+        if patient.status == 'Deceased':
+            app.logger.warning(f"Accessed deceased patient {patient_id}")
+
+        app.logger.info(f"Retrieved patient {patient_id}: {patient.name}")
+
+        result = patient_schema.dump(patient)
+        return jsonify(result), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting patient {patient_id}: {str(e)}", exc_info=True)
+        if 'not found' in str(e).lower():
+            return jsonify({'error': 'Patient not found'}), 404
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@bp.route('/api/patients', methods=['POST'])
+@login_required
+def create_patient():
+    """Create a new patient (cat)"""
+    try:
+        data = request.get_json()
+
+        app.logger.info(f"POST /api/patients - User: {current_user.username}, Data: {data.get('name')}")
+
+        # Validate request data
+        try:
+            validated_data = patient_schema.load(data)
+        except MarshmallowValidationError as err:
+            app.logger.warning(f"Validation error creating patient: {err.messages}")
+            return jsonify({'error': 'Validation error', 'messages': err.messages}), 400
+
+        # Verify owner exists
+        owner = Client.query.get(validated_data['owner_id'])
+        if not owner:
+            app.logger.warning(f"Attempted to create patient with non-existent owner_id: {validated_data['owner_id']}")
+            return jsonify({'error': 'Owner (client) not found'}), 404
+
+        # Check for duplicate microchip if provided
+        if validated_data.get('microchip_number'):
+            existing = Patient.query.filter_by(microchip_number=validated_data['microchip_number']).first()
+            if existing:
+                app.logger.warning(f"Attempted to create patient with duplicate microchip: {validated_data['microchip_number']}")
+                return jsonify({'error': 'Microchip number already exists'}), 409
+
+        # Create new patient
+        new_patient = Patient(**validated_data)
+        db.session.add(new_patient)
+        db.session.commit()
+
+        app.logger.info(f"Created patient {new_patient.id}: {new_patient.name} (owner: {owner.first_name} {owner.last_name})")
+
+        result = patient_schema.dump(new_patient)
+        return jsonify(result), 201
+
+    except IntegrityError as e:
+        db.session.rollback()
+        app.logger.error(f"Integrity error creating patient: {str(e)}")
+        return jsonify({'error': 'Database integrity error', 'message': str(e)}), 409
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating patient: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@bp.route('/api/patients/<int:patient_id>', methods=['PUT'])
+@login_required
+def update_patient(patient_id):
+    """Update an existing patient"""
+    try:
+        data = request.get_json()
+
+        app.logger.info(f"PUT /api/patients/{patient_id} - User: {current_user.username}")
+
+        patient = Patient.query.get_or_404(patient_id)
+
+        # Validate request data
+        try:
+            validated_data = patient_update_schema.load(data)
+        except MarshmallowValidationError as err:
+            app.logger.warning(f"Validation error updating patient {patient_id}: {err.messages}")
+            return jsonify({'error': 'Validation error', 'messages': err.messages}), 400
+
+        # Check for duplicate microchip if microchip is being changed
+        if 'microchip_number' in validated_data and validated_data['microchip_number']:
+            if validated_data['microchip_number'] != patient.microchip_number:
+                existing = Patient.query.filter_by(microchip_number=validated_data['microchip_number']).first()
+                if existing:
+                    app.logger.warning(f"Attempted to update patient {patient_id} with duplicate microchip: {validated_data['microchip_number']}")
+                    return jsonify({'error': 'Microchip number already exists'}), 409
+
+        # Verify new owner exists if owner_id is being changed
+        if 'owner_id' in validated_data:
+            owner = Client.query.get(validated_data['owner_id'])
+            if not owner:
+                app.logger.warning(f"Attempted to update patient {patient_id} with non-existent owner_id: {validated_data['owner_id']}")
+                return jsonify({'error': 'Owner (client) not found'}), 404
+
+        # Update patient fields
+        for key, value in validated_data.items():
+            setattr(patient, key, value)
+
+        db.session.commit()
+
+        app.logger.info(f"Updated patient {patient_id}: {patient.name}")
+
+        result = patient_schema.dump(patient)
+        return jsonify(result), 200
+
+    except IntegrityError as e:
+        db.session.rollback()
+        app.logger.error(f"Integrity error updating patient {patient_id}: {str(e)}")
+        return jsonify({'error': 'Database integrity error', 'message': str(e)}), 409
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating patient {patient_id}: {str(e)}", exc_info=True)
+        if 'not found' in str(e).lower():
+            return jsonify({'error': 'Patient not found'}), 404
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@bp.route('/api/patients/<int:patient_id>', methods=['DELETE'])
+@login_required
+def delete_patient(patient_id):
+    """
+    Delete a patient
+    Note: For cats, we typically set status to 'Deceased' rather than delete.
+    Use ?hard=true query param for hard delete (requires admin)
+    """
+    try:
+        hard_delete = request.args.get('hard', 'false').lower() == 'true'
+
+        app.logger.info(f"DELETE /api/patients/{patient_id} - User: {current_user.username}, Hard: {hard_delete}")
+
+        patient = Patient.query.get_or_404(patient_id)
+
+        if hard_delete:
+            # Hard delete requires admin role
+            if current_user.role != 'administrator':
+                app.logger.warning(f"Non-admin user {current_user.username} attempted hard delete of patient {patient_id}")
+                return jsonify({'error': 'Admin access required for hard delete'}), 403
+
+            db.session.delete(patient)
+            db.session.commit()
+            app.logger.info(f"Hard deleted patient {patient_id}: {patient.name}")
+            return jsonify({'message': 'Patient permanently deleted'}), 200
+        else:
+            # Soft delete - set to inactive
+            patient.status = 'Inactive'
+            db.session.commit()
+            app.logger.info(f"Soft deleted (deactivated) patient {patient_id}: {patient.name}")
+            return jsonify({'message': 'Patient deactivated', 'tip': 'Set status to Deceased if the cat has passed away'}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting patient {patient_id}: {str(e)}", exc_info=True)
+        if 'not found' in str(e).lower():
+            return jsonify({'error': 'Patient not found'}), 404
         return jsonify({'error': 'Internal server error'}), 500
 
 # ============================================================================
