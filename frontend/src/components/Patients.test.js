@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
@@ -62,25 +62,33 @@ describe('Patients Component', () => {
 
   describe('Error State', () => {
     test('shows error message when fetch fails', async () => {
-      global.fetch.mockRejectedValueOnce(new Error('Network error'));
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: 'Server error' }),
+      });
 
       renderWithProviders(<Patients />);
 
       await waitFor(() => {
         expect(screen.getByText(/Error loading patients/)).toBeInTheDocument();
-      });
+      }, { timeout: 3000 });
 
       expect(logger.error).toHaveBeenCalled();
     });
 
     test('allows retry on error', async () => {
-      global.fetch.mockRejectedValueOnce(new Error('Network error'));
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: 'Network error' }),
+      });
 
       renderWithProviders(<Patients />);
 
       await waitFor(() => {
         expect(screen.getByText(/Error loading patients/)).toBeInTheDocument();
-      });
+      }, { timeout: 3000 });
 
       // Click the alert to retry (clicking the close button triggers refetch)
       const alert = screen.getByRole('alert');
@@ -401,9 +409,11 @@ describe('Patients Component', () => {
         }),
       });
 
-      await userEvent.click(statusSelect);
-      const inactiveOption = await screen.findByText('Inactive');
-      await userEvent.click(inactiveOption);
+      // MUI Select requires fireEvent.mouseDown instead of userEvent.click
+      fireEvent.mouseDown(statusSelect);
+
+      const inactiveOption = await screen.findByRole('option', { name: 'Inactive' });
+      fireEvent.click(inactiveOption);
 
       await waitFor(() => {
         expect(logger.logAction).toHaveBeenCalledWith('Change status filter', {

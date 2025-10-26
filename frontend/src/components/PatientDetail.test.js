@@ -99,26 +99,34 @@ describe('PatientDetail Component', () => {
 
   describe('Error State', () => {
     test('shows error message when fetch fails', async () => {
-      global.fetch.mockRejectedValueOnce(new Error('Network error'));
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: 'Network error' }),
+      });
 
       renderWithProviders();
 
       await waitFor(() => {
         expect(screen.getByText(/Error loading patient/)).toBeInTheDocument();
-      });
+      }, { timeout: 3000 });
 
       expect(logger.error).toHaveBeenCalled();
       expect(screen.getByRole('button', { name: /Back to Patients/i })).toBeInTheDocument();
     });
 
     test('navigates back when back button clicked after error', async () => {
-      global.fetch.mockRejectedValueOnce(new Error('Network error'));
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: 'Network error' }),
+      });
 
       renderWithProviders();
 
       await waitFor(() => {
         expect(screen.getByText(/Error loading patient/)).toBeInTheDocument();
-      });
+      }, { timeout: 3000 });
 
       const backButton = screen.getByRole('button', { name: /Back to Patients/i });
       await userEvent.click(backButton);

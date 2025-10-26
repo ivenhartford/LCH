@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
@@ -301,7 +301,7 @@ describe('PatientForm Component', () => {
 
       expect(screen.getByLabelText(/Breed/i)).toHaveValue('Persian');
       expect(screen.getByLabelText(/Color/i)).toHaveValue('White');
-      expect(screen.getByLabelText(/Weight/i)).toHaveValue('5.2');
+      expect(screen.getByLabelText(/Weight/i)).toHaveValue(5.2); // number input
       expect(screen.getByLabelText(/Microchip Number/i)).toHaveValue('ABC123');
     });
 
@@ -395,15 +395,20 @@ describe('PatientForm Component', () => {
       // Initially, deceased_date should not be visible
       expect(screen.queryByLabelText(/Deceased Date/i)).not.toBeInTheDocument();
 
-      // Change status to Deceased (find by value in the input)
-      const statusInput = screen.getByDisplayValue('Active');
-      await userEvent.click(statusInput);
+      // Change status to Deceased - MUI Select requires special handling
+      // Use getAllByLabelText since there might be multiple "Status" labels (Sex, Reproductive Status)
+      const statusFields = screen.getAllByLabelText(/^Status$/i);
+      const statusField = statusFields[statusFields.length - 1]; // Get the last one (the actual Status field)
+      fireEvent.mouseDown(statusField);
 
-      // Wait for the dropdown to appear and click Deceased option
-      await waitFor(async () => {
-        const options = screen.getAllByText('Deceased');
-        await userEvent.click(options[0]);
+      // Wait for dropdown and click Deceased option
+      await waitFor(() => {
+        const deceasedOption = screen.getByRole('option', { name: 'Deceased' });
+        expect(deceasedOption).toBeInTheDocument();
       });
+
+      const deceasedOption = screen.getByRole('option', { name: 'Deceased' });
+      fireEvent.click(deceasedOption);
 
       // Now deceased_date should be visible
       await waitFor(() => {
@@ -431,12 +436,20 @@ describe('PatientForm Component', () => {
         expect(screen.getByLabelText(/Deceased Date/i)).toBeInTheDocument();
       });
 
-      // Change status to Active (get all inputs with name="status")
-      const statusInput = screen.getByDisplayValue('Deceased');
-      await userEvent.click(statusInput);
+      // Change status to Active - MUI Select requires special handling
+      // Use getAllByLabelText since there might be multiple "Status" labels (Sex, Reproductive Status)
+      const statusFields = screen.getAllByLabelText(/^Status$/i);
+      const statusField = statusFields[statusFields.length - 1]; // Get the last one (the actual Status field)
+      fireEvent.mouseDown(statusField);
 
-      const activeOption = screen.getAllByText('Active')[0]; // Get first "Active" option
-      await userEvent.click(activeOption);
+      // Wait for dropdown and click Active option
+      await waitFor(() => {
+        const activeOption = screen.getByRole('option', { name: 'Active' });
+        expect(activeOption).toBeInTheDocument();
+      });
+
+      const activeOption = screen.getByRole('option', { name: 'Active' });
+      fireEvent.click(activeOption);
 
       // deceased_date should be hidden
       await waitFor(() => {
