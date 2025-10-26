@@ -4,6 +4,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import Header from './Header';
 import Sidebar, { drawerWidth } from './Sidebar';
 import GlobalSearch from '../GlobalSearch';
+import Breadcrumbs from '../Breadcrumbs';
 import theme from '../../theme';
 import logger from '../../utils/logger';
 
@@ -120,6 +121,7 @@ const MainLayout = ({ user, onLogout, children }) => {
           }}
         >
           <Toolbar /> {/* Spacer for AppBar */}
+          <Breadcrumbs />
           {children}
         </Box>
       </Box>
