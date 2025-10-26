@@ -1,7 +1,9 @@
 # Lenox Cat Hospital - Feature Set
 
 ## Overview
-Comprehensive practice management software suite for a veterinary clinic specializing in feline care.
+Comprehensive practice management software suite for a **feline-only veterinary clinic**. Lenox Cat Hospital exclusively treats cats - all patients in the system are felines, and the application is designed specifically for cat-focused veterinary care.
+
+> **Important:** This is a cat-only clinic. The patient management system defaults to species='Cat' and focuses on feline-specific medical care, treatments, and protocols.
 
 ## Core Modules
 
@@ -24,17 +26,19 @@ Comprehensive practice management software suite for a veterinary clinic special
   - Request prescription refills
   - Secure messaging with clinic
 
-### 2. Patient (Pet) Management
+### 2. Patient (Cat) Management
 **Priority: HIGH | Phase: 1**
 
 - **Patient Profile**
-  - Basic info (name, species=cat, breed, color, markings)
+  - Basic info (name, breed, color, markings)
+  - Species: Always 'Cat' (feline-only clinic)
+  - Breed: Cat breeds (Persian, Siamese, Maine Coon, Domestic Shorthair, etc.)
   - Date of birth / age
-  - Sex and reproductive status
+  - Sex and reproductive status (spayed/neutered)
   - Microchip number
   - Insurance information
   - Photo upload
-  - Multiple pets per client
+  - Multiple cats per client
   - Active/inactive/deceased status
 
 - **Medical History**

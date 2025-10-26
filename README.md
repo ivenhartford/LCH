@@ -1,6 +1,8 @@
 # Lenox Cat Hospital - Veterinary Practice Management Suite
 
-A comprehensive practice management software suite for a veterinary clinic, built with a modern React frontend and Flask backend API.
+A comprehensive practice management software suite for a **feline-only veterinary clinic**, built with a modern React frontend and Flask backend API.
+
+> **Note:** Lenox Cat Hospital specializes exclusively in feline care. All patients in the system are cats, and the application is designed specifically for cat-only veterinary practice management.
 
 ## Technology Stack
 
@@ -159,9 +161,10 @@ flask db history
 - Flask-Migrate for database migrations
 - Flask-RESTX for API documentation (in progress)
 - Multi-environment configuration (dev, testing, production)
-- SQLAlchemy ORM with models for User, Pet, Appointment
+- SQLAlchemy ORM with models for User, Pet (Cat patients), Appointment, Client
 - Rotating file logging (`logs/vet_clinic.log`)
 - Input validation with marshmallow
+- **Feline-only data model:** All pets are cats (species defaults to 'Cat')
 
 ### ✅ Frontend Infrastructure
 - **Material-UI** component library with custom theme
@@ -242,7 +245,7 @@ npm test -- --coverage
 ├── backend/
 │   ├── app/
 │   │   ├── __init__.py          # Flask app initialization
-│   │   ├── models.py            # Database models (User, Pet, Appointment)
+│   │   ├── models.py            # Database models (User, Client, Pet/Cat, Appointment)
 │   │   └── routes.py            # API routes
 │   ├── migrations/              # Alembic migrations
 │   ├── tests/                   # Backend tests

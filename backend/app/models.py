@@ -97,9 +97,16 @@ class Client(db.Model):
 
 
 class Pet(db.Model):
+    """
+    Pet (Patient) Model
+
+    Stores information about patients (cats) at the clinic.
+    NOTE: Lenox Cat Hospital is a FELINE-ONLY clinic - all patients are cats.
+    """
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    breed = db.Column(db.String(100))
+    species = db.Column(db.String(50), default='Cat', nullable=False)  # Always "Cat" - feline-only clinic
+    breed = db.Column(db.String(100))  # Cat breeds: Persian, Siamese, Maine Coon, Domestic Shorthair, etc.
     owner = db.Column(db.String(100))
 
     def __repr__(self):

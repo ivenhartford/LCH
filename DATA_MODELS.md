@@ -1,7 +1,9 @@
 # Lenox Cat Hospital - Data Model Architecture
 
 ## Overview
-This document defines the complete database schema for the veterinary practice management system. Models are organized by domain and show relationships between entities.
+This document defines the complete database schema for the **feline-only** veterinary practice management system. Lenox Cat Hospital exclusively treats cats, and all patient records are for feline patients. Models are organized by domain and show relationships between entities.
+
+> **Important:** All patients are cats. The Patient model defaults species to 'Cat' and is designed specifically for feline medical records.
 
 ---
 
@@ -89,8 +91,8 @@ class Client(db.Model):
 
 ---
 
-### Patient (Pet)
-**Purpose:** Store patient (cat) information
+### Patient (Cat)
+**Purpose:** Store patient (cat) information for feline-only clinic
 
 ```python
 class Patient(db.Model):
@@ -98,8 +100,8 @@ class Patient(db.Model):
 
     # Basic Info
     name = String(100), not null
-    species = String(50), default='Feline', not null  # Always cat for this clinic
-    breed = String(100)
+    species = String(50), default='Cat', not null  # Always 'Cat' - feline-only clinic
+    breed = String(100)  # Cat breeds: Persian, Siamese, Maine Coon, Domestic Shorthair, etc.
     color = String(100)
     markings = Text
 
