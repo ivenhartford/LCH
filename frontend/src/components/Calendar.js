@@ -3,6 +3,7 @@ import { Calendar, momentLocalizer } from 'react-big-calendar';
 import moment from 'moment';
 import Modal from 'react-modal';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import './Calendar.css';
 
@@ -34,6 +35,7 @@ const fetchAppointments = async (filters = {}) => {
 };
 
 const MyCalendar = () => {
+  const navigate = useNavigate();
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [title, setTitle] = useState('');
@@ -103,6 +105,11 @@ const MyCalendar = () => {
   const handleSelectSlot = (slotInfo) => {
     setSelectedSlot(slotInfo);
     setModalIsOpen(true);
+  };
+
+  const handleSelectEvent = (event) => {
+    // Navigate to appointment detail page
+    navigate(`/appointments/${event.id}`);
   };
 
   const closeModal = () => {
@@ -182,6 +189,7 @@ const MyCalendar = () => {
           style={{ height: '100%' }}
           selectable
           onSelectSlot={handleSelectSlot}
+          onSelectEvent={handleSelectEvent}
           eventPropGetter={eventStyleGetter}
           components={{
             event: EventComponent
