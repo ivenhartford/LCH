@@ -1769,6 +1769,809 @@ def delete_prescription(prescription_id):
 
 
 # ============================================================================
+# SERVICE CATALOG ENDPOINTS
+# ============================================================================
+
+
+@bp.route("/api/services", methods=["GET"])
+@login_required
+def get_services():
+    """Get all services/products with optional filtering"""
+    try:
+        from .models import Service
+
+        is_active = request.args.get("is_active", "").strip()
+        category = request.args.get("category", "").strip()
+        service_type = request.args.get("service_type", "").strip()
+
+        query = Service.query
+
+        if is_active:
+            active_val = is_active.lower() == "true"
+            query = query.filter_by(is_active=active_val)
+
+        if category:
+            query = query.filter_by(category=category)
+
+        if service_type:
+            query = query.filter_by(service_type=service_type)
+
+        services = query.order_by(Service.name).all()
+        return jsonify({"services": [s.to_dict() for s in services], "total": len(services)}), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching services: {str(e)}", exc_info=True)
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@bp.route("/api/services/<int:service_id>", methods=["GET"])
+@login_required
+def get_service(service_id):
+    """Get a specific service by ID"""
+    try:
+        from .models import Service
+
+        service = Service.query.get_or_404(service_id)
+        return jsonify(service.to_dict()), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching service {service_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Service not found"}), 404
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@bp.route("/api/services", methods=["POST"])
+@login_required
+def create_service():
+    """Create a new service"""
+    try:
+        from .models import Service
+        from .schemas import service_schema
+
+        data = request.get_json()
+        validated_data = service_schema.load(data)
+
+        service = Service(
+            name=validated_data["name"],
+            description=validated_data.get("description"),
+            category=validated_data.get("category"),
+            service_type=validated_data.get("service_type", "service"),
+            unit_price=validated_data["unit_price"],
+            cost=validated_data.get("cost"),
+            taxable=validated_data.get("taxable", True),
+            is_active=validated_data.get("is_active", True),
+        )
+
+        db.session.add(service)
+        db.session.commit()
+
+        app.logger.info(f"Created service: {service.name}")
+        return jsonify(service.to_dict()), 201
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating service: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/services/<int:service_id>", methods=["PUT"])
+@login_required
+def update_service(service_id):
+    """Update a service"""
+    try:
+        from .models import Service
+        from .schemas import service_schema
+
+        service = Service.query.get_or_404(service_id)
+        data = request.get_json()
+        validated_data = service_schema.load(data, partial=True)
+
+        for key, value in validated_data.items():
+            if hasattr(service, key):
+                setattr(service, key, value)
+
+        db.session.commit()
+        app.logger.info(f"Updated service {service_id}")
+        return jsonify(service.to_dict()), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating service {service_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Service not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/services/<int:service_id>", methods=["DELETE"])
+@login_required
+def delete_service(service_id):
+    """Delete a service"""
+    try:
+        from .models import Service
+
+        service = Service.query.get_or_404(service_id)
+        db.session.delete(service)
+        db.session.commit()
+
+        app.logger.info(f"Deleted service {service_id}")
+        return jsonify({"message": "Service deleted"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting service {service_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Service not found"}), 404
+        return jsonify({"error": "Internal server error"}), 500
+
+
+# ============================================================================
+# INVOICE ENDPOINTS
+# ============================================================================
+
+
+@bp.route("/api/invoices", methods=["GET"])
+@login_required
+def get_invoices():
+    """Get all invoices with optional filtering"""
+    try:
+        from .models import Invoice
+
+        client_id = request.args.get("client_id", type=int)
+        status = request.args.get("status", "").strip()
+        visit_id = request.args.get("visit_id", type=int)
+
+        query = Invoice.query
+
+        if client_id:
+            query = query.filter_by(client_id=client_id)
+
+        if status:
+            query = query.filter_by(status=status)
+
+        if visit_id:
+            query = query.filter_by(visit_id=visit_id)
+
+        invoices = query.order_by(Invoice.invoice_date.desc()).all()
+
+        # Include line items in response
+        result = []
+        for invoice in invoices:
+            invoice_dict = invoice.to_dict()
+            invoice_dict["items"] = [item.to_dict() for item in invoice.items]
+            result.append(invoice_dict)
+
+        return jsonify({"invoices": result, "total": len(result)}), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching invoices: {str(e)}", exc_info=True)
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@bp.route("/api/invoices/<int:invoice_id>", methods=["GET"])
+@login_required
+def get_invoice(invoice_id):
+    """Get a specific invoice by ID with items and payments"""
+    try:
+        from .models import Invoice
+
+        invoice = Invoice.query.get_or_404(invoice_id)
+        invoice_dict = invoice.to_dict()
+
+        # Include line items
+        invoice_dict["items"] = [item.to_dict() for item in invoice.items]
+
+        # Include payments
+        invoice_dict["payments"] = [payment.to_dict() for payment in invoice.payments]
+
+        return jsonify(invoice_dict), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching invoice {invoice_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Invoice not found"}), 404
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@bp.route("/api/invoices", methods=["POST"])
+@login_required
+def create_invoice():
+    """Create a new invoice with line items"""
+    try:
+        from .models import Invoice, InvoiceItem, Client
+        from .schemas import invoice_schema
+        from decimal import Decimal
+        from datetime import datetime
+
+        data = request.get_json()
+        validated_data = invoice_schema.load(data)
+
+        # Verify client exists
+        client = Client.query.get(validated_data["client_id"])
+        if not client:
+            return jsonify({"error": "Client not found"}), 404
+
+        # Generate invoice number (simple format: INV-YYYYMMDD-XXXX)
+        today = datetime.utcnow().strftime("%Y%m%d")
+        count = Invoice.query.filter(Invoice.invoice_number.like(f"INV-{today}-%")).count()
+        invoice_number = f"INV-{today}-{count + 1:04d}"
+
+        # Calculate totals from line items
+        items_data = validated_data.get("items", [])
+        subtotal = Decimal("0.0")
+        tax_amount = Decimal("0.0")
+        tax_rate = Decimal(str(validated_data.get("tax_rate", "0.0")))
+
+        for item_data in items_data:
+            item_total = Decimal(str(item_data["total_price"]))
+            subtotal += item_total
+            if item_data.get("taxable", True):
+                tax_amount += item_total * (tax_rate / Decimal("100.0"))
+
+        discount = Decimal(str(validated_data.get("discount_amount", "0.0")))
+        total = subtotal + tax_amount - discount
+
+        # Create invoice
+        invoice = Invoice(
+            client_id=validated_data["client_id"],
+            patient_id=validated_data.get("patient_id"),
+            visit_id=validated_data.get("visit_id"),
+            invoice_number=invoice_number,
+            invoice_date=validated_data["invoice_date"],
+            due_date=validated_data.get("due_date"),
+            subtotal=subtotal,
+            tax_rate=tax_rate,
+            tax_amount=tax_amount,
+            discount_amount=discount,
+            total_amount=total,
+            amount_paid=Decimal("0.0"),
+            balance_due=total,
+            status=validated_data.get("status", "draft"),
+            notes=validated_data.get("notes"),
+            created_by_id=current_user.id,
+        )
+
+        db.session.add(invoice)
+        db.session.flush()  # Get invoice ID
+
+        # Create line items
+        for item_data in items_data:
+            item = InvoiceItem(
+                invoice_id=invoice.id,
+                service_id=item_data.get("service_id"),
+                description=item_data["description"],
+                quantity=Decimal(str(item_data.get("quantity", "1.0"))),
+                unit_price=Decimal(str(item_data["unit_price"])),
+                total_price=Decimal(str(item_data["total_price"])),
+                taxable=item_data.get("taxable", True),
+            )
+            db.session.add(item)
+
+        db.session.commit()
+
+        # Return invoice with items
+        invoice_dict = invoice.to_dict()
+        invoice_dict["items"] = [item.to_dict() for item in invoice.items]
+
+        app.logger.info(f"Created invoice {invoice.invoice_number}")
+        return jsonify(invoice_dict), 201
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating invoice: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/invoices/<int:invoice_id>", methods=["PUT"])
+@login_required
+def update_invoice(invoice_id):
+    """Update an invoice"""
+    try:
+        from .models import Invoice, InvoiceItem
+        from .schemas import invoice_schema
+        from decimal import Decimal
+
+        invoice = Invoice.query.get_or_404(invoice_id)
+        data = request.get_json()
+        validated_data = invoice_schema.load(data, partial=True)
+
+        # Update basic fields
+        for key in ["patient_id", "visit_id", "invoice_date", "due_date", "status", "notes", "discount_amount"]:
+            if key in validated_data:
+                setattr(invoice, key, validated_data[key])
+
+        # If items are provided, update them
+        if "items" in validated_data:
+            # Delete existing items
+            for item in invoice.items:
+                db.session.delete(item)
+
+            # Create new items and recalculate totals
+            items_data = validated_data["items"]
+            subtotal = Decimal("0.0")
+            tax_amount = Decimal("0.0")
+            tax_rate = Decimal(str(validated_data.get("tax_rate", invoice.tax_rate)))
+
+            for item_data in items_data:
+                item = InvoiceItem(
+                    invoice_id=invoice.id,
+                    service_id=item_data.get("service_id"),
+                    description=item_data["description"],
+                    quantity=Decimal(str(item_data.get("quantity", "1.0"))),
+                    unit_price=Decimal(str(item_data["unit_price"])),
+                    total_price=Decimal(str(item_data["total_price"])),
+                    taxable=item_data.get("taxable", True),
+                )
+                db.session.add(item)
+
+                item_total = Decimal(str(item_data["total_price"]))
+                subtotal += item_total
+                if item_data.get("taxable", True):
+                    tax_amount += item_total * (tax_rate / Decimal("100.0"))
+
+            discount = Decimal(str(validated_data.get("discount_amount", invoice.discount_amount)))
+            total = subtotal + tax_amount - discount
+
+            invoice.subtotal = subtotal
+            invoice.tax_rate = tax_rate
+            invoice.tax_amount = tax_amount
+            invoice.discount_amount = discount
+            invoice.total_amount = total
+            invoice.balance_due = total - invoice.amount_paid
+
+        db.session.commit()
+
+        # Return invoice with items
+        invoice_dict = invoice.to_dict()
+        invoice_dict["items"] = [item.to_dict() for item in invoice.items]
+
+        app.logger.info(f"Updated invoice {invoice_id}")
+        return jsonify(invoice_dict), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating invoice {invoice_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Invoice not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/invoices/<int:invoice_id>", methods=["DELETE"])
+@login_required
+def delete_invoice(invoice_id):
+    """Delete an invoice"""
+    try:
+        from .models import Invoice
+
+        invoice = Invoice.query.get_or_404(invoice_id)
+        db.session.delete(invoice)
+        db.session.commit()
+
+        app.logger.info(f"Deleted invoice {invoice_id}")
+        return jsonify({"message": "Invoice deleted"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting invoice {invoice_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Invoice not found"}), 404
+        return jsonify({"error": "Internal server error"}), 500
+
+
+# ============================================================================
+# PAYMENT ENDPOINTS
+# ============================================================================
+
+
+@bp.route("/api/payments", methods=["GET"])
+@login_required
+def get_payments():
+    """Get all payments with optional filtering"""
+    try:
+        from .models import Payment
+
+        invoice_id = request.args.get("invoice_id", type=int)
+        client_id = request.args.get("client_id", type=int)
+
+        query = Payment.query
+
+        if invoice_id:
+            query = query.filter_by(invoice_id=invoice_id)
+
+        if client_id:
+            query = query.filter_by(client_id=client_id)
+
+        payments = query.order_by(Payment.payment_date.desc()).all()
+        return jsonify({"payments": [p.to_dict() for p in payments], "total": len(payments)}), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching payments: {str(e)}", exc_info=True)
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@bp.route("/api/payments/<int:payment_id>", methods=["GET"])
+@login_required
+def get_payment(payment_id):
+    """Get a specific payment by ID"""
+    try:
+        from .models import Payment
+
+        payment = Payment.query.get_or_404(payment_id)
+        return jsonify(payment.to_dict()), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching payment {payment_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Payment not found"}), 404
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@bp.route("/api/payments", methods=["POST"])
+@login_required
+def create_payment():
+    """Create a new payment and update invoice"""
+    try:
+        from .models import Payment, Invoice
+        from .schemas import payment_schema
+        from decimal import Decimal
+
+        data = request.get_json()
+        validated_data = payment_schema.load(data)
+
+        # Verify invoice exists
+        invoice = Invoice.query.get(validated_data["invoice_id"])
+        if not invoice:
+            return jsonify({"error": "Invoice not found"}), 404
+
+        # Create payment
+        payment = Payment(
+            invoice_id=validated_data["invoice_id"],
+            client_id=validated_data["client_id"],
+            payment_date=validated_data["payment_date"],
+            amount=Decimal(str(validated_data["amount"])),
+            payment_method=validated_data["payment_method"],
+            reference_number=validated_data.get("reference_number"),
+            notes=validated_data.get("notes"),
+            processed_by_id=current_user.id,
+        )
+
+        db.session.add(payment)
+
+        # Update invoice amounts
+        invoice.amount_paid += payment.amount
+        invoice.balance_due = invoice.total_amount - invoice.amount_paid
+
+        # Update invoice status
+        if invoice.balance_due <= Decimal("0.0"):
+            invoice.status = "paid"
+        elif invoice.amount_paid > Decimal("0.0"):
+            invoice.status = "partial_paid"
+
+        db.session.commit()
+
+        app.logger.info(f"Created payment {payment.id} for invoice {invoice.invoice_number}")
+        return jsonify(payment.to_dict()), 201
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating payment: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/payments/<int:payment_id>", methods=["DELETE"])
+@login_required
+def delete_payment(payment_id):
+    """Delete a payment and update invoice"""
+    try:
+        from .models import Payment
+        from decimal import Decimal
+
+        payment = Payment.query.get_or_404(payment_id)
+        invoice = payment.invoice
+
+        # Update invoice amounts
+        invoice.amount_paid -= payment.amount
+        invoice.balance_due = invoice.total_amount - invoice.amount_paid
+
+        # Update invoice status
+        if invoice.amount_paid <= Decimal("0.0"):
+            invoice.status = "sent"
+        elif invoice.balance_due <= Decimal("0.0"):
+            invoice.status = "paid"
+        else:
+            invoice.status = "partial_paid"
+
+        db.session.delete(payment)
+        db.session.commit()
+
+        app.logger.info(f"Deleted payment {payment_id}")
+        return jsonify({"message": "Payment deleted"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting payment {payment_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Payment not found"}), 404
+        return jsonify({"error": "Internal server error"}), 500
+
+
+# ============================================================================
+# FINANCIAL REPORTS
+# ============================================================================
+
+
+@bp.route("/api/reports/financial-summary", methods=["GET"])
+@login_required
+def get_financial_summary():
+    """Get overall financial summary"""
+    try:
+        from .models import Invoice, Payment
+        from sqlalchemy import func
+        from decimal import Decimal
+
+        start_date = request.args.get("start_date")
+        end_date = request.args.get("end_date")
+
+        # Base query
+        invoice_query = db.session.query(Invoice)
+        payment_query = db.session.query(Payment)
+
+        if start_date:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            invoice_query = invoice_query.filter(Invoice.invoice_date >= start_dt)
+            payment_query = payment_query.filter(Payment.payment_date >= start_dt)
+
+        if end_date:
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+            invoice_query = invoice_query.filter(Invoice.invoice_date <= end_dt)
+            payment_query = payment_query.filter(Payment.payment_date <= end_dt)
+
+        # Total revenue (paid invoices)
+        total_revenue = invoice_query.filter(Invoice.status == "paid").with_entities(
+            func.sum(Invoice.total_amount)
+        ).scalar() or Decimal("0.0")
+
+        # Total outstanding balance
+        total_outstanding = invoice_query.filter(Invoice.status.in_(["sent", "partial_paid", "overdue"])).with_entities(
+            func.sum(Invoice.balance_due)
+        ).scalar() or Decimal("0.0")
+
+        # Total invoices issued
+        total_invoices = invoice_query.count()
+
+        # Paid invoices count
+        paid_invoices = invoice_query.filter(Invoice.status == "paid").count()
+
+        # Total payments received
+        total_payments = payment_query.with_entities(func.sum(Payment.amount)).scalar() or Decimal("0.0")
+
+        # Average invoice amount
+        avg_invoice = invoice_query.with_entities(func.avg(Invoice.total_amount)).scalar() or Decimal("0.0")
+
+        return (
+            jsonify(
+                {
+                    "total_revenue": float(total_revenue),
+                    "total_outstanding": float(total_outstanding),
+                    "total_invoices": total_invoices,
+                    "paid_invoices": paid_invoices,
+                    "total_payments": float(total_payments),
+                    "avg_invoice": float(avg_invoice),
+                    "start_date": start_date,
+                    "end_date": end_date,
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        app.logger.error(f"Error getting financial summary: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/reports/revenue-by-period", methods=["GET"])
+@login_required
+def get_revenue_by_period():
+    """Get revenue grouped by period (daily, weekly, monthly)"""
+    try:
+        from .models import Invoice
+        from sqlalchemy import func
+
+        period = request.args.get("period", "monthly")  # daily, weekly, monthly
+        start_date = request.args.get("start_date")
+        end_date = request.args.get("end_date")
+
+        query = db.session.query(Invoice).filter(Invoice.status == "paid")
+
+        if start_date:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            query = query.filter(Invoice.invoice_date >= start_dt)
+
+        if end_date:
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+            query = query.filter(Invoice.invoice_date <= end_dt)
+
+        if period == "daily":
+            results = (
+                query.with_entities(
+                    func.date(Invoice.invoice_date).label("period"),
+                    func.sum(Invoice.total_amount).label("revenue"),
+                    func.count(Invoice.id).label("count"),
+                )
+                .group_by(func.date(Invoice.invoice_date))
+                .order_by(func.date(Invoice.invoice_date))
+                .all()
+            )
+        elif period == "monthly":
+            results = (
+                query.with_entities(
+                    func.strftime("%Y-%m", Invoice.invoice_date).label("period"),
+                    func.sum(Invoice.total_amount).label("revenue"),
+                    func.count(Invoice.id).label("count"),
+                )
+                .group_by(func.strftime("%Y-%m", Invoice.invoice_date))
+                .order_by(func.strftime("%Y-%m", Invoice.invoice_date))
+                .all()
+            )
+        else:  # weekly
+            results = (
+                query.with_entities(
+                    func.strftime("%Y-W%W", Invoice.invoice_date).label("period"),
+                    func.sum(Invoice.total_amount).label("revenue"),
+                    func.count(Invoice.id).label("count"),
+                )
+                .group_by(func.strftime("%Y-W%W", Invoice.invoice_date))
+                .order_by(func.strftime("%Y-W%W", Invoice.invoice_date))
+                .all()
+            )
+
+        data = [{"period": str(row.period), "revenue": float(row.revenue or 0), "count": row.count} for row in results]
+
+        return jsonify({"period": period, "data": data}), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting revenue by period: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/reports/outstanding-balance", methods=["GET"])
+@login_required
+def get_outstanding_balance_report():
+    """Get detailed outstanding balance report by client"""
+    try:
+        from .models import Invoice
+        from sqlalchemy import func
+
+        # Get all invoices with outstanding balance
+        results = (
+            db.session.query(
+                Invoice.client_id,
+                Client.name.label("client_name"),
+                func.count(Invoice.id).label("invoice_count"),
+                func.sum(Invoice.balance_due).label("total_outstanding"),
+                func.min(Invoice.invoice_date).label("oldest_invoice_date"),
+            )
+            .join(Client, Invoice.client_id == Client.id)
+            .filter(Invoice.status.in_(["sent", "partial_paid", "overdue"]))
+            .filter(Invoice.balance_due > 0)
+            .group_by(Invoice.client_id, Client.name)
+            .order_by(func.sum(Invoice.balance_due).desc())
+            .all()
+        )
+
+        data = [
+            {
+                "client_id": row.client_id,
+                "client_name": row.client_name,
+                "invoice_count": row.invoice_count,
+                "total_outstanding": float(row.total_outstanding or 0),
+                "oldest_invoice_date": row.oldest_invoice_date.isoformat() if row.oldest_invoice_date else None,
+            }
+            for row in results
+        ]
+
+        return jsonify({"data": data}), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting outstanding balance report: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/reports/payment-methods", methods=["GET"])
+@login_required
+def get_payment_method_breakdown():
+    """Get payment breakdown by payment method"""
+    try:
+        from .models import Payment
+        from sqlalchemy import func
+
+        start_date = request.args.get("start_date")
+        end_date = request.args.get("end_date")
+
+        query = db.session.query(
+            Payment.payment_method, func.sum(Payment.amount).label("total"), func.count(Payment.id).label("count")
+        )
+
+        if start_date:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            query = query.filter(Payment.payment_date >= start_dt)
+
+        if end_date:
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+            query = query.filter(Payment.payment_date <= end_dt)
+
+        results = query.group_by(Payment.payment_method).order_by(func.sum(Payment.amount).desc()).all()
+
+        data = [
+            {"payment_method": row.payment_method, "total": float(row.total or 0), "count": row.count}
+            for row in results
+        ]
+
+        return jsonify({"data": data}), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting payment method breakdown: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/reports/service-revenue", methods=["GET"])
+@login_required
+def get_service_revenue_report():
+    """Get revenue breakdown by service/product"""
+    try:
+        from .models import InvoiceItem, Service, Invoice
+        from sqlalchemy import func
+
+        start_date = request.args.get("start_date")
+        end_date = request.args.get("end_date")
+
+        query = (
+            db.session.query(
+                InvoiceItem.service_id,
+                Service.name.label("service_name"),
+                Service.service_type,
+                func.sum(InvoiceItem.quantity).label("total_quantity"),
+                func.sum(InvoiceItem.total_price).label("total_revenue"),
+                func.count(InvoiceItem.id).label("times_sold"),
+            )
+            .join(Service, InvoiceItem.service_id == Service.id)
+            .join(Invoice, InvoiceItem.invoice_id == Invoice.id)
+        )
+
+        if start_date:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            query = query.filter(Invoice.invoice_date >= start_dt)
+
+        if end_date:
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+            query = query.filter(Invoice.invoice_date <= end_dt)
+
+        results = (
+            query.group_by(InvoiceItem.service_id, Service.name, Service.service_type)
+            .order_by(func.sum(InvoiceItem.total_price).desc())
+            .all()
+        )
+
+        data = [
+            {
+                "service_id": row.service_id,
+                "service_name": row.service_name,
+                "service_type": row.service_type,
+                "total_quantity": float(row.total_quantity or 0),
+                "total_revenue": float(row.total_revenue or 0),
+                "times_sold": row.times_sold,
+            }
+            for row in results
+        ]
+
+        return jsonify({"data": data}), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting service revenue report: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+# ============================================================================
 
 
 @bp.route("/", defaults={"path": ""})

@@ -78,6 +78,7 @@ const Sidebar = ({ open, onClose }) => {
         { text: 'Visits', icon: <MedicalIcon />, path: '/visits' },
         { text: 'Appointments', icon: <CalendarIcon />, path: '/appointments' },
         { text: 'Medications', icon: <MedicationIcon />, path: '/medications' },
+        { text: 'Services', icon: <InventoryIcon />, path: '/services' },
       ],
     },
     {

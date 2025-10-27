@@ -9,7 +9,7 @@ Tests CRUD operations for:
 """
 
 import pytest
-from datetime import datetime, date, timedelta
+from datetime import date, timedelta
 from app.models import User, Client, Patient, Visit, VitalSigns, SOAPNote, Diagnosis, Vaccination, db
 
 

@@ -3,3 +3,24 @@
 
 # Run lint-staged for frontend
 cd frontend && npx lint-staged
+cd ..
+
+# Run Black and Flake8 on staged Python files
+STAGED_PY_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$')
+
+if [ -n "$STAGED_PY_FILES" ]; then
+  echo "Running Black on staged Python files..."
+  cd backend
+  python -m black $STAGED_PY_FILES --check || {
+    echo "Black formatting check failed. Run 'cd backend && python -m black .' to fix."
+    exit 1
+  }
+
+  echo "Running Flake8 on staged Python files..."
+  python -m flake8 $STAGED_PY_FILES --max-line-length=120 || {
+    echo "Flake8 check failed. Fix linting errors before committing."
+    exit 1
+  }
+  cd ..
+  echo "Backend linting passed!"
+fi
