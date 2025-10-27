@@ -660,7 +660,7 @@ class Prescription(db.Model):
     prescribed_by = db.relationship("User")
 
     def __repr__(self):
-        med_name = self.medication.drug_name if self.medication else 'Unknown'
+        med_name = self.medication.drug_name if self.medication else "Unknown"
         return f"<Prescription {self.id} - {med_name} for Patient {self.patient_id}>"
 
     def to_dict(self):
@@ -691,4 +691,240 @@ class Prescription(db.Model):
             "prescribed_by_name": self.prescribed_by.username if self.prescribed_by else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class Service(db.Model):
+    """
+    Service Model - Catalog of billable services and products
+
+    Used for creating invoice line items. Includes both services (exams, procedures)
+    and products (medications, supplies) that can be billed to clients.
+    """
+
+    __tablename__ = "service"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Service Information
+    name = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    category = db.Column(db.String(100), nullable=True)  # Exam, Surgery, Lab, Medication, Supply, etc.
+    service_type = db.Column(db.String(50), nullable=False, default="service")  # service or product
+
+    # Pricing
+    unit_price = db.Column(db.Numeric(10, 2), nullable=False)
+    cost = db.Column(db.Numeric(10, 2), nullable=True)  # Cost to clinic (for margin calculation)
+    taxable = db.Column(db.Boolean, default=True, nullable=False)
+
+    # Status
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<Service {self.id} - {self.name}>"
+
+    def to_dict(self):
+        """Convert service to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "category": self.category,
+            "service_type": self.service_type,
+            "unit_price": float(self.unit_price) if self.unit_price else 0.0,
+            "cost": float(self.cost) if self.cost else None,
+            "taxable": self.taxable,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class Invoice(db.Model):
+    """
+    Invoice Model - Billing invoices for clients
+
+    Tracks all charges for services rendered and products sold.
+    Can be linked to visits or standalone.
+    """
+
+    __tablename__ = "invoice"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Links
+    client_id = db.Column(db.Integer, db.ForeignKey("client.id"), nullable=False)
+    patient_id = db.Column(db.Integer, db.ForeignKey("patient.id"), nullable=True)
+    visit_id = db.Column(db.Integer, db.ForeignKey("visit.id"), nullable=True)
+
+    # Invoice Details
+    invoice_number = db.Column(db.String(50), unique=True, nullable=False)
+    invoice_date = db.Column(db.Date, nullable=False, default=datetime.utcnow)
+    due_date = db.Column(db.Date, nullable=True)
+
+    # Amounts
+    subtotal = db.Column(db.Numeric(10, 2), default=0.0, nullable=False)
+    tax_rate = db.Column(db.Numeric(5, 2), default=0.0, nullable=False)  # Percentage
+    tax_amount = db.Column(db.Numeric(10, 2), default=0.0, nullable=False)
+    discount_amount = db.Column(db.Numeric(10, 2), default=0.0, nullable=False)
+    total_amount = db.Column(db.Numeric(10, 2), default=0.0, nullable=False)
+    amount_paid = db.Column(db.Numeric(10, 2), default=0.0, nullable=False)
+    balance_due = db.Column(db.Numeric(10, 2), default=0.0, nullable=False)
+
+    # Status
+    status = db.Column(
+        db.String(20), default="draft", nullable=False
+    )  # draft, sent, partial_paid, paid, overdue, cancelled
+
+    # Notes
+    notes = db.Column(db.Text, nullable=True)
+
+    # Metadata
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    client = db.relationship("Client", backref="invoices")
+    patient = db.relationship("Patient")
+    visit = db.relationship("Visit")
+    created_by = db.relationship("User")
+    items = db.relationship("InvoiceItem", back_populates="invoice", cascade="all, delete-orphan")
+    payments = db.relationship("Payment", back_populates="invoice", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<Invoice {self.invoice_number} - Client {self.client_id}>"
+
+    def to_dict(self):
+        """Convert invoice to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "client_id": self.client_id,
+            "client_name": f"{self.client.first_name} {self.client.last_name}" if self.client else None,
+            "patient_id": self.patient_id,
+            "patient_name": self.patient.name if self.patient else None,
+            "visit_id": self.visit_id,
+            "invoice_number": self.invoice_number,
+            "invoice_date": self.invoice_date.isoformat() if self.invoice_date else None,
+            "due_date": self.due_date.isoformat() if self.due_date else None,
+            "subtotal": float(self.subtotal) if self.subtotal else 0.0,
+            "tax_rate": float(self.tax_rate) if self.tax_rate else 0.0,
+            "tax_amount": float(self.tax_amount) if self.tax_amount else 0.0,
+            "discount_amount": float(self.discount_amount) if self.discount_amount else 0.0,
+            "total_amount": float(self.total_amount) if self.total_amount else 0.0,
+            "amount_paid": float(self.amount_paid) if self.amount_paid else 0.0,
+            "balance_due": float(self.balance_due) if self.balance_due else 0.0,
+            "status": self.status,
+            "notes": self.notes,
+            "created_by_id": self.created_by_id,
+            "created_by_name": self.created_by.username if self.created_by else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class InvoiceItem(db.Model):
+    """
+    Invoice Item Model - Line items on invoices
+
+    Individual services or products billed on an invoice.
+    """
+
+    __tablename__ = "invoice_item"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Links
+    invoice_id = db.Column(db.Integer, db.ForeignKey("invoice.id"), nullable=False)
+    service_id = db.Column(db.Integer, db.ForeignKey("service.id"), nullable=True)  # Optional link to service catalog
+
+    # Item Details
+    description = db.Column(db.String(200), nullable=False)
+    quantity = db.Column(db.Numeric(10, 2), default=1.0, nullable=False)
+    unit_price = db.Column(db.Numeric(10, 2), nullable=False)
+    total_price = db.Column(db.Numeric(10, 2), nullable=False)
+    taxable = db.Column(db.Boolean, default=True, nullable=False)
+
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships
+    invoice = db.relationship("Invoice", back_populates="items")
+    service = db.relationship("Service")
+
+    def __repr__(self):
+        return f"<InvoiceItem {self.id} - {self.description}>"
+
+    def to_dict(self):
+        """Convert invoice item to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "invoice_id": self.invoice_id,
+            "service_id": self.service_id,
+            "service_name": self.service.name if self.service else None,
+            "description": self.description,
+            "quantity": float(self.quantity) if self.quantity else 1.0,
+            "unit_price": float(self.unit_price) if self.unit_price else 0.0,
+            "total_price": float(self.total_price) if self.total_price else 0.0,
+            "taxable": self.taxable,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class Payment(db.Model):
+    """
+    Payment Model - Payment records for invoices
+
+    Tracks payments made against invoices. Supports partial payments.
+    """
+
+    __tablename__ = "payment"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Links
+    invoice_id = db.Column(db.Integer, db.ForeignKey("invoice.id"), nullable=False)
+    client_id = db.Column(db.Integer, db.ForeignKey("client.id"), nullable=False)
+
+    # Payment Details
+    payment_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    amount = db.Column(db.Numeric(10, 2), nullable=False)
+    payment_method = db.Column(db.String(50), nullable=False)  # cash, check, credit_card, debit_card, etc.
+    reference_number = db.Column(db.String(100), nullable=True)  # Check number, transaction ID, etc.
+
+    # Notes
+    notes = db.Column(db.Text, nullable=True)
+
+    # Metadata
+    processed_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships
+    invoice = db.relationship("Invoice", back_populates="payments")
+    client = db.relationship("Client")
+    processed_by = db.relationship("User")
+
+    def __repr__(self):
+        return f"<Payment {self.id} - Invoice {self.invoice_id} - ${self.amount}>"
+
+    def to_dict(self):
+        """Convert payment to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "invoice_id": self.invoice_id,
+            "invoice_number": self.invoice.invoice_number if self.invoice else None,
+            "client_id": self.client_id,
+            "client_name": f"{self.client.first_name} {self.client.last_name}" if self.client else None,
+            "payment_date": self.payment_date.isoformat() if self.payment_date else None,
+            "amount": float(self.amount) if self.amount else 0.0,
+            "payment_method": self.payment_method,
+            "reference_number": self.reference_number,
+            "notes": self.notes,
+            "processed_by_id": self.processed_by_id,
+            "processed_by_name": self.processed_by.username if self.processed_by else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }

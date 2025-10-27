@@ -440,3 +440,136 @@ medications_schema = MedicationSchema(many=True)
 
 prescription_schema = PrescriptionSchema()
 prescriptions_schema = PrescriptionSchema(many=True)
+
+
+class ServiceSchema(Schema):
+    """Schema for Service (billing catalog) validation and serialization"""
+
+    id = fields.Int(dump_only=True)
+
+    # Service Information
+    name = fields.Str(required=True, validate=validate.Length(min=1, max=200))
+    description = fields.Str(allow_none=True)
+    category = fields.Str(allow_none=True, validate=validate.Length(max=100))
+    service_type = fields.Str(load_default="service", validate=validate.OneOf(["service", "product"]))
+
+    # Pricing
+    unit_price = fields.Decimal(as_string=True, required=True, places=2)
+    cost = fields.Decimal(as_string=True, allow_none=True, places=2)
+    taxable = fields.Bool(load_default=True)
+
+    # Status
+    is_active = fields.Bool(load_default=True)
+
+    # Metadata
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+
+
+class InvoiceItemSchema(Schema):
+    """Schema for InvoiceItem validation and serialization"""
+
+    id = fields.Int(dump_only=True)
+
+    # Links
+    invoice_id = fields.Int(dump_only=True)
+    service_id = fields.Int(allow_none=True)
+    service_name = fields.Str(dump_only=True)
+
+    # Item Details
+    description = fields.Str(required=True, validate=validate.Length(min=1, max=200))
+    quantity = fields.Decimal(as_string=True, load_default="1.0", places=2)
+    unit_price = fields.Decimal(as_string=True, required=True, places=2)
+    total_price = fields.Decimal(as_string=True, required=True, places=2)
+    taxable = fields.Bool(load_default=True)
+
+    # Metadata
+    created_at = fields.DateTime(dump_only=True)
+
+
+class InvoiceSchema(Schema):
+    """Schema for Invoice validation and serialization"""
+
+    id = fields.Int(dump_only=True)
+
+    # Links
+    client_id = fields.Int(required=True)
+    client_name = fields.Str(dump_only=True)
+    patient_id = fields.Int(allow_none=True)
+    patient_name = fields.Str(dump_only=True)
+    visit_id = fields.Int(allow_none=True)
+
+    # Invoice Details
+    invoice_number = fields.Str(dump_only=True)  # Auto-generated
+    invoice_date = fields.Date(required=True)
+    due_date = fields.Date(allow_none=True)
+
+    # Amounts
+    subtotal = fields.Decimal(as_string=True, load_default="0.0", places=2)
+    tax_rate = fields.Decimal(as_string=True, load_default="0.0", places=2)
+    tax_amount = fields.Decimal(as_string=True, load_default="0.0", places=2)
+    discount_amount = fields.Decimal(as_string=True, load_default="0.0", places=2)
+    total_amount = fields.Decimal(as_string=True, load_default="0.0", places=2)
+    amount_paid = fields.Decimal(as_string=True, dump_only=True, places=2)
+    balance_due = fields.Decimal(as_string=True, dump_only=True, places=2)
+
+    # Status
+    status = fields.Str(
+        load_default="draft",
+        validate=validate.OneOf(["draft", "sent", "partial_paid", "paid", "overdue", "cancelled"]),
+    )
+
+    # Notes
+    notes = fields.Str(allow_none=True)
+
+    # Line items (nested)
+    items = fields.Nested(InvoiceItemSchema, many=True, load_default=[])
+
+    # Metadata
+    created_by_id = fields.Int(dump_only=True)
+    created_by_name = fields.Str(dump_only=True)
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+
+
+class PaymentSchema(Schema):
+    """Schema for Payment validation and serialization"""
+
+    id = fields.Int(dump_only=True)
+
+    # Links
+    invoice_id = fields.Int(required=True)
+    invoice_number = fields.Str(dump_only=True)
+    client_id = fields.Int(required=True)
+    client_name = fields.Str(dump_only=True)
+
+    # Payment Details
+    payment_date = fields.DateTime(required=True)
+    amount = fields.Decimal(as_string=True, required=True, places=2)
+    payment_method = fields.Str(
+        required=True,
+        validate=validate.OneOf(["cash", "check", "credit_card", "debit_card", "bank_transfer", "other"]),
+    )
+    reference_number = fields.Str(allow_none=True, validate=validate.Length(max=100))
+
+    # Notes
+    notes = fields.Str(allow_none=True)
+
+    # Metadata
+    processed_by_id = fields.Int(dump_only=True)
+    processed_by_name = fields.Str(dump_only=True)
+    created_at = fields.DateTime(dump_only=True)
+
+
+# Initialize schema instances
+service_schema = ServiceSchema()
+services_schema = ServiceSchema(many=True)
+
+invoice_schema = InvoiceSchema()
+invoices_schema = InvoiceSchema(many=True)
+
+invoice_item_schema = InvoiceItemSchema()
+invoice_items_schema = InvoiceItemSchema(many=True)
+
+payment_schema = PaymentSchema()
+payments_schema = PaymentSchema(many=True)
