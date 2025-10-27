@@ -277,15 +277,19 @@ Implement clinical workflows with SOAP notes, medical history, prescriptions, an
 - [ ] Create prescription printing template (deferred to Phase 3)
 - [ ] Add refill request tracking UI (deferred to Phase 3)
 
-### 2.4 Invoicing System (Week 5-6)
-- [ ] Create Invoice model
-- [ ] Create InvoiceItem model
-- [ ] Create Payment model
-- [ ] Create Service/Product catalog for billing
-- [ ] Build invoice creation workflow
-- [ ] Link invoices to visits/appointments
-- [ ] Add tax calculation
-- [ ] Build invoice list and detail pages
+### 2.4 Invoicing System (Week 5-6) ✅ Complete
+- [x] Create Invoice model (with line items, tax, payments tracking)
+- [x] Create InvoiceItem model (line items with service links)
+- [x] Create Payment model (multiple payment methods, partial payments)
+- [x] Create Service/Product catalog for billing (with pricing, cost, taxable flag)
+- [x] Create API endpoints (15 total - 5 service, 5 invoice, 5 payment)
+- [x] Build service catalog management UI (full CRUD)
+- [x] Build invoice list page (with status filters, summary cards, search)
+- [x] Add tax calculation (automatic based on taxable items)
+- [x] Link invoices to visits/clients/patients
+- [x] Auto-generate invoice numbers (INV-YYYYMMDD-XXXX format)
+- [ ] Build invoice detail/creation workflow (deferred - basic invoicing functional)
+- [ ] Add payment processing UI (deferred - payment API ready)
 
 ### 2.5 Payment Processing (Week 7)
 - [ ] Integrate Stripe or Square SDK
