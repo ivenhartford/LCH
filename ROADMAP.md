@@ -286,14 +286,15 @@ Implement clinical workflows with SOAP notes, medical history, prescriptions, an
 - [ ] Build invoice detail/creation workflow (deferred - basic invoicing functional)
 - [ ] Add payment processing UI (deferred - payment API ready)
 
-### 2.5 Payment Processing (Week 7)
-- [ ] Integrate Stripe or Square SDK
-- [ ] Build payment entry form
-- [ ] Add multiple payment methods
-- [ ] Handle partial payments
-- [ ] Generate payment receipts
-- [ ] Track outstanding balances
-- [ ] Add payment history view
+### 2.5 Payment Processing (Week 7) ✅ Complete
+- [ ] Integrate Stripe or Square SDK (deferred - manual payment processing functional)
+- [x] Build payment entry form (dialog with validation)
+- [x] Add multiple payment methods (cash, check, credit, debit, transfer, other)
+- [x] Handle partial payments (automatic invoice status updates)
+- [x] Track outstanding balances (automatic calculation and display)
+- [x] Add payment history view (full payment table with delete capability)
+- [x] Build invoice detail page (complete invoice view with line items)
+- [x] Auto-update invoice status based on payments (paid, partial_paid, sent)
 
 ### 2.6 Financial Reporting (Week 8)
 - [ ] Build revenue reports (daily, weekly, monthly)
