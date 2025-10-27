@@ -66,9 +66,7 @@ def login():
 @bp.route("/api/check_session")
 def check_session():
     if current_user.is_authenticated:
-        return jsonify(
-            {"id": current_user.id, "username": current_user.username, "role": current_user.role}
-        )
+        return jsonify({"id": current_user.id, "username": current_user.username, "role": current_user.role})
     return jsonify({}), 401
 
 
@@ -83,9 +81,7 @@ def logout():
 @admin_required
 def get_users():
     users = User.query.all()
-    return jsonify(
-        [{"id": user.id, "username": user.username, "role": user.role} for user in users]
-    )
+    return jsonify([{"id": user.id, "username": user.username, "role": user.role} for user in users])
 
 
 @bp.route("/api/users/<int:user_id>", methods=["GET"])
@@ -214,9 +210,7 @@ def get_clients():
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
         clients = pagination.items
 
-        app.logger.info(
-            f"Found {pagination.total} clients, returning page {page} of {pagination.pages}"
-        )
+        app.logger.info(f"Found {pagination.total} clients, returning page {page} of {pagination.pages}")
 
         # Serialize clients
         result = clients_schema.dump(clients)
@@ -289,9 +283,7 @@ def create_client():
         if validated_data.get("email"):
             existing = Client.query.filter_by(email=validated_data["email"]).first()
             if existing:
-                app.logger.warning(
-                    f"Attempted to create client with duplicate email: {validated_data['email']}"
-                )
+                app.logger.warning(f"Attempted to create client with duplicate email: {validated_data['email']}")
                 return jsonify({"error": "Email already exists"}), 409
 
         # Create new client
@@ -299,9 +291,7 @@ def create_client():
         db.session.add(new_client)
         db.session.commit()
 
-        app.logger.info(
-            f"Created client {new_client.id}: {new_client.first_name} {new_client.last_name}"
-        )
+        app.logger.info(f"Created client {new_client.id}: {new_client.first_name} {new_client.last_name}")
 
         result = client_schema.dump(new_client)
         return jsonify(result), 201
@@ -379,9 +369,7 @@ def delete_client(client_id):
     try:
         hard_delete = request.args.get("hard", "false").lower() == "true"
 
-        app.logger.info(
-            f"DELETE /api/clients/{client_id} - User: {current_user.username}, Hard: {hard_delete}"
-        )
+        app.logger.info(f"DELETE /api/clients/{client_id} - User: {current_user.username}, Hard: {hard_delete}")
 
         client = Client.query.get_or_404(client_id)
 
@@ -395,17 +383,13 @@ def delete_client(client_id):
 
             db.session.delete(client)
             db.session.commit()
-            app.logger.info(
-                f"Hard deleted client {client_id}: {client.first_name} {client.last_name}"
-            )
+            app.logger.info(f"Hard deleted client {client_id}: {client.first_name} {client.last_name}")
             return jsonify({"message": "Client permanently deleted"}), 200
         else:
             # Soft delete
             client.is_active = False
             db.session.commit()
-            app.logger.info(
-                f"Soft deleted (deactivated) client {client_id}: {client.first_name} {client.last_name}"
-            )
+            app.logger.info(f"Soft deleted (deactivated) client {client_id}: {client.first_name} {client.last_name}")
             return jsonify({"message": "Client deactivated"}), 200
 
     except Exception as e:
@@ -481,9 +465,7 @@ def get_patients():
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
         patients = pagination.items
 
-        app.logger.info(
-            f"Found {pagination.total} patients, returning page {page} of {pagination.pages}"
-        )
+        app.logger.info(f"Found {pagination.total} patients, returning page {page} of {pagination.pages}")
 
         # Serialize patients
         result = patients_schema.dump(patients)
@@ -541,9 +523,7 @@ def create_patient():
     try:
         data = request.get_json()
 
-        app.logger.info(
-            f"POST /api/patients - User: {current_user.username}, Data: {data.get('name')}"
-        )
+        app.logger.info(f"POST /api/patients - User: {current_user.username}, Data: {data.get('name')}")
 
         # Validate request data
         try:
@@ -555,16 +535,12 @@ def create_patient():
         # Verify owner exists
         owner = Client.query.get(validated_data["owner_id"])
         if not owner:
-            app.logger.warning(
-                f"Attempted to create patient with non-existent owner_id: {validated_data['owner_id']}"
-            )
+            app.logger.warning(f"Attempted to create patient with non-existent owner_id: {validated_data['owner_id']}")
             return jsonify({"error": "Owner (client) not found"}), 404
 
         # Check for duplicate microchip if provided
         if validated_data.get("microchip_number"):
-            existing = Patient.query.filter_by(
-                microchip_number=validated_data["microchip_number"]
-            ).first()
+            existing = Patient.query.filter_by(microchip_number=validated_data["microchip_number"]).first()
             if existing:
                 app.logger.warning(
                     f"Attempted to create patient with duplicate microchip: {validated_data['microchip_number']}"
@@ -615,9 +591,7 @@ def update_patient(patient_id):
         # Check for duplicate microchip if microchip is being changed
         if "microchip_number" in validated_data and validated_data["microchip_number"]:
             if validated_data["microchip_number"] != patient.microchip_number:
-                existing = Patient.query.filter_by(
-                    microchip_number=validated_data["microchip_number"]
-                ).first()
+                existing = Patient.query.filter_by(microchip_number=validated_data["microchip_number"]).first()
                 if existing:
                     app.logger.warning(
                         f"Attempted to update patient {patient_id} with duplicate "
@@ -669,9 +643,7 @@ def delete_patient(patient_id):
     try:
         hard_delete = request.args.get("hard", "false").lower() == "true"
 
-        app.logger.info(
-            f"DELETE /api/patients/{patient_id} - User: {current_user.username}, Hard: {hard_delete}"
-        )
+        app.logger.info(f"DELETE /api/patients/{patient_id} - User: {current_user.username}, Hard: {hard_delete}")
 
         patient = Patient.query.get_or_404(patient_id)
 
@@ -707,6 +679,766 @@ def delete_patient(patient_id):
         app.logger.error(f"Error deleting patient {patient_id}: {str(e)}", exc_info=True)
         if "not found" in str(e).lower():
             return jsonify({"error": "Patient not found"}), 404
+        return jsonify({"error": "Internal server error"}), 500
+
+
+# ============================================================================
+# MEDICAL RECORDS - VISIT ENDPOINTS
+# ============================================================================
+
+
+@bp.route("/api/visits", methods=["GET"])
+@login_required
+def get_visits():
+    """Get all visits with optional filtering"""
+    try:
+        page = request.args.get("page", 1, type=int)
+        per_page = request.args.get("per_page", 50, type=int)
+        patient_id = request.args.get("patient_id", type=int)
+        status = request.args.get("status", "").strip()
+        visit_type = request.args.get("visit_type", "").strip()
+
+        app.logger.info(
+            f"GET /api/visits - User: {current_user.username}, Page: {page}, "
+            f"Patient: {patient_id}, Status: '{status}', Type: '{visit_type}'"
+        )
+
+        from .models import Visit
+
+        query = Visit.query
+
+        # Filter by patient if specified
+        if patient_id:
+            query = query.filter_by(patient_id=patient_id)
+
+        # Filter by status
+        if status:
+            query = query.filter_by(status=status)
+
+        # Filter by visit type
+        if visit_type:
+            query = query.filter_by(visit_type=visit_type)
+
+        # Order by visit date descending (most recent first)
+        query = query.order_by(Visit.visit_date.desc())
+
+        # Paginate
+        paginated = query.paginate(page=page, per_page=per_page, error_out=False)
+
+        return (
+            jsonify(
+                {
+                    "visits": [visit.to_dict() for visit in paginated.items],
+                    "total": paginated.total,
+                    "pages": paginated.pages,
+                    "current_page": page,
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        app.logger.error(f"Error fetching visits: {str(e)}", exc_info=True)
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@bp.route("/api/visits/<int:visit_id>", methods=["GET"])
+@login_required
+def get_visit(visit_id):
+    """Get a single visit by ID"""
+    try:
+        from .models import Visit
+
+        visit = Visit.query.get_or_404(visit_id)
+        app.logger.info(f"GET /api/visits/{visit_id} - User: {current_user.username}")
+        return jsonify(visit.to_dict()), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching visit {visit_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Visit not found"}), 404
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@bp.route("/api/visits", methods=["POST"])
+@login_required
+def create_visit():
+    """Create a new visit"""
+    try:
+        from .models import Visit, Patient
+        from .schemas import visit_schema
+
+        data = request.get_json()
+        app.logger.info(f"POST /api/visits - User: {current_user.username}, Data: {data}")
+
+        # Validate data
+        validated_data = visit_schema.load(data)
+
+        # Verify patient exists
+        patient = Patient.query.get(validated_data["patient_id"])
+        if not patient:
+            return jsonify({"error": "Patient not found"}), 404
+
+        # Create visit
+        visit = Visit(
+            visit_date=validated_data.get("visit_date"),
+            visit_type=validated_data["visit_type"],
+            status=validated_data.get("status", "scheduled"),
+            patient_id=validated_data["patient_id"],
+            veterinarian_id=validated_data.get("veterinarian_id"),
+            appointment_id=validated_data.get("appointment_id"),
+            chief_complaint=validated_data.get("chief_complaint"),
+            visit_notes=validated_data.get("visit_notes"),
+        )
+
+        db.session.add(visit)
+        db.session.commit()
+
+        app.logger.info(f"Created visit {visit.id} for patient {patient.name}")
+        return jsonify(visit.to_dict()), 201
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating visit: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/visits/<int:visit_id>", methods=["PUT"])
+@login_required
+def update_visit(visit_id):
+    """Update a visit"""
+    try:
+        from .models import Visit
+        from .schemas import visit_schema
+
+        visit = Visit.query.get_or_404(visit_id)
+        data = request.get_json()
+
+        app.logger.info(f"PUT /api/visits/{visit_id} - User: {current_user.username}, Data: {data}")
+
+        # Validate data (partial update allowed)
+        validated_data = visit_schema.load(data, partial=True)
+
+        # Update fields
+        for key, value in validated_data.items():
+            if hasattr(visit, key):
+                setattr(visit, key, value)
+
+        # If marking as completed, set completed_at
+        if validated_data.get("status") == "completed" and not visit.completed_at:
+            from datetime import datetime
+
+            visit.completed_at = datetime.utcnow()
+
+        db.session.commit()
+
+        app.logger.info(f"Updated visit {visit_id}")
+        return jsonify(visit.to_dict()), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating visit {visit_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Visit not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/visits/<int:visit_id>", methods=["DELETE"])
+@login_required
+def delete_visit(visit_id):
+    """Delete a visit"""
+    try:
+        from .models import Visit
+
+        visit = Visit.query.get_or_404(visit_id)
+
+        app.logger.info(f"DELETE /api/visits/{visit_id} - User: {current_user.username}")
+
+        db.session.delete(visit)
+        db.session.commit()
+
+        app.logger.info(f"Deleted visit {visit_id}")
+        return jsonify({"message": "Visit deleted"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting visit {visit_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Visit not found"}), 404
+        return jsonify({"error": "Internal server error"}), 500
+
+
+# ============================================================================
+# MEDICAL RECORDS - VITAL SIGNS ENDPOINTS
+# ============================================================================
+
+
+@bp.route("/api/vital-signs", methods=["GET"])
+@login_required
+def get_vital_signs_list():
+    """Get all vital signs with optional filtering"""
+    try:
+        visit_id = request.args.get("visit_id", type=int)
+
+        from .models import VitalSigns
+
+        query = VitalSigns.query
+
+        if visit_id:
+            query = query.filter_by(visit_id=visit_id)
+
+        query = query.order_by(VitalSigns.recorded_at.desc())
+        vital_signs = query.all()
+
+        from .schemas import vital_signs_list_schema
+
+        return jsonify(vital_signs_list_schema.dump(vital_signs)), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching vital signs: {str(e)}", exc_info=True)
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@bp.route("/api/vital-signs/<int:vital_signs_id>", methods=["GET"])
+@login_required
+def get_vital_signs(vital_signs_id):
+    """Get a single vital signs record by ID"""
+    try:
+        from .models import VitalSigns
+
+        vital_signs = VitalSigns.query.get_or_404(vital_signs_id)
+        return jsonify(vital_signs.to_dict()), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching vital signs {vital_signs_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Vital signs not found"}), 404
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@bp.route("/api/vital-signs", methods=["POST"])
+@login_required
+def create_vital_signs():
+    """Create a new vital signs record"""
+    try:
+        from .models import VitalSigns, Visit
+        from .schemas import vital_signs_schema
+
+        data = request.get_json()
+        validated_data = vital_signs_schema.load(data)
+
+        # Verify visit exists
+        visit = Visit.query.get(validated_data["visit_id"])
+        if not visit:
+            return jsonify({"error": "Visit not found"}), 404
+
+        # Create vital signs
+        vital_signs = VitalSigns(
+            visit_id=validated_data["visit_id"],
+            temperature_c=validated_data.get("temperature_c"),
+            weight_kg=validated_data.get("weight_kg"),
+            heart_rate=validated_data.get("heart_rate"),
+            respiratory_rate=validated_data.get("respiratory_rate"),
+            blood_pressure_systolic=validated_data.get("blood_pressure_systolic"),
+            blood_pressure_diastolic=validated_data.get("blood_pressure_diastolic"),
+            capillary_refill_time=validated_data.get("capillary_refill_time"),
+            mucous_membrane_color=validated_data.get("mucous_membrane_color"),
+            body_condition_score=validated_data.get("body_condition_score"),
+            pain_score=validated_data.get("pain_score"),
+            notes=validated_data.get("notes"),
+            recorded_by_id=current_user.id,
+        )
+
+        db.session.add(vital_signs)
+        db.session.commit()
+
+        app.logger.info(f"Created vital signs {vital_signs.id} for visit {visit.id}")
+        return jsonify(vital_signs.to_dict()), 201
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating vital signs: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/vital-signs/<int:vital_signs_id>", methods=["PUT"])
+@login_required
+def update_vital_signs(vital_signs_id):
+    """Update a vital signs record"""
+    try:
+        from .models import VitalSigns
+        from .schemas import vital_signs_schema
+
+        vital_signs = VitalSigns.query.get_or_404(vital_signs_id)
+        data = request.get_json()
+        validated_data = vital_signs_schema.load(data, partial=True)
+
+        for key, value in validated_data.items():
+            if hasattr(vital_signs, key) and key != "visit_id":
+                setattr(vital_signs, key, value)
+
+        db.session.commit()
+        app.logger.info(f"Updated vital signs {vital_signs_id}")
+        return jsonify(vital_signs.to_dict()), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating vital signs {vital_signs_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Vital signs not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/vital-signs/<int:vital_signs_id>", methods=["DELETE"])
+@login_required
+def delete_vital_signs(vital_signs_id):
+    """Delete a vital signs record"""
+    try:
+        from .models import VitalSigns
+
+        vital_signs = VitalSigns.query.get_or_404(vital_signs_id)
+        db.session.delete(vital_signs)
+        db.session.commit()
+
+        app.logger.info(f"Deleted vital signs {vital_signs_id}")
+        return jsonify({"message": "Vital signs deleted"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting vital signs {vital_signs_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Vital signs not found"}), 404
+        return jsonify({"error": "Internal server error"}), 500
+
+
+# ============================================================================
+# MEDICAL RECORDS - SOAP NOTE ENDPOINTS
+# ============================================================================
+
+
+@bp.route("/api/soap-notes", methods=["GET"])
+@login_required
+def get_soap_notes():
+    """Get all SOAP notes with optional filtering"""
+    try:
+        visit_id = request.args.get("visit_id", type=int)
+
+        from .models import SOAPNote
+
+        query = SOAPNote.query
+
+        if visit_id:
+            query = query.filter_by(visit_id=visit_id)
+
+        query = query.order_by(SOAPNote.created_at.desc())
+        soap_notes = query.all()
+
+        from .schemas import soap_notes_schema
+
+        return jsonify(soap_notes_schema.dump(soap_notes)), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching SOAP notes: {str(e)}", exc_info=True)
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@bp.route("/api/soap-notes/<int:soap_note_id>", methods=["GET"])
+@login_required
+def get_soap_note(soap_note_id):
+    """Get a single SOAP note by ID"""
+    try:
+        from .models import SOAPNote
+
+        soap_note = SOAPNote.query.get_or_404(soap_note_id)
+        return jsonify(soap_note.to_dict()), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching SOAP note {soap_note_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "SOAP note not found"}), 404
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@bp.route("/api/soap-notes", methods=["POST"])
+@login_required
+def create_soap_note():
+    """Create a new SOAP note"""
+    try:
+        from .models import SOAPNote, Visit
+        from .schemas import soap_note_schema
+
+        data = request.get_json()
+        validated_data = soap_note_schema.load(data)
+
+        # Verify visit exists
+        visit = Visit.query.get(validated_data["visit_id"])
+        if not visit:
+            return jsonify({"error": "Visit not found"}), 404
+
+        # Create SOAP note
+        soap_note = SOAPNote(
+            visit_id=validated_data["visit_id"],
+            subjective=validated_data.get("subjective"),
+            objective=validated_data.get("objective"),
+            assessment=validated_data.get("assessment"),
+            plan=validated_data.get("plan"),
+            created_by_id=current_user.id,
+        )
+
+        db.session.add(soap_note)
+        db.session.commit()
+
+        app.logger.info(f"Created SOAP note {soap_note.id} for visit {visit.id}")
+        return jsonify(soap_note.to_dict()), 201
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating SOAP note: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/soap-notes/<int:soap_note_id>", methods=["PUT"])
+@login_required
+def update_soap_note(soap_note_id):
+    """Update a SOAP note"""
+    try:
+        from .models import SOAPNote
+        from .schemas import soap_note_schema
+
+        soap_note = SOAPNote.query.get_or_404(soap_note_id)
+        data = request.get_json()
+        validated_data = soap_note_schema.load(data, partial=True)
+
+        for key, value in validated_data.items():
+            if hasattr(soap_note, key) and key not in ["visit_id", "created_by_id"]:
+                setattr(soap_note, key, value)
+
+        db.session.commit()
+        app.logger.info(f"Updated SOAP note {soap_note_id}")
+        return jsonify(soap_note.to_dict()), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating SOAP note {soap_note_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "SOAP note not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/soap-notes/<int:soap_note_id>", methods=["DELETE"])
+@login_required
+def delete_soap_note(soap_note_id):
+    """Delete a SOAP note"""
+    try:
+        from .models import SOAPNote
+
+        soap_note = SOAPNote.query.get_or_404(soap_note_id)
+        db.session.delete(soap_note)
+        db.session.commit()
+
+        app.logger.info(f"Deleted SOAP note {soap_note_id}")
+        return jsonify({"message": "SOAP note deleted"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting SOAP note {soap_note_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "SOAP note not found"}), 404
+        return jsonify({"error": "Internal server error"}), 500
+
+
+# ============================================================================
+# MEDICAL RECORDS - DIAGNOSIS ENDPOINTS
+# ============================================================================
+
+
+@bp.route("/api/diagnoses", methods=["GET"])
+@login_required
+def get_diagnoses():
+    """Get all diagnoses with optional filtering"""
+    try:
+        visit_id = request.args.get("visit_id", type=int)
+        status = request.args.get("status", "").strip()
+
+        from .models import Diagnosis
+
+        query = Diagnosis.query
+
+        if visit_id:
+            query = query.filter_by(visit_id=visit_id)
+
+        if status:
+            query = query.filter_by(status=status)
+
+        query = query.order_by(Diagnosis.created_at.desc())
+        diagnoses = query.all()
+
+        from .schemas import diagnoses_schema
+
+        return jsonify(diagnoses_schema.dump(diagnoses)), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching diagnoses: {str(e)}", exc_info=True)
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@bp.route("/api/diagnoses/<int:diagnosis_id>", methods=["GET"])
+@login_required
+def get_diagnosis(diagnosis_id):
+    """Get a single diagnosis by ID"""
+    try:
+        from .models import Diagnosis
+
+        diagnosis = Diagnosis.query.get_or_404(diagnosis_id)
+        return jsonify(diagnosis.to_dict()), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching diagnosis {diagnosis_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Diagnosis not found"}), 404
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@bp.route("/api/diagnoses", methods=["POST"])
+@login_required
+def create_diagnosis():
+    """Create a new diagnosis"""
+    try:
+        from .models import Diagnosis, Visit
+        from .schemas import diagnosis_schema
+
+        data = request.get_json()
+        validated_data = diagnosis_schema.load(data)
+
+        # Verify visit exists
+        visit = Visit.query.get(validated_data["visit_id"])
+        if not visit:
+            return jsonify({"error": "Visit not found"}), 404
+
+        # Create diagnosis
+        diagnosis = Diagnosis(
+            visit_id=validated_data["visit_id"],
+            diagnosis_name=validated_data["diagnosis_name"],
+            icd_code=validated_data.get("icd_code"),
+            diagnosis_type=validated_data.get("diagnosis_type", "primary"),
+            severity=validated_data.get("severity"),
+            status=validated_data.get("status", "active"),
+            notes=validated_data.get("notes"),
+            onset_date=validated_data.get("onset_date"),
+            resolution_date=validated_data.get("resolution_date"),
+            created_by_id=current_user.id,
+        )
+
+        db.session.add(diagnosis)
+        db.session.commit()
+
+        app.logger.info(f"Created diagnosis {diagnosis.id} for visit {visit.id}")
+        return jsonify(diagnosis.to_dict()), 201
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating diagnosis: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/diagnoses/<int:diagnosis_id>", methods=["PUT"])
+@login_required
+def update_diagnosis(diagnosis_id):
+    """Update a diagnosis"""
+    try:
+        from .models import Diagnosis
+        from .schemas import diagnosis_schema
+
+        diagnosis = Diagnosis.query.get_or_404(diagnosis_id)
+        data = request.get_json()
+        validated_data = diagnosis_schema.load(data, partial=True)
+
+        for key, value in validated_data.items():
+            if hasattr(diagnosis, key) and key not in ["visit_id", "created_by_id"]:
+                setattr(diagnosis, key, value)
+
+        db.session.commit()
+        app.logger.info(f"Updated diagnosis {diagnosis_id}")
+        return jsonify(diagnosis.to_dict()), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating diagnosis {diagnosis_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Diagnosis not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/diagnoses/<int:diagnosis_id>", methods=["DELETE"])
+@login_required
+def delete_diagnosis(diagnosis_id):
+    """Delete a diagnosis"""
+    try:
+        from .models import Diagnosis
+
+        diagnosis = Diagnosis.query.get_or_404(diagnosis_id)
+        db.session.delete(diagnosis)
+        db.session.commit()
+
+        app.logger.info(f"Deleted diagnosis {diagnosis_id}")
+        return jsonify({"message": "Diagnosis deleted"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting diagnosis {diagnosis_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Diagnosis not found"}), 404
+        return jsonify({"error": "Internal server error"}), 500
+
+
+# ============================================================================
+# MEDICAL RECORDS - VACCINATION ENDPOINTS
+# ============================================================================
+
+
+@bp.route("/api/vaccinations", methods=["GET"])
+@login_required
+def get_vaccinations():
+    """Get all vaccinations with optional filtering"""
+    try:
+        patient_id = request.args.get("patient_id", type=int)
+        status = request.args.get("status", "").strip()
+
+        from .models import Vaccination
+
+        query = Vaccination.query
+
+        if patient_id:
+            query = query.filter_by(patient_id=patient_id)
+
+        if status:
+            query = query.filter_by(status=status)
+
+        query = query.order_by(Vaccination.administration_date.desc())
+        vaccinations = query.all()
+
+        from .schemas import vaccinations_schema
+
+        return jsonify(vaccinations_schema.dump(vaccinations)), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching vaccinations: {str(e)}", exc_info=True)
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@bp.route("/api/vaccinations/<int:vaccination_id>", methods=["GET"])
+@login_required
+def get_vaccination(vaccination_id):
+    """Get a single vaccination by ID"""
+    try:
+        from .models import Vaccination
+
+        vaccination = Vaccination.query.get_or_404(vaccination_id)
+        return jsonify(vaccination.to_dict()), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching vaccination {vaccination_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Vaccination not found"}), 404
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@bp.route("/api/vaccinations", methods=["POST"])
+@login_required
+def create_vaccination():
+    """Create a new vaccination record"""
+    try:
+        from .models import Vaccination, Patient
+        from .schemas import vaccination_schema
+
+        data = request.get_json()
+        validated_data = vaccination_schema.load(data)
+
+        # Verify patient exists
+        patient = Patient.query.get(validated_data["patient_id"])
+        if not patient:
+            return jsonify({"error": "Patient not found"}), 404
+
+        # Create vaccination
+        vaccination = Vaccination(
+            patient_id=validated_data["patient_id"],
+            visit_id=validated_data.get("visit_id"),
+            vaccine_name=validated_data["vaccine_name"],
+            vaccine_type=validated_data.get("vaccine_type"),
+            manufacturer=validated_data.get("manufacturer"),
+            lot_number=validated_data.get("lot_number"),
+            serial_number=validated_data.get("serial_number"),
+            administration_date=validated_data["administration_date"],
+            expiration_date=validated_data.get("expiration_date"),
+            next_due_date=validated_data.get("next_due_date"),
+            dosage=validated_data.get("dosage"),
+            route=validated_data.get("route"),
+            administration_site=validated_data.get("administration_site"),
+            status=validated_data.get("status", "current"),
+            notes=validated_data.get("notes"),
+            adverse_reactions=validated_data.get("adverse_reactions"),
+            administered_by_id=current_user.id,
+        )
+
+        db.session.add(vaccination)
+        db.session.commit()
+
+        app.logger.info(f"Created vaccination {vaccination.id} for patient {patient.name}")
+        return jsonify(vaccination.to_dict()), 201
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating vaccination: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/vaccinations/<int:vaccination_id>", methods=["PUT"])
+@login_required
+def update_vaccination(vaccination_id):
+    """Update a vaccination record"""
+    try:
+        from .models import Vaccination
+        from .schemas import vaccination_schema
+
+        vaccination = Vaccination.query.get_or_404(vaccination_id)
+        data = request.get_json()
+        validated_data = vaccination_schema.load(data, partial=True)
+
+        for key, value in validated_data.items():
+            if hasattr(vaccination, key) and key not in ["patient_id", "administered_by_id"]:
+                setattr(vaccination, key, value)
+
+        db.session.commit()
+        app.logger.info(f"Updated vaccination {vaccination_id}")
+        return jsonify(vaccination.to_dict()), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating vaccination {vaccination_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Vaccination not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/vaccinations/<int:vaccination_id>", methods=["DELETE"])
+@login_required
+def delete_vaccination(vaccination_id):
+    """Delete a vaccination record"""
+    try:
+        from .models import Vaccination
+
+        vaccination = Vaccination.query.get_or_404(vaccination_id)
+        db.session.delete(vaccination)
+        db.session.commit()
+
+        app.logger.info(f"Deleted vaccination {vaccination_id}")
+        return jsonify({"message": "Vaccination deleted"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting vaccination {vaccination_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Vaccination not found"}), 404
         return jsonify({"error": "Internal server error"}), 500
 
 
