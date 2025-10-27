@@ -61,6 +61,7 @@ function Clients() {
     return () => {
       logger.logLifecycle('Clients', 'unmounted');
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Fetch clients with React Query
