@@ -12,6 +12,9 @@ import ClientForm from './components/ClientForm';
 import Patients from './components/Patients';
 import PatientDetail from './components/PatientDetail';
 import PatientForm from './components/PatientForm';
+import AppointmentDetail from './components/AppointmentDetail';
+import AppointmentForm from './components/AppointmentForm';
+import Settings from './components/Settings';
 import logger from './utils/logger';
 import './App.css';
 
@@ -123,7 +126,12 @@ function App() {
   return (
     <ErrorBoundary>
       <QueryProvider>
-        <BrowserRouter>
+        <BrowserRouter
+          future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true,
+          }}
+        >
           <Routes>
             {/* Login Route - No layout */}
             <Route
@@ -170,6 +178,18 @@ function App() {
                       <Route
                         path="/appointments"
                         element={<Dashboard />}
+                      />
+                      <Route
+                        path="/appointments/new"
+                        element={<AppointmentForm />}
+                      />
+                      <Route
+                        path="/appointments/:id"
+                        element={<AppointmentDetail />}
+                      />
+                      <Route
+                        path="/appointments/:id/edit"
+                        element={<AppointmentForm />}
                       />
                       <Route
                         path="/invoices"
@@ -225,16 +245,7 @@ function App() {
                       />
                       <Route
                         path="/settings"
-                        element={
-                          <Box>
-                            <Typography variant="h4">
-                              Settings
-                            </Typography>
-                            <Typography color="text.secondary">
-                              Settings coming soon
-                            </Typography>
-                          </Box>
-                        }
+                        element={<Settings user={user} />}
                       />
                       <Route
                         path="/profile"
