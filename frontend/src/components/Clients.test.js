@@ -33,7 +33,14 @@ const renderWithProviders = (component) => {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>{component}</BrowserRouter>
+      <BrowserRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
+        {component}
+      </BrowserRouter>
     </QueryClientProvider>
   );
 };

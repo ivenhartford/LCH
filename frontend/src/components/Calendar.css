@@ -1,0 +1,35 @@
+/* Enhanced Calendar Styles */
+
+.rbc-event {
+  padding: 2px 5px;
+  font-size: 0.9em;
+}
+
+.rbc-event-label {
+  font-size: 0.75em;
+}
+
+.rbc-event-content {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Make sure events are clearly visible */
+.rbc-day-slot .rbc-event {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Month view adjustments */
+.rbc-month-view .rbc-event {
+  padding: 1px 3px;
+}
+
+/* Selected slot styling */
+.rbc-selected-cell {
+  background-color: rgba(37, 99, 235, 0.1);
+}
+
+/* Today highlight */
+.rbc-today {
+  background-color: rgba(37, 99, 235, 0.05);
+}

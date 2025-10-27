@@ -37,7 +37,12 @@ const renderWithProviders = () => {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <BrowserRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <PatientForm />
       </BrowserRouter>
     </QueryClientProvider>

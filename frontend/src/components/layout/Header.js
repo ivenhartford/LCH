@@ -15,6 +15,7 @@ import {
   AccountCircle,
   ExitToApp,
   Settings,
+  Search as SearchIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import logger from '../../utils/logger';
@@ -28,14 +29,16 @@ import logger from '../../utils/logger';
  * - user: Current user object { username, role }
  * - onMenuToggle: Function to toggle mobile drawer
  * - onLogout: Function to handle logout
+ * - onSearchClick: Function to open global search
  *
  * Features:
  * - User profile menu
+ * - Global search button
  * - Logout functionality
  * - Mobile drawer toggle
  * - Comprehensive logging
  */
-const Header = ({ user, onMenuToggle, onLogout }) => {
+const Header = ({ user, onMenuToggle, onLogout, onSearchClick }) => {
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = React.useState(null);
 
@@ -117,6 +120,21 @@ const Header = ({ user, onMenuToggle, onLogout }) => {
         >
           Lenox Cat Hospital
         </Typography>
+
+        {/* Search button */}
+        {user && onSearchClick && (
+          <IconButton
+            color="inherit"
+            onClick={() => {
+              logger.logAction('Global search opened via button');
+              onSearchClick();
+            }}
+            sx={{ mr: 1 }}
+            title="Search (Ctrl/⌘+K)"
+          >
+            <SearchIcon />
+          </IconButton>
+        )}
 
         {/* User info and menu */}
         {user && (
