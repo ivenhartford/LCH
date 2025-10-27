@@ -16,6 +16,7 @@ import {
   Pets as PetsIcon,
   CalendarMonth as CalendarIcon,
   MedicalServices as MedicalIcon,
+  Medication as MedicationIcon,
   Receipt as ReceiptIcon,
   Inventory as InventoryIcon,
   Group as GroupIcon,
@@ -76,6 +77,7 @@ const Sidebar = ({ open, onClose }) => {
       items: [
         { text: 'Visits', icon: <MedicalIcon />, path: '/visits' },
         { text: 'Appointments', icon: <CalendarIcon />, path: '/appointments' },
+        { text: 'Medications', icon: <MedicationIcon />, path: '/medications' },
       ],
     },
     {
