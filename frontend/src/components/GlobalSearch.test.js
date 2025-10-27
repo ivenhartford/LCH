@@ -48,13 +48,17 @@ describe('GlobalSearch Component', () => {
     test('renders dialog when open is true', () => {
       renderWithProviders(<GlobalSearch open={true} onClose={mockOnClose} />);
 
-      expect(screen.getByPlaceholderText(/Search clients, patients, or appointments/i)).toBeInTheDocument();
+      expect(
+        screen.getByPlaceholderText(/Search clients, patients, or appointments/i)
+      ).toBeInTheDocument();
     });
 
     test('does not render dialog when open is false', () => {
       renderWithProviders(<GlobalSearch open={false} onClose={mockOnClose} />);
 
-      expect(screen.queryByPlaceholderText(/Search clients, patients, or appointments/i)).not.toBeInTheDocument();
+      expect(
+        screen.queryByPlaceholderText(/Search clients, patients, or appointments/i)
+      ).not.toBeInTheDocument();
     });
 
     test('calls onClose when dialog is closed', async () => {

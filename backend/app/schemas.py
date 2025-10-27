@@ -2,8 +2,7 @@
 Marshmallow schemas for API request/response validation and serialization
 """
 
-from marshmallow import Schema, fields, validate, validates, ValidationError
-from datetime import datetime
+from marshmallow import Schema, fields, validate
 
 
 class ClientSchema(Schema):
@@ -27,9 +26,7 @@ class ClientSchema(Schema):
 
     # Communication Preferences
     preferred_contact = fields.Str(
-        allow_none=True,
-        validate=validate.OneOf(['email', 'phone', 'sms']),
-        load_default='email'
+        allow_none=True, validate=validate.OneOf(["email", "phone", "sms"]), load_default="email"
     )
     email_reminders = fields.Bool(load_default=True)
     sms_reminders = fields.Bool(load_default=True)
@@ -67,8 +64,7 @@ class ClientUpdateSchema(Schema):
 
     # Communication Preferences
     preferred_contact = fields.Str(
-        allow_none=True,
-        validate=validate.OneOf(['email', 'phone', 'sms'])
+        allow_none=True, validate=validate.OneOf(["email", "phone", "sms"])
     )
     email_reminders = fields.Bool()
     sms_reminders = fields.Bool()
@@ -92,19 +88,15 @@ class PatientSchema(Schema):
 
     # Basic Info
     name = fields.Str(required=True, validate=validate.Length(min=1, max=100))
-    species = fields.Str(load_default='Cat', validate=validate.Length(max=50))
+    species = fields.Str(load_default="Cat", validate=validate.Length(max=50))
     breed = fields.Str(allow_none=True, validate=validate.Length(max=100))
     color = fields.Str(allow_none=True, validate=validate.Length(max=100))
     markings = fields.Str(allow_none=True)
 
     # Physical Characteristics
-    sex = fields.Str(
-        allow_none=True,
-        validate=validate.OneOf(['Male', 'Female'])
-    )
+    sex = fields.Str(allow_none=True, validate=validate.OneOf(["Male", "Female"]))
     reproductive_status = fields.Str(
-        allow_none=True,
-        validate=validate.OneOf(['Intact', 'Spayed', 'Neutered'])
+        allow_none=True, validate=validate.OneOf(["Intact", "Spayed", "Neutered"])
     )
     date_of_birth = fields.Date(allow_none=True)
     approximate_age = fields.Str(allow_none=True, validate=validate.Length(max=50))
@@ -131,8 +123,7 @@ class PatientSchema(Schema):
 
     # Status
     status = fields.Str(
-        load_default='Active',
-        validate=validate.OneOf(['Active', 'Inactive', 'Deceased'])
+        load_default="Active", validate=validate.OneOf(["Active", "Inactive", "Deceased"])
     )
     deceased_date = fields.Date(allow_none=True)
 
@@ -155,10 +146,9 @@ class PatientUpdateSchema(Schema):
     markings = fields.Str(allow_none=True)
 
     # Physical Characteristics
-    sex = fields.Str(allow_none=True, validate=validate.OneOf(['Male', 'Female']))
+    sex = fields.Str(allow_none=True, validate=validate.OneOf(["Male", "Female"]))
     reproductive_status = fields.Str(
-        allow_none=True,
-        validate=validate.OneOf(['Intact', 'Spayed', 'Neutered'])
+        allow_none=True, validate=validate.OneOf(["Intact", "Spayed", "Neutered"])
     )
     date_of_birth = fields.Date(allow_none=True)
     approximate_age = fields.Str(allow_none=True, validate=validate.Length(max=50))
@@ -183,7 +173,7 @@ class PatientUpdateSchema(Schema):
     behavioral_notes = fields.Str(allow_none=True)
 
     # Status
-    status = fields.Str(validate=validate.OneOf(['Active', 'Inactive', 'Deceased']))
+    status = fields.Str(validate=validate.OneOf(["Active", "Inactive", "Deceased"]))
     deceased_date = fields.Date(allow_none=True)
 
 

@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import App from './App';
 
 beforeEach(() => {
-  jest.spyOn(window, 'fetch').mockImplementation(url => {
+  jest.spyOn(window, 'fetch').mockImplementation((url) => {
     if (url === '/api/appointments') {
       return Promise.resolve({
         ok: true,

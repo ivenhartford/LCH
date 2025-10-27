@@ -10,12 +10,7 @@ import {
   Box,
   Divider,
 } from '@mui/material';
-import {
-  Menu as MenuIcon,
-  AccountCircle,
-  ExitToApp,
-  Settings,
-} from '@mui/icons-material';
+import { Menu as MenuIcon, AccountCircle, ExitToApp, Settings } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import logger from '../../utils/logger';
 
@@ -109,12 +104,7 @@ const Header = ({ user, onMenuToggle, onLogout }) => {
         </IconButton>
 
         {/* Application title */}
-        <Typography
-          variant="h6"
-          noWrap
-          component="div"
-          sx={{ flexGrow: 1 }}
-        >
+        <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
           Lenox Cat Hospital
         </Typography>
 

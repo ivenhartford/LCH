@@ -12,10 +12,7 @@ import {
   Divider,
   Grid,
 } from '@mui/material';
-import {
-  Person as PersonIcon,
-  Lock as LockIcon,
-} from '@mui/icons-material';
+import { Person as PersonIcon, Lock as LockIcon } from '@mui/icons-material';
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -228,11 +225,7 @@ const Settings = ({ user }) => {
               </Grid>
               <Grid item xs={12}>
                 <Box sx={{ mt: 2 }}>
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    color="primary"
-                  >
+                  <Button type="submit" variant="contained" color="primary">
                     Save Changes
                   </Button>
                 </Box>
@@ -301,11 +294,7 @@ const Settings = ({ user }) => {
               </Grid>
               <Grid item xs={12}>
                 <Box sx={{ mt: 2 }}>
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    color="primary"
-                  >
+                  <Button type="submit" variant="contained" color="primary">
                     Change Password
                   </Button>
                 </Box>
@@ -320,7 +309,8 @@ const Settings = ({ user }) => {
           <strong>Role:</strong> {user?.role || 'User'}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          <strong>Last Login:</strong> {user?.last_login ? new Date(user.last_login).toLocaleString() : 'N/A'}
+          <strong>Last Login:</strong>{' '}
+          {user?.last_login ? new Date(user.last_login).toLocaleString() : 'N/A'}
         </Typography>
       </Box>
     </Container>

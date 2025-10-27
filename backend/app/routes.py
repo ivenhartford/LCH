@@ -3,8 +3,12 @@ from flask import jsonify, send_from_directory, request, Blueprint
 from flask import current_app as app
 from .models import db, User, Patient, Pet, Appointment, Client
 from .schemas import (
-    client_schema, clients_schema, client_update_schema,
-    patient_schema, patients_schema, patient_update_schema
+    client_schema,
+    clients_schema,
+    client_update_schema,
+    patient_schema,
+    patients_schema,
+    patient_update_schema,
 )
 from flask_login import login_user, logout_user, login_required, current_user
 from datetime import datetime
@@ -13,131 +17,155 @@ from flask import abort
 from marshmallow import ValidationError as MarshmallowValidationError
 from sqlalchemy.exc import IntegrityError
 
-bp = Blueprint('main', __name__)
+bp = Blueprint("main", __name__)
+
 
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or current_user.role != 'administrator':
+        if not current_user.is_authenticated or current_user.role != "administrator":
             abort(403)
         return f(*args, **kwargs)
+
     return decorated_function
 
-@bp.route('/api/register', methods=['POST'])
+
+@bp.route("/api/register", methods=["POST"])
 def register():
     data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
+    username = data.get("username")
+    password = data.get("password")
 
     if User.query.filter_by(username=username).first():
-        return jsonify({'message': 'User already exists'}), 400
+        return jsonify({"message": "User already exists"}), 400
 
     new_user = User(username=username)
     new_user.set_password(password)
     db.session.add(new_user)
     db.session.commit()
 
-    return jsonify({'message': 'User created successfully'}), 201
+    return jsonify({"message": "User created successfully"}), 201
 
-@bp.route('/api/login', methods=['POST'])
+
+@bp.route("/api/login", methods=["POST"])
 def login():
     data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
+    username = data.get("username")
+    password = data.get("password")
     user = User.query.filter_by(username=username).first()
 
     if user and user.check_password(password):
         login_user(user)
         app.logger.info(f"User {username} logged in successfully.")
-        return jsonify({'message': 'Logged in successfully'}), 200
+        return jsonify({"message": "Logged in successfully"}), 200
 
     app.logger.warning(f"Failed login attempt for username: {username}.")
-    return jsonify({'message': 'Invalid credentials'}), 401
+    return jsonify({"message": "Invalid credentials"}), 401
 
-@bp.route('/api/check_session')
+
+@bp.route("/api/check_session")
 def check_session():
     if current_user.is_authenticated:
-        return jsonify({'id': current_user.id, 'username': current_user.username, 'role': current_user.role})
+        return jsonify(
+            {"id": current_user.id, "username": current_user.username, "role": current_user.role}
+        )
     return jsonify({}), 401
 
-@bp.route('/api/logout')
+
+@bp.route("/api/logout")
 @login_required
 def logout():
     logout_user()
-    return jsonify({'message': 'Logged out successfully'})
+    return jsonify({"message": "Logged out successfully"})
 
-@bp.route('/api/users', methods=['GET'])
+
+@bp.route("/api/users", methods=["GET"])
 @admin_required
 def get_users():
     users = User.query.all()
-    return jsonify([{'id': user.id, 'username': user.username, 'role': user.role} for user in users])
+    return jsonify(
+        [{"id": user.id, "username": user.username, "role": user.role} for user in users]
+    )
 
-@bp.route('/api/users/<int:user_id>', methods=['GET'])
+
+@bp.route("/api/users/<int:user_id>", methods=["GET"])
 @admin_required
 def get_user(user_id):
     user = User.query.get_or_404(user_id)
-    return jsonify({'id': user.id, 'username': user.username, 'role': user.role})
+    return jsonify({"id": user.id, "username": user.username, "role": user.role})
 
-@bp.route('/api/users/<int:user_id>', methods=['PUT'])
+
+@bp.route("/api/users/<int:user_id>", methods=["PUT"])
 @admin_required
 def update_user(user_id):
     user = User.query.get_or_404(user_id)
     data = request.get_json()
-    user.username = data.get('username', user.username)
-    user.role = data.get('role', user.role)
-    if 'password' in data:
-        user.set_password(data['password'])
+    user.username = data.get("username", user.username)
+    user.role = data.get("role", user.role)
+    if "password" in data:
+        user.set_password(data["password"])
     db.session.commit()
-    return jsonify({'message': 'User updated successfully'})
+    return jsonify({"message": "User updated successfully"})
 
-@bp.route('/api/users/<int:user_id>', methods=['DELETE'])
+
+@bp.route("/api/users/<int:user_id>", methods=["DELETE"])
 @admin_required
 def delete_user(user_id):
     user = User.query.get_or_404(user_id)
     db.session.delete(user)
     db.session.commit()
-    return jsonify({'message': 'User deleted successfully'})
+    return jsonify({"message": "User deleted successfully"})
 
-@bp.route('/api/pets')
+
+@bp.route("/api/pets")
 def get_pets():
     pets = Pet.query.all()
-    return jsonify([{'name': pet.name, 'breed': pet.breed, 'owner': pet.owner} for pet in pets])
+    return jsonify([{"name": pet.name, "breed": pet.breed, "owner": pet.owner} for pet in pets])
 
-@bp.route('/api/appointments', methods=['GET'])
+
+@bp.route("/api/appointments", methods=["GET"])
 @login_required
 def get_appointments():
     appointments = Appointment.query.all()
-    return jsonify([{
-        'id': apt.id,
-        'title': apt.title,
-        'start': apt.start_time.isoformat(),
-        'end': apt.end_time.isoformat(),
-        'description': apt.description
-    } for apt in appointments])
+    return jsonify(
+        [
+            {
+                "id": apt.id,
+                "title": apt.title,
+                "start": apt.start_time.isoformat(),
+                "end": apt.end_time.isoformat(),
+                "description": apt.description,
+            }
+            for apt in appointments
+        ]
+    )
 
-@bp.route('/api/appointments', methods=['POST'])
+
+@bp.route("/api/appointments", methods=["POST"])
 @login_required
 def create_appointment():
     data = request.get_json()
-    start_time = datetime.fromisoformat(data['start'])
-    end_time = datetime.fromisoformat(data['end'])
+    start_time = datetime.fromisoformat(data["start"])
+    end_time = datetime.fromisoformat(data["end"])
 
     new_appointment = Appointment(
-        title=data['title'],
+        title=data["title"],
         start_time=start_time,
         end_time=end_time,
-        description=data.get('description')
+        description=data.get("description"),
     )
     db.session.add(new_appointment)
     db.session.commit()
 
-    return jsonify({'message': 'Appointment created successfully'}), 201
+    return jsonify({"message": "Appointment created successfully"}), 201
+
 
 # ============================================================================
 # Client Management API Endpoints
 # ============================================================================
 
-@bp.route('/api/clients', methods=['GET'])
+
+@bp.route("/api/clients", methods=["GET"])
 @login_required
 def get_clients():
     """
@@ -150,12 +178,15 @@ def get_clients():
     """
     try:
         # Get query parameters
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 50, type=int)
-        search = request.args.get('search', '').strip()
-        active_only = request.args.get('active_only', 'true').lower() == 'true'
+        page = request.args.get("page", 1, type=int)
+        per_page = request.args.get("per_page", 50, type=int)
+        search = request.args.get("search", "").strip()
+        active_only = request.args.get("active_only", "true").lower() == "true"
 
-        app.logger.info(f"GET /api/clients - User: {current_user.username}, Page: {page}, Search: '{search}', Active only: {active_only}")
+        app.logger.info(
+            f"GET /api/clients - User: {current_user.username}, "
+            f"Page: {page}, Search: '{search}', Active only: {active_only}"
+        )
 
         # Build query
         query = Client.query
@@ -172,7 +203,7 @@ def get_clients():
                     Client.first_name.ilike(search_filter),
                     Client.last_name.ilike(search_filter),
                     Client.email.ilike(search_filter),
-                    Client.phone_primary.ilike(search_filter)
+                    Client.phone_primary.ilike(search_filter),
                 )
             )
 
@@ -183,29 +214,36 @@ def get_clients():
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
         clients = pagination.items
 
-        app.logger.info(f"Found {pagination.total} clients, returning page {page} of {pagination.pages}")
+        app.logger.info(
+            f"Found {pagination.total} clients, returning page {page} of {pagination.pages}"
+        )
 
         # Serialize clients
         result = clients_schema.dump(clients)
 
-        return jsonify({
-            'clients': result,
-            'pagination': {
-                'page': page,
-                'per_page': per_page,
-                'total': pagination.total,
-                'pages': pagination.pages,
-                'has_next': pagination.has_next,
-                'has_prev': pagination.has_prev
-            }
-        }), 200
+        return (
+            jsonify(
+                {
+                    "clients": result,
+                    "pagination": {
+                        "page": page,
+                        "per_page": per_page,
+                        "total": pagination.total,
+                        "pages": pagination.pages,
+                        "has_next": pagination.has_next,
+                        "has_prev": pagination.has_prev,
+                    },
+                }
+            ),
+            200,
+        )
 
     except Exception as e:
         app.logger.error(f"Error getting clients: {str(e)}", exc_info=True)
-        return jsonify({'error': 'Internal server error'}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
-@bp.route('/api/clients/<int:client_id>', methods=['GET'])
+@bp.route("/api/clients/<int:client_id>", methods=["GET"])
 @login_required
 def get_client(client_id):
     """Get a specific client by ID"""
@@ -224,40 +262,46 @@ def get_client(client_id):
 
     except Exception as e:
         app.logger.error(f"Error getting client {client_id}: {str(e)}", exc_info=True)
-        if 'not found' in str(e).lower():
-            return jsonify({'error': 'Client not found'}), 404
-        return jsonify({'error': 'Internal server error'}), 500
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Client not found"}), 404
+        return jsonify({"error": "Internal server error"}), 500
 
 
-@bp.route('/api/clients', methods=['POST'])
+@bp.route("/api/clients", methods=["POST"])
 @login_required
 def create_client():
     """Create a new client"""
     try:
         data = request.get_json()
 
-        app.logger.info(f"POST /api/clients - User: {current_user.username}, Data: {data.get('first_name')} {data.get('last_name')}")
+        app.logger.info(
+            f"POST /api/clients - User: {current_user.username}, Data: {data.get('first_name')} {data.get('last_name')}"
+        )
 
         # Validate request data
         try:
             validated_data = client_schema.load(data)
         except MarshmallowValidationError as err:
             app.logger.warning(f"Validation error creating client: {err.messages}")
-            return jsonify({'error': 'Validation error', 'messages': err.messages}), 400
+            return jsonify({"error": "Validation error", "messages": err.messages}), 400
 
         # Check for duplicate email if provided
-        if validated_data.get('email'):
-            existing = Client.query.filter_by(email=validated_data['email']).first()
+        if validated_data.get("email"):
+            existing = Client.query.filter_by(email=validated_data["email"]).first()
             if existing:
-                app.logger.warning(f"Attempted to create client with duplicate email: {validated_data['email']}")
-                return jsonify({'error': 'Email already exists'}), 409
+                app.logger.warning(
+                    f"Attempted to create client with duplicate email: {validated_data['email']}"
+                )
+                return jsonify({"error": "Email already exists"}), 409
 
         # Create new client
         new_client = Client(**validated_data)
         db.session.add(new_client)
         db.session.commit()
 
-        app.logger.info(f"Created client {new_client.id}: {new_client.first_name} {new_client.last_name}")
+        app.logger.info(
+            f"Created client {new_client.id}: {new_client.first_name} {new_client.last_name}"
+        )
 
         result = client_schema.dump(new_client)
         return jsonify(result), 201
@@ -265,15 +309,15 @@ def create_client():
     except IntegrityError as e:
         db.session.rollback()
         app.logger.error(f"Integrity error creating client: {str(e)}")
-        return jsonify({'error': 'Database integrity error', 'message': str(e)}), 409
+        return jsonify({"error": "Database integrity error", "message": str(e)}), 409
 
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error creating client: {str(e)}", exc_info=True)
-        return jsonify({'error': 'Internal server error'}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
-@bp.route('/api/clients/<int:client_id>', methods=['PUT'])
+@bp.route("/api/clients/<int:client_id>", methods=["PUT"])
 @login_required
 def update_client(client_id):
     """Update an existing client"""
@@ -289,15 +333,17 @@ def update_client(client_id):
             validated_data = client_update_schema.load(data)
         except MarshmallowValidationError as err:
             app.logger.warning(f"Validation error updating client {client_id}: {err.messages}")
-            return jsonify({'error': 'Validation error', 'messages': err.messages}), 400
+            return jsonify({"error": "Validation error", "messages": err.messages}), 400
 
         # Check for duplicate email if email is being changed
-        if 'email' in validated_data and validated_data['email']:
-            if validated_data['email'] != client.email:
-                existing = Client.query.filter_by(email=validated_data['email']).first()
+        if "email" in validated_data and validated_data["email"]:
+            if validated_data["email"] != client.email:
+                existing = Client.query.filter_by(email=validated_data["email"]).first()
                 if existing:
-                    app.logger.warning(f"Attempted to update client {client_id} with duplicate email: {validated_data['email']}")
-                    return jsonify({'error': 'Email already exists'}), 409
+                    app.logger.warning(
+                        f"Attempted to update client {client_id} with duplicate email: {validated_data['email']}"
+                    )
+                    return jsonify({"error": "Email already exists"}), 409
 
         # Update client fields
         for key, value in validated_data.items():
@@ -313,17 +359,17 @@ def update_client(client_id):
     except IntegrityError as e:
         db.session.rollback()
         app.logger.error(f"Integrity error updating client {client_id}: {str(e)}")
-        return jsonify({'error': 'Database integrity error', 'message': str(e)}), 409
+        return jsonify({"error": "Database integrity error", "message": str(e)}), 409
 
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error updating client {client_id}: {str(e)}", exc_info=True)
-        if 'not found' in str(e).lower():
-            return jsonify({'error': 'Client not found'}), 404
-        return jsonify({'error': 'Internal server error'}), 500
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Client not found"}), 404
+        return jsonify({"error": "Internal server error"}), 500
 
 
-@bp.route('/api/clients/<int:client_id>', methods=['DELETE'])
+@bp.route("/api/clients/<int:client_id>", methods=["DELETE"])
 @login_required
 def delete_client(client_id):
     """
@@ -331,41 +377,51 @@ def delete_client(client_id):
     Use ?hard=true query param for hard delete (requires admin)
     """
     try:
-        hard_delete = request.args.get('hard', 'false').lower() == 'true'
+        hard_delete = request.args.get("hard", "false").lower() == "true"
 
-        app.logger.info(f"DELETE /api/clients/{client_id} - User: {current_user.username}, Hard: {hard_delete}")
+        app.logger.info(
+            f"DELETE /api/clients/{client_id} - User: {current_user.username}, Hard: {hard_delete}"
+        )
 
         client = Client.query.get_or_404(client_id)
 
         if hard_delete:
             # Hard delete requires admin role
-            if current_user.role != 'administrator':
-                app.logger.warning(f"Non-admin user {current_user.username} attempted hard delete of client {client_id}")
-                return jsonify({'error': 'Admin access required for hard delete'}), 403
+            if current_user.role != "administrator":
+                app.logger.warning(
+                    f"Non-admin user {current_user.username} attempted hard delete of client {client_id}"
+                )
+                return jsonify({"error": "Admin access required for hard delete"}), 403
 
             db.session.delete(client)
             db.session.commit()
-            app.logger.info(f"Hard deleted client {client_id}: {client.first_name} {client.last_name}")
-            return jsonify({'message': 'Client permanently deleted'}), 200
+            app.logger.info(
+                f"Hard deleted client {client_id}: {client.first_name} {client.last_name}"
+            )
+            return jsonify({"message": "Client permanently deleted"}), 200
         else:
             # Soft delete
             client.is_active = False
             db.session.commit()
-            app.logger.info(f"Soft deleted (deactivated) client {client_id}: {client.first_name} {client.last_name}")
-            return jsonify({'message': 'Client deactivated'}), 200
+            app.logger.info(
+                f"Soft deleted (deactivated) client {client_id}: {client.first_name} {client.last_name}"
+            )
+            return jsonify({"message": "Client deactivated"}), 200
 
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error deleting client {client_id}: {str(e)}", exc_info=True)
-        if 'not found' in str(e).lower():
-            return jsonify({'error': 'Client not found'}), 404
-        return jsonify({'error': 'Internal server error'}), 500
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Client not found"}), 404
+        return jsonify({"error": "Internal server error"}), 500
+
 
 # ============================================================================
 # Patient (Cat) Management API Endpoints
 # ============================================================================
 
-@bp.route('/api/patients', methods=['GET'])
+
+@bp.route("/api/patients", methods=["GET"])
 @login_required
 def get_patients():
     """
@@ -379,13 +435,16 @@ def get_patients():
     """
     try:
         # Get query parameters
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 50, type=int)
-        search = request.args.get('search', '').strip()
-        status_filter = request.args.get('status', '').strip()
-        owner_id = request.args.get('owner_id', type=int)
+        page = request.args.get("page", 1, type=int)
+        per_page = request.args.get("per_page", 50, type=int)
+        search = request.args.get("search", "").strip()
+        status_filter = request.args.get("status", "").strip()
+        owner_id = request.args.get("owner_id", type=int)
 
-        app.logger.info(f"GET /api/patients - User: {current_user.username}, Page: {page}, Search: '{search}', Status: '{status_filter}', Owner: {owner_id}")
+        app.logger.info(
+            f"GET /api/patients - User: {current_user.username}, Page: {page}, "
+            f"Search: '{search}', Status: '{status_filter}', Owner: {owner_id}"
+        )
 
         # Build query
         query = Patient.query
@@ -395,7 +454,7 @@ def get_patients():
             query = query.filter_by(status=status_filter)
         else:
             # Default: show only active patients
-            query = query.filter_by(status='Active')
+            query = query.filter_by(status="Active")
 
         # Filter by owner
         if owner_id:
@@ -411,7 +470,7 @@ def get_patients():
                     Patient.color.ilike(search_filter),
                     Patient.microchip_number.ilike(search_filter),
                     Client.first_name.ilike(search_filter),
-                    Client.last_name.ilike(search_filter)
+                    Client.last_name.ilike(search_filter),
                 )
             )
 
@@ -422,29 +481,36 @@ def get_patients():
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
         patients = pagination.items
 
-        app.logger.info(f"Found {pagination.total} patients, returning page {page} of {pagination.pages}")
+        app.logger.info(
+            f"Found {pagination.total} patients, returning page {page} of {pagination.pages}"
+        )
 
         # Serialize patients
         result = patients_schema.dump(patients)
 
-        return jsonify({
-            'patients': result,
-            'pagination': {
-                'page': page,
-                'per_page': per_page,
-                'total': pagination.total,
-                'pages': pagination.pages,
-                'has_next': pagination.has_next,
-                'has_prev': pagination.has_prev
-            }
-        }), 200
+        return (
+            jsonify(
+                {
+                    "patients": result,
+                    "pagination": {
+                        "page": page,
+                        "per_page": per_page,
+                        "total": pagination.total,
+                        "pages": pagination.pages,
+                        "has_next": pagination.has_next,
+                        "has_prev": pagination.has_prev,
+                    },
+                }
+            ),
+            200,
+        )
 
     except Exception as e:
         app.logger.error(f"Error getting patients: {str(e)}", exc_info=True)
-        return jsonify({'error': 'Internal server error'}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
-@bp.route('/api/patients/<int:patient_id>', methods=['GET'])
+@bp.route("/api/patients/<int:patient_id>", methods=["GET"])
 @login_required
 def get_patient(patient_id):
     """Get a specific patient by ID"""
@@ -453,7 +519,7 @@ def get_patient(patient_id):
 
         patient = Patient.query.get_or_404(patient_id)
 
-        if patient.status == 'Deceased':
+        if patient.status == "Deceased":
             app.logger.warning(f"Accessed deceased patient {patient_id}")
 
         app.logger.info(f"Retrieved patient {patient_id}: {patient.name}")
@@ -463,46 +529,56 @@ def get_patient(patient_id):
 
     except Exception as e:
         app.logger.error(f"Error getting patient {patient_id}: {str(e)}", exc_info=True)
-        if 'not found' in str(e).lower():
-            return jsonify({'error': 'Patient not found'}), 404
-        return jsonify({'error': 'Internal server error'}), 500
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Patient not found"}), 404
+        return jsonify({"error": "Internal server error"}), 500
 
 
-@bp.route('/api/patients', methods=['POST'])
+@bp.route("/api/patients", methods=["POST"])
 @login_required
 def create_patient():
     """Create a new patient (cat)"""
     try:
         data = request.get_json()
 
-        app.logger.info(f"POST /api/patients - User: {current_user.username}, Data: {data.get('name')}")
+        app.logger.info(
+            f"POST /api/patients - User: {current_user.username}, Data: {data.get('name')}"
+        )
 
         # Validate request data
         try:
             validated_data = patient_schema.load(data)
         except MarshmallowValidationError as err:
             app.logger.warning(f"Validation error creating patient: {err.messages}")
-            return jsonify({'error': 'Validation error', 'messages': err.messages}), 400
+            return jsonify({"error": "Validation error", "messages": err.messages}), 400
 
         # Verify owner exists
-        owner = Client.query.get(validated_data['owner_id'])
+        owner = Client.query.get(validated_data["owner_id"])
         if not owner:
-            app.logger.warning(f"Attempted to create patient with non-existent owner_id: {validated_data['owner_id']}")
-            return jsonify({'error': 'Owner (client) not found'}), 404
+            app.logger.warning(
+                f"Attempted to create patient with non-existent owner_id: {validated_data['owner_id']}"
+            )
+            return jsonify({"error": "Owner (client) not found"}), 404
 
         # Check for duplicate microchip if provided
-        if validated_data.get('microchip_number'):
-            existing = Patient.query.filter_by(microchip_number=validated_data['microchip_number']).first()
+        if validated_data.get("microchip_number"):
+            existing = Patient.query.filter_by(
+                microchip_number=validated_data["microchip_number"]
+            ).first()
             if existing:
-                app.logger.warning(f"Attempted to create patient with duplicate microchip: {validated_data['microchip_number']}")
-                return jsonify({'error': 'Microchip number already exists'}), 409
+                app.logger.warning(
+                    f"Attempted to create patient with duplicate microchip: {validated_data['microchip_number']}"
+                )
+                return jsonify({"error": "Microchip number already exists"}), 409
 
         # Create new patient
         new_patient = Patient(**validated_data)
         db.session.add(new_patient)
         db.session.commit()
 
-        app.logger.info(f"Created patient {new_patient.id}: {new_patient.name} (owner: {owner.first_name} {owner.last_name})")
+        app.logger.info(
+            f"Created patient {new_patient.id}: {new_patient.name} (owner: {owner.first_name} {owner.last_name})"
+        )
 
         result = patient_schema.dump(new_patient)
         return jsonify(result), 201
@@ -510,15 +586,15 @@ def create_patient():
     except IntegrityError as e:
         db.session.rollback()
         app.logger.error(f"Integrity error creating patient: {str(e)}")
-        return jsonify({'error': 'Database integrity error', 'message': str(e)}), 409
+        return jsonify({"error": "Database integrity error", "message": str(e)}), 409
 
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error creating patient: {str(e)}", exc_info=True)
-        return jsonify({'error': 'Internal server error'}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
-@bp.route('/api/patients/<int:patient_id>', methods=['PUT'])
+@bp.route("/api/patients/<int:patient_id>", methods=["PUT"])
 @login_required
 def update_patient(patient_id):
     """Update an existing patient"""
@@ -534,22 +610,29 @@ def update_patient(patient_id):
             validated_data = patient_update_schema.load(data)
         except MarshmallowValidationError as err:
             app.logger.warning(f"Validation error updating patient {patient_id}: {err.messages}")
-            return jsonify({'error': 'Validation error', 'messages': err.messages}), 400
+            return jsonify({"error": "Validation error", "messages": err.messages}), 400
 
         # Check for duplicate microchip if microchip is being changed
-        if 'microchip_number' in validated_data and validated_data['microchip_number']:
-            if validated_data['microchip_number'] != patient.microchip_number:
-                existing = Patient.query.filter_by(microchip_number=validated_data['microchip_number']).first()
+        if "microchip_number" in validated_data and validated_data["microchip_number"]:
+            if validated_data["microchip_number"] != patient.microchip_number:
+                existing = Patient.query.filter_by(
+                    microchip_number=validated_data["microchip_number"]
+                ).first()
                 if existing:
-                    app.logger.warning(f"Attempted to update patient {patient_id} with duplicate microchip: {validated_data['microchip_number']}")
-                    return jsonify({'error': 'Microchip number already exists'}), 409
+                    app.logger.warning(
+                        f"Attempted to update patient {patient_id} with duplicate "
+                        f"microchip: {validated_data['microchip_number']}"
+                    )
+                    return jsonify({"error": "Microchip number already exists"}), 409
 
         # Verify new owner exists if owner_id is being changed
-        if 'owner_id' in validated_data:
-            owner = Client.query.get(validated_data['owner_id'])
+        if "owner_id" in validated_data:
+            owner = Client.query.get(validated_data["owner_id"])
             if not owner:
-                app.logger.warning(f"Attempted to update patient {patient_id} with non-existent owner_id: {validated_data['owner_id']}")
-                return jsonify({'error': 'Owner (client) not found'}), 404
+                app.logger.warning(
+                    f"Attempted to update patient {patient_id} with non-existent owner_id: {validated_data['owner_id']}"
+                )
+                return jsonify({"error": "Owner (client) not found"}), 404
 
         # Update patient fields
         for key, value in validated_data.items():
@@ -565,17 +648,17 @@ def update_patient(patient_id):
     except IntegrityError as e:
         db.session.rollback()
         app.logger.error(f"Integrity error updating patient {patient_id}: {str(e)}")
-        return jsonify({'error': 'Database integrity error', 'message': str(e)}), 409
+        return jsonify({"error": "Database integrity error", "message": str(e)}), 409
 
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error updating patient {patient_id}: {str(e)}", exc_info=True)
-        if 'not found' in str(e).lower():
-            return jsonify({'error': 'Patient not found'}), 404
-        return jsonify({'error': 'Internal server error'}), 500
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Patient not found"}), 404
+        return jsonify({"error": "Internal server error"}), 500
 
 
-@bp.route('/api/patients/<int:patient_id>', methods=['DELETE'])
+@bp.route("/api/patients/<int:patient_id>", methods=["DELETE"])
 @login_required
 def delete_patient(patient_id):
     """
@@ -584,43 +667,57 @@ def delete_patient(patient_id):
     Use ?hard=true query param for hard delete (requires admin)
     """
     try:
-        hard_delete = request.args.get('hard', 'false').lower() == 'true'
+        hard_delete = request.args.get("hard", "false").lower() == "true"
 
-        app.logger.info(f"DELETE /api/patients/{patient_id} - User: {current_user.username}, Hard: {hard_delete}")
+        app.logger.info(
+            f"DELETE /api/patients/{patient_id} - User: {current_user.username}, Hard: {hard_delete}"
+        )
 
         patient = Patient.query.get_or_404(patient_id)
 
         if hard_delete:
             # Hard delete requires admin role
-            if current_user.role != 'administrator':
-                app.logger.warning(f"Non-admin user {current_user.username} attempted hard delete of patient {patient_id}")
-                return jsonify({'error': 'Admin access required for hard delete'}), 403
+            if current_user.role != "administrator":
+                app.logger.warning(
+                    f"Non-admin user {current_user.username} attempted hard delete of patient {patient_id}"
+                )
+                return jsonify({"error": "Admin access required for hard delete"}), 403
 
             db.session.delete(patient)
             db.session.commit()
             app.logger.info(f"Hard deleted patient {patient_id}: {patient.name}")
-            return jsonify({'message': 'Patient permanently deleted'}), 200
+            return jsonify({"message": "Patient permanently deleted"}), 200
         else:
             # Soft delete - set to inactive
-            patient.status = 'Inactive'
+            patient.status = "Inactive"
             db.session.commit()
             app.logger.info(f"Soft deleted (deactivated) patient {patient_id}: {patient.name}")
-            return jsonify({'message': 'Patient deactivated', 'tip': 'Set status to Deceased if the cat has passed away'}), 200
+            return (
+                jsonify(
+                    {
+                        "message": "Patient deactivated",
+                        "tip": "Set status to Deceased if the cat has passed away",
+                    }
+                ),
+                200,
+            )
 
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error deleting patient {patient_id}: {str(e)}", exc_info=True)
-        if 'not found' in str(e).lower():
-            return jsonify({'error': 'Patient not found'}), 404
-        return jsonify({'error': 'Internal server error'}), 500
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Patient not found"}), 404
+        return jsonify({"error": "Internal server error"}), 500
+
 
 # ============================================================================
 
-@bp.route('/', defaults={'path': ''})
-@bp.route('/<path:path>')
+
+@bp.route("/", defaults={"path": ""})
+@bp.route("/<path:path>")
 def serve(path):
-    static_folder = app.config.get('STATIC_FOLDER')
+    static_folder = app.config.get("STATIC_FOLDER")
     if path != "" and os.path.exists(os.path.join(static_folder, path)):
         return send_from_directory(static_folder, path)
     else:
-        return send_from_directory(static_folder, 'index.html')
+        return send_from_directory(static_folder, "index.html")

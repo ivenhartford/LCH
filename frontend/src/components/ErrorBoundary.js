@@ -39,14 +39,10 @@ class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     // Log the error to our logging utility
-    logger.error(
-      'React Error Boundary Caught Error',
-      error,
-      {
-        componentStack: errorInfo.componentStack,
-        errorCount: this.state.errorCount + 1,
-      }
-    );
+    logger.error('React Error Boundary Caught Error', error, {
+      componentStack: errorInfo.componentStack,
+      errorCount: this.state.errorCount + 1,
+    });
 
     // Update state with error details
     this.setState({
@@ -95,8 +91,8 @@ class ErrorBoundary extends React.Component {
               </AlertTitle>
 
               <Typography variant="body1" sx={{ mb: 2 }}>
-                We're sorry, but the application encountered an unexpected error.
-                The error has been logged and will be investigated.
+                We're sorry, but the application encountered an unexpected error. The error has been
+                logged and will be investigated.
               </Typography>
 
               {/* Show error details in development */}
@@ -153,8 +149,8 @@ class ErrorBoundary extends React.Component {
               {this.state.errorCount >= 3 && (
                 <Box sx={{ mt: 2 }}>
                   <Alert severity="warning">
-                    This error has occurred {this.state.errorCount} times.
-                    You may want to reload the page or contact support.
+                    This error has occurred {this.state.errorCount} times. You may want to reload
+                    the page or contact support.
                   </Alert>
                 </Box>
               )}

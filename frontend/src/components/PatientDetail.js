@@ -72,7 +72,13 @@ function PatientDetail() {
       const duration = performance.now() - startTime;
 
       if (!response.ok) {
-        logger.logAPICall('GET', `/api/patients/${patientId}`, response.status, duration, 'Fetch failed');
+        logger.logAPICall(
+          'GET',
+          `/api/patients/${patientId}`,
+          response.status,
+          duration,
+          'Fetch failed'
+        );
         throw new Error(`Failed to fetch patient: ${response.status}`);
       }
 
@@ -149,9 +155,7 @@ function PatientDetail() {
   if (!patient) {
     return (
       <Box p={3}>
-        <Alert severity="warning">
-          Patient not found.
-        </Alert>
+        <Alert severity="warning">Patient not found.</Alert>
         <Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mt: 2 }}>
           Back to Patients
         </Button>
@@ -203,10 +207,7 @@ function PatientDetail() {
         {/* Basic Information */}
         <Grid item xs={12} md={6}>
           <Card>
-            <CardHeader
-              title="Basic Information"
-              avatar={<PetsIcon />}
-            />
+            <CardHeader title="Basic Information" avatar={<PetsIcon />} />
             <CardContent>
               <Grid container spacing={2}>
                 <Grid item xs={6}>
@@ -327,10 +328,7 @@ function PatientDetail() {
           {/* Insurance Information */}
           {(patient.insurance_company || patient.insurance_policy_number) && (
             <Card sx={{ mt: 2 }}>
-              <CardHeader
-                title="Insurance Information"
-                avatar={<InsuranceIcon />}
-              />
+              <CardHeader title="Insurance Information" avatar={<InsuranceIcon />} />
               <CardContent>
                 {patient.insurance_company && (
                   <Box mb={2}>
@@ -356,10 +354,7 @@ function PatientDetail() {
         {/* Medical Information */}
         <Grid item xs={12}>
           <Card>
-            <CardHeader
-              title="Medical Information"
-              avatar={<MedicalIcon />}
-            />
+            <CardHeader title="Medical Information" avatar={<MedicalIcon />} />
             <CardContent>
               <Grid container spacing={3}>
                 {patient.allergies && (
@@ -408,8 +403,8 @@ function PatientDetail() {
         <Grid item xs={12}>
           <Paper sx={{ p: 2, bgcolor: 'grey.50' }}>
             <Typography variant="caption" color="text.secondary">
-              Created: {new Date(patient.created_at).toLocaleString()} |
-              Last Updated: {new Date(patient.updated_at).toLocaleString()}
+              Created: {new Date(patient.created_at).toLocaleString()} | Last Updated:{' '}
+              {new Date(patient.updated_at).toLocaleString()}
             </Typography>
           </Paper>
         </Grid>

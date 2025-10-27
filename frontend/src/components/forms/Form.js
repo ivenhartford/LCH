@@ -50,12 +50,7 @@ const Form = ({
 }) => {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const {
-    control,
-    handleSubmit,
-    reset,
-    formState,
-  } = useForm({
+  const { control, handleSubmit, reset, formState } = useForm({
     resolver: zodResolver(schema),
     defaultValues,
     mode: 'onBlur', // Validate on blur
@@ -103,15 +98,9 @@ const Form = ({
   }, [errors]);
 
   return (
-    <Box
-      component="form"
-      onSubmit={handleSubmit(handleFormSubmit)}
-      noValidate
-    >
+    <Box component="form" onSubmit={handleSubmit(handleFormSubmit)} noValidate>
       {/* Render children with control and formState */}
-      {typeof children === 'function'
-        ? children({ control, formState })
-        : children}
+      {typeof children === 'function' ? children({ control, formState }) : children}
 
       {/* Submit button */}
       <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>

@@ -205,7 +205,7 @@ describe('Clients Component', () => {
 
       // Find clear button (IconButton with ClearIcon)
       const buttons = screen.getAllByRole('button');
-      const clearButton = buttons.find(btn => btn.querySelector('svg')); // IconButton with icon
+      const clearButton = buttons.find((btn) => btn.querySelector('svg')); // IconButton with icon
 
       global.fetch.mockResolvedValueOnce({
         ok: true,

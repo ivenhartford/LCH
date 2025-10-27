@@ -65,17 +65,10 @@ const MainLayout = ({ user, onLogout, children }) => {
         <CssBaseline />
 
         {/* Header */}
-        <Header
-          user={user}
-          onMenuToggle={handleDrawerToggle}
-          onLogout={onLogout}
-        />
+        <Header user={user} onMenuToggle={handleDrawerToggle} onLogout={onLogout} />
 
         {/* Sidebar */}
-        <Sidebar
-          open={mobileOpen}
-          onClose={handleDrawerClose}
-        />
+        <Sidebar open={mobileOpen} onClose={handleDrawerClose} />
 
         {/* Main content area */}
         <Box

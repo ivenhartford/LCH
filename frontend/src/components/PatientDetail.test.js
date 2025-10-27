@@ -107,9 +107,12 @@ describe('PatientDetail Component', () => {
 
       renderWithProviders();
 
-      await waitFor(() => {
-        expect(screen.getByText(/Error loading patient/)).toBeInTheDocument();
-      }, { timeout: 3000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText(/Error loading patient/)).toBeInTheDocument();
+        },
+        { timeout: 3000 }
+      );
 
       expect(logger.error).toHaveBeenCalled();
       expect(screen.getByRole('button', { name: /Back to Patients/i })).toBeInTheDocument();
@@ -124,9 +127,12 @@ describe('PatientDetail Component', () => {
 
       renderWithProviders();
 
-      await waitFor(() => {
-        expect(screen.getByText(/Error loading patient/)).toBeInTheDocument();
-      }, { timeout: 3000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText(/Error loading patient/)).toBeInTheDocument();
+        },
+        { timeout: 3000 }
+      );
 
       const backButton = screen.getByRole('button', { name: /Back to Patients/i });
       await userEvent.click(backButton);

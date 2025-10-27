@@ -82,7 +82,11 @@ const AppointmentDetail = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const { data: appointment, isLoading, error } = useQuery({
+  const {
+    data: appointment,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['appointment', id],
     queryFn: () => fetchAppointment(id),
   });
@@ -133,11 +137,7 @@ const AppointmentDetail = () => {
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       {/* Header */}
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate(-1)}
-          variant="outlined"
-        >
+        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} variant="outlined">
           Back
         </Button>
         <Typography variant="h4" component="h1" sx={{ flexGrow: 1 }}>
@@ -209,10 +209,7 @@ const AppointmentDetail = () => {
             </Button>
           )}
           {appointment.status === 'scheduled' && (
-            <Button
-              variant="outlined"
-              onClick={() => handleStatusChange('no_show')}
-            >
+            <Button variant="outlined" onClick={() => handleStatusChange('no_show')}>
               Mark No Show
             </Button>
           )}
@@ -270,9 +267,7 @@ const AppointmentDetail = () => {
                         }}
                       />
                     )}
-                    <Typography variant="body1">
-                      {appointment.appointment_type_name}
-                    </Typography>
+                    <Typography variant="body1">{appointment.appointment_type_name}</Typography>
                   </Box>
                 </Grid>
               )}
@@ -291,9 +286,7 @@ const AppointmentDetail = () => {
                   <Typography variant="subtitle2" color="text.secondary">
                     Assigned Staff
                   </Typography>
-                  <Typography variant="body1">
-                    {appointment.assigned_staff_name}
-                  </Typography>
+                  <Typography variant="body1">{appointment.assigned_staff_name}</Typography>
                 </Grid>
               )}
 
@@ -302,9 +295,7 @@ const AppointmentDetail = () => {
                   <Typography variant="subtitle2" color="text.secondary">
                     Description
                   </Typography>
-                  <Typography variant="body1">
-                    {appointment.description}
-                  </Typography>
+                  <Typography variant="body1">{appointment.description}</Typography>
                 </Grid>
               )}
 
@@ -441,9 +432,7 @@ const AppointmentDetail = () => {
                       <Typography variant="subtitle2" color="text.secondary">
                         Cancelled By
                       </Typography>
-                      <Typography variant="body2">
-                        {appointment.cancelled_by_name}
-                      </Typography>
+                      <Typography variant="body2">{appointment.cancelled_by_name}</Typography>
                     </Box>
                   )}
                   {appointment.cancellation_reason && (
@@ -451,9 +440,7 @@ const AppointmentDetail = () => {
                       <Typography variant="subtitle2" color="text.secondary">
                         Reason
                       </Typography>
-                      <Typography variant="body2">
-                        {appointment.cancellation_reason}
-                      </Typography>
+                      <Typography variant="body2">{appointment.cancellation_reason}</Typography>
                     </Box>
                   )}
                 </>

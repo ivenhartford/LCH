@@ -334,7 +334,11 @@ describe('AppointmentDetail Component', () => {
         })
         .mockResolvedValueOnce({
           ok: true,
-          json: async () => ({ ...mockAppointment, status: 'cancelled', cancellation_reason: 'Patient is sick' }),
+          json: async () => ({
+            ...mockAppointment,
+            status: 'cancelled',
+            cancellation_reason: 'Patient is sick',
+          }),
         });
 
       renderWithProviders(<AppointmentDetail />);

@@ -21,7 +21,7 @@ const MyCalendar = () => {
     const response = await fetch('/api/appointments');
     if (response.ok) {
       const data = await response.json();
-      const formattedEvents = data.map(apt => ({
+      const formattedEvents = data.map((apt) => ({
         ...apt,
         start: new Date(apt.start),
         end: new Date(apt.end),
@@ -81,20 +81,16 @@ const MyCalendar = () => {
           onSelectSlot={handleSelectSlot}
         />
       </div>
-      <Modal
-        isOpen={modalIsOpen}
-        onRequestClose={closeModal}
-        contentLabel="Add Appointment"
-      >
+      <Modal isOpen={modalIsOpen} onRequestClose={closeModal} contentLabel="Add Appointment">
         <h2>Add Appointment</h2>
         <form onSubmit={handleSubmit}>
           <label>
             Title:
-            <input type="text" value={title} onChange={e => setTitle(e.target.value)} />
+            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} />
           </label>
           <label>
             Description:
-            <textarea value={description} onChange={e => setDescription(e.target.value)} />
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} />
           </label>
           <button type="submit">Save</button>
           <button onClick={closeModal}>Cancel</button>
