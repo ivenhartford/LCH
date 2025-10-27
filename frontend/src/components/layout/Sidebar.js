@@ -74,7 +74,7 @@ const Sidebar = ({ open, onClose }) => {
     {
       section: 'Clinical',
       items: [
-        { text: 'Medical Records', icon: <MedicalIcon />, path: '/medical-records' },
+        { text: 'Visits', icon: <MedicalIcon />, path: '/visits' },
         { text: 'Appointments', icon: <CalendarIcon />, path: '/appointments' },
       ],
     },

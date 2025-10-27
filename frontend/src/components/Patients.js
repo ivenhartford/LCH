@@ -65,6 +65,7 @@ function Patients() {
     return () => {
       logger.logLifecycle('Patients', 'unmounted');
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Fetch patients with React Query
