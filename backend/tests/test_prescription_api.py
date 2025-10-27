@@ -1,6 +1,7 @@
 """
 Tests for Prescription API endpoints
 """
+
 import pytest
 from datetime import date, timedelta
 from app import db
@@ -124,7 +125,9 @@ class TestPrescriptionList:
         data = response.json
         assert len(data["prescriptions"]) == 2
 
-    def test_get_prescriptions_filter_by_patient(self, authenticated_client, sample_prescriptions, sample_patient_and_visit):
+    def test_get_prescriptions_filter_by_patient(
+        self, authenticated_client, sample_prescriptions, sample_patient_and_visit
+    ):
         """Should filter prescriptions by patient"""
         response = authenticated_client.get(f"/api/prescriptions?patient_id={sample_patient_and_visit['patient_id']}")
         assert response.status_code == 200
@@ -203,7 +206,9 @@ class TestPrescriptionCreate:
         assert response.status_code == 404
         assert "Medication not found" in response.json["error"]
 
-    def test_create_prescription_missing_required(self, authenticated_client, sample_patient_and_visit, sample_medication):
+    def test_create_prescription_missing_required(
+        self, authenticated_client, sample_patient_and_visit, sample_medication
+    ):
         """Should reject prescription without required fields"""
         prescription_data = {
             "patient_id": sample_patient_and_visit["patient_id"],
