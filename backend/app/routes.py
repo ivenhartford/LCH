@@ -953,7 +953,7 @@ def create_vital_signs():
         db.session.commit()
 
         app.logger.info(f"Created vital signs {vital_signs.id} for visit {visit.id}")
-        return jsonify(vital_signs.to_dict()), 201
+        return jsonify(vital_signs_schema.dump(vital_signs)), 201
 
     except Exception as e:
         db.session.rollback()
@@ -979,7 +979,7 @@ def update_vital_signs(vital_signs_id):
 
         db.session.commit()
         app.logger.info(f"Updated vital signs {vital_signs_id}")
-        return jsonify(vital_signs.to_dict()), 200
+        return jsonify(vital_signs_schema.dump(vital_signs)), 200
 
     except Exception as e:
         db.session.rollback()
