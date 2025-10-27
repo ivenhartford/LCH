@@ -928,3 +928,384 @@ class Payment(db.Model):
             "processed_by_name": self.processed_by.username if self.processed_by else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+
+# ============================================================================
+# PHASE 3.1: INVENTORY MANAGEMENT
+# ============================================================================
+
+
+class Vendor(db.Model):
+    """
+    Vendor Model - Suppliers of medications, supplies, and products
+
+    Stores vendor/supplier information for inventory management.
+    """
+
+    __tablename__ = "vendor"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Company Info
+    company_name = db.Column(db.String(200), nullable=False)
+    contact_name = db.Column(db.String(200), nullable=True)
+    email = db.Column(db.String(120), nullable=True)
+    phone = db.Column(db.String(20), nullable=True)
+    fax = db.Column(db.String(20), nullable=True)
+    website = db.Column(db.String(200), nullable=True)
+
+    # Address
+    address_line1 = db.Column(db.String(200), nullable=True)
+    address_line2 = db.Column(db.String(200), nullable=True)
+    city = db.Column(db.String(100), nullable=True)
+    state = db.Column(db.String(50), nullable=True)
+    zip_code = db.Column(db.String(20), nullable=True)
+    country = db.Column(db.String(100), default="USA")
+
+    # Account Info
+    account_number = db.Column(db.String(100), nullable=True)
+    payment_terms = db.Column(db.String(100), nullable=True)  # Net 30, Net 60, etc.
+    tax_id = db.Column(db.String(50), nullable=True)
+
+    # Settings
+    preferred_vendor = db.Column(db.Boolean, default=False)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+
+    # Notes
+    notes = db.Column(db.Text, nullable=True)
+
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    products = db.relationship("Product", back_populates="vendor", lazy=True)
+    purchase_orders = db.relationship("PurchaseOrder", back_populates="vendor", lazy=True)
+
+    def __repr__(self):
+        return f"<Vendor {self.id} - {self.company_name}>"
+
+    def to_dict(self):
+        """Convert vendor to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "company_name": self.company_name,
+            "contact_name": self.contact_name,
+            "email": self.email,
+            "phone": self.phone,
+            "fax": self.fax,
+            "website": self.website,
+            "address_line1": self.address_line1,
+            "address_line2": self.address_line2,
+            "city": self.city,
+            "state": self.state,
+            "zip_code": self.zip_code,
+            "country": self.country,
+            "account_number": self.account_number,
+            "payment_terms": self.payment_terms,
+            "tax_id": self.tax_id,
+            "preferred_vendor": self.preferred_vendor,
+            "is_active": self.is_active,
+            "notes": self.notes,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class Product(db.Model):
+    """
+    Product Model - Inventory items (medications, supplies, retail products)
+
+    Comprehensive inventory management for all types of products.
+    Links to vendors and tracks stock levels.
+    """
+
+    __tablename__ = "product"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Basic Info
+    name = db.Column(db.String(200), nullable=False)
+    sku = db.Column(db.String(100), unique=True, nullable=True)  # Stock Keeping Unit
+    description = db.Column(db.Text, nullable=True)
+
+    # Categorization
+    product_type = db.Column(db.String(50), nullable=False)  # medication, supply, equipment, retail
+    category = db.Column(db.String(100), nullable=True)  # Surgical, Diagnostic, Food, Toys, etc.
+
+    # Vendor Info
+    vendor_id = db.Column(db.Integer, db.ForeignKey("vendor.id"), nullable=True)
+    vendor_sku = db.Column(db.String(100), nullable=True)  # Vendor's product code
+
+    # Inventory Tracking
+    stock_quantity = db.Column(db.Integer, default=0, nullable=False)
+    reorder_level = db.Column(db.Integer, default=0, nullable=False)  # Minimum stock before reorder
+    reorder_quantity = db.Column(db.Integer, default=0, nullable=False)  # How many to order
+    unit_of_measure = db.Column(db.String(50), default="each")  # each, box, case, bottle, etc.
+
+    # Pricing
+    unit_cost = db.Column(db.Numeric(10, 2), nullable=True)  # What we pay
+    unit_price = db.Column(db.Numeric(10, 2), nullable=True)  # What we charge
+    markup_percentage = db.Column(db.Numeric(5, 2), nullable=True)
+
+    # Product Details
+    manufacturer = db.Column(db.String(200), nullable=True)
+    lot_number = db.Column(db.String(100), nullable=True)
+    expiration_date = db.Column(db.Date, nullable=True)
+    storage_location = db.Column(db.String(100), nullable=True)  # Shelf A, Refrigerator, etc.
+
+    # Flags
+    requires_prescription = db.Column(db.Boolean, default=False)
+    controlled_substance = db.Column(db.Boolean, default=False)
+    taxable = db.Column(db.Boolean, default=True)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+
+    # Notes
+    notes = db.Column(db.Text, nullable=True)
+
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    vendor = db.relationship("Vendor", back_populates="products")
+    transactions = db.relationship("InventoryTransaction", back_populates="product", lazy=True)
+
+    def __repr__(self):
+        return f"<Product {self.id} - {self.name} (Stock: {self.stock_quantity})>"
+
+    @property
+    def needs_reorder(self):
+        """Check if product stock is below reorder level"""
+        return self.stock_quantity <= self.reorder_level
+
+    @property
+    def is_out_of_stock(self):
+        """Check if product is out of stock"""
+        return self.stock_quantity <= 0
+
+    @property
+    def stock_value(self):
+        """Calculate total value of stock on hand"""
+        if self.unit_cost and self.stock_quantity:
+            return float(self.unit_cost) * self.stock_quantity
+        return 0.0
+
+    def to_dict(self):
+        """Convert product to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "sku": self.sku,
+            "description": self.description,
+            "product_type": self.product_type,
+            "category": self.category,
+            "vendor_id": self.vendor_id,
+            "vendor_name": self.vendor.company_name if self.vendor else None,
+            "vendor_sku": self.vendor_sku,
+            "stock_quantity": self.stock_quantity,
+            "reorder_level": self.reorder_level,
+            "reorder_quantity": self.reorder_quantity,
+            "unit_of_measure": self.unit_of_measure,
+            "unit_cost": float(self.unit_cost) if self.unit_cost else None,
+            "unit_price": float(self.unit_price) if self.unit_price else None,
+            "markup_percentage": float(self.markup_percentage) if self.markup_percentage else None,
+            "manufacturer": self.manufacturer,
+            "lot_number": self.lot_number,
+            "expiration_date": self.expiration_date.isoformat() if self.expiration_date else None,
+            "storage_location": self.storage_location,
+            "requires_prescription": self.requires_prescription,
+            "controlled_substance": self.controlled_substance,
+            "taxable": self.taxable,
+            "is_active": self.is_active,
+            "notes": self.notes,
+            "needs_reorder": self.needs_reorder,
+            "is_out_of_stock": self.is_out_of_stock,
+            "stock_value": self.stock_value,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class PurchaseOrder(db.Model):
+    """
+    Purchase Order Model - Orders to vendors
+
+    Tracks purchase orders for inventory replenishment.
+    """
+
+    __tablename__ = "purchase_order"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Order Info
+    po_number = db.Column(db.String(50), unique=True, nullable=False)
+    vendor_id = db.Column(db.Integer, db.ForeignKey("vendor.id"), nullable=False)
+    order_date = db.Column(db.Date, nullable=False, default=datetime.utcnow)
+    expected_delivery_date = db.Column(db.Date, nullable=True)
+    actual_delivery_date = db.Column(db.Date, nullable=True)
+
+    # Status
+    status = db.Column(
+        db.String(20), nullable=False, default="draft"
+    )  # draft, submitted, received, partially_received, cancelled
+
+    # Amounts
+    subtotal = db.Column(db.Numeric(10, 2), default=0.0, nullable=False)
+    tax = db.Column(db.Numeric(10, 2), default=0.0, nullable=False)
+    shipping = db.Column(db.Numeric(10, 2), default=0.0, nullable=False)
+    total_amount = db.Column(db.Numeric(10, 2), default=0.0, nullable=False)
+
+    # Notes
+    notes = db.Column(db.Text, nullable=True)
+    shipping_address = db.Column(db.Text, nullable=True)
+
+    # Metadata
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    received_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    vendor = db.relationship("Vendor", back_populates="purchase_orders")
+    items = db.relationship("PurchaseOrderItem", back_populates="purchase_order", cascade="all, delete-orphan")
+    created_by = db.relationship("User", foreign_keys=[created_by_id])
+    received_by = db.relationship("User", foreign_keys=[received_by_id])
+
+    def __repr__(self):
+        return f"<PurchaseOrder {self.po_number} - {self.vendor.company_name if self.vendor else 'N/A'}>"
+
+    def to_dict(self):
+        """Convert purchase order to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "po_number": self.po_number,
+            "vendor_id": self.vendor_id,
+            "vendor_name": self.vendor.company_name if self.vendor else None,
+            "order_date": self.order_date.isoformat() if self.order_date else None,
+            "expected_delivery_date": self.expected_delivery_date.isoformat() if self.expected_delivery_date else None,
+            "actual_delivery_date": self.actual_delivery_date.isoformat() if self.actual_delivery_date else None,
+            "status": self.status,
+            "subtotal": float(self.subtotal) if self.subtotal else 0.0,
+            "tax": float(self.tax) if self.tax else 0.0,
+            "shipping": float(self.shipping) if self.shipping else 0.0,
+            "total_amount": float(self.total_amount) if self.total_amount else 0.0,
+            "notes": self.notes,
+            "shipping_address": self.shipping_address,
+            "created_by_id": self.created_by_id,
+            "created_by_name": self.created_by.username if self.created_by else None,
+            "received_by_id": self.received_by_id,
+            "received_by_name": self.received_by.username if self.received_by else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "items": [item.to_dict() for item in self.items] if self.items else [],
+        }
+
+
+class PurchaseOrderItem(db.Model):
+    """
+    Purchase Order Item Model - Line items for purchase orders
+
+    Individual products and quantities on a purchase order.
+    """
+
+    __tablename__ = "purchase_order_item"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Links
+    purchase_order_id = db.Column(db.Integer, db.ForeignKey("purchase_order.id"), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey("product.id"), nullable=False)
+
+    # Order Details
+    quantity_ordered = db.Column(db.Integer, nullable=False)
+    quantity_received = db.Column(db.Integer, default=0, nullable=False)
+    unit_cost = db.Column(db.Numeric(10, 2), nullable=False)
+    total_cost = db.Column(db.Numeric(10, 2), nullable=False)
+
+    # Notes
+    notes = db.Column(db.Text, nullable=True)
+
+    # Relationships
+    purchase_order = db.relationship("PurchaseOrder", back_populates="items")
+    product = db.relationship("Product")
+
+    def __repr__(self):
+        return (
+            f"<PurchaseOrderItem {self.id} - {self.product.name if self.product else 'N/A'} x{self.quantity_ordered}>"
+        )
+
+    def to_dict(self):
+        """Convert purchase order item to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "purchase_order_id": self.purchase_order_id,
+            "product_id": self.product_id,
+            "product_name": self.product.name if self.product else None,
+            "quantity_ordered": self.quantity_ordered,
+            "quantity_received": self.quantity_received,
+            "unit_cost": float(self.unit_cost) if self.unit_cost else 0.0,
+            "total_cost": float(self.total_cost) if self.total_cost else 0.0,
+            "notes": self.notes,
+        }
+
+
+class InventoryTransaction(db.Model):
+    """
+    Inventory Transaction Model - Track all inventory movements
+
+    Records all changes to inventory levels for audit trail.
+    """
+
+    __tablename__ = "inventory_transaction"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Links
+    product_id = db.Column(db.Integer, db.ForeignKey("product.id"), nullable=False)
+    purchase_order_id = db.Column(db.Integer, db.ForeignKey("purchase_order.id"), nullable=True)
+
+    # Transaction Details
+    transaction_type = db.Column(
+        db.String(50), nullable=False
+    )  # received, dispensed, adjustment, return, expired, damaged
+    quantity = db.Column(db.Integer, nullable=False)  # Positive for increase, negative for decrease
+    quantity_before = db.Column(db.Integer, nullable=False)
+    quantity_after = db.Column(db.Integer, nullable=False)
+
+    # Additional Info
+    reason = db.Column(db.String(200), nullable=True)
+    reference_number = db.Column(db.String(100), nullable=True)  # Invoice #, PO #, etc.
+    notes = db.Column(db.Text, nullable=True)
+
+    # Metadata
+    transaction_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    performed_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+
+    # Relationships
+    product = db.relationship("Product", back_populates="transactions")
+    purchase_order = db.relationship("PurchaseOrder")
+    performed_by = db.relationship("User")
+
+    def __repr__(self):
+        product_name = self.product.name if self.product else "N/A"
+        return f"<InventoryTransaction {self.id} - {product_name} {self.transaction_type} {self.quantity}>"
+
+    def to_dict(self):
+        """Convert inventory transaction to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "product_id": self.product_id,
+            "product_name": self.product.name if self.product else None,
+            "purchase_order_id": self.purchase_order_id,
+            "transaction_type": self.transaction_type,
+            "quantity": self.quantity,
+            "quantity_before": self.quantity_before,
+            "quantity_after": self.quantity_after,
+            "reason": self.reason,
+            "reference_number": self.reference_number,
+            "notes": self.notes,
+            "transaction_date": self.transaction_date.isoformat() if self.transaction_date else None,
+            "performed_by_id": self.performed_by_id,
+            "performed_by_name": self.performed_by.username if self.performed_by else None,
+        }
