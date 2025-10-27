@@ -11,9 +11,7 @@ class User(UserMixin, db.Model):
     role = db.Column(db.String(80), nullable=False, default="user")
 
     def set_password(self, password):
-        self.password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode(
-            "utf-8"
-        )
+        self.password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
     def check_password(self, password):
         return bcrypt.checkpw(password.encode("utf-8"), self.password_hash.encode("utf-8"))
@@ -60,15 +58,11 @@ class Client(db.Model):
 
     # Metadata
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(
-        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
-    )
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
 
     # Relationships
-    patients = db.relationship(
-        "Patient", back_populates="owner", lazy=True, cascade="all, delete-orphan"
-    )
+    patients = db.relationship("Patient", back_populates="owner", lazy=True, cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Client {self.first_name} {self.last_name}>"
@@ -115,12 +109,8 @@ class Patient(db.Model):
 
     # Basic Info
     name = db.Column(db.String(100), nullable=False)
-    species = db.Column(
-        db.String(50), default="Cat", nullable=False
-    )  # Always "Cat" - feline-only clinic
-    breed = db.Column(
-        db.String(100)
-    )  # Cat breeds: Persian, Siamese, Maine Coon, Domestic Shorthair, etc.
+    species = db.Column(db.String(50), default="Cat", nullable=False)  # Always "Cat" - feline-only clinic
+    breed = db.Column(db.String(100))  # Cat breeds: Persian, Siamese, Maine Coon, Domestic Shorthair, etc.
     color = db.Column(db.String(100))  # Fur color: Orange Tabby, Black, Calico, etc.
     markings = db.Column(db.Text)  # Special markings or patterns
 
@@ -150,16 +140,12 @@ class Patient(db.Model):
     behavioral_notes = db.Column(db.Text)  # Temperament, behavior notes
 
     # Status
-    status = db.Column(
-        db.String(20), default="Active", nullable=False
-    )  # Active, Inactive, Deceased
+    status = db.Column(db.String(20), default="Active", nullable=False)  # Active, Inactive, Deceased
     deceased_date = db.Column(db.Date, nullable=True)
 
     # Metadata
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(
-        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
-    )
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     # Relationships
     owner = db.relationship("Client", back_populates="patients")
@@ -236,3 +222,306 @@ class Appointment(db.Model):
 
     def __repr__(self):
         return f"<Appointment {self.title}>"
+
+
+class Visit(db.Model):
+    """
+    Visit Model - Records of patient visits to the clinic
+
+    A visit represents a patient coming to the clinic for medical care.
+    Each visit can have associated SOAP notes, vital signs, diagnoses, and prescriptions.
+    """
+
+    __tablename__ = "visit"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Basic Info
+    visit_date = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    visit_type = db.Column(db.String(50), nullable=False)  # Wellness, Sick, Emergency, Follow-up, Surgery, etc.
+    status = db.Column(
+        db.String(20), default="scheduled", nullable=False
+    )  # scheduled, in_progress, completed, cancelled
+
+    # Patient and Staff Links
+    patient_id = db.Column(db.Integer, db.ForeignKey("patient.id"), nullable=False)
+    veterinarian_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)  # Vet who saw the patient
+    appointment_id = db.Column(
+        db.Integer, db.ForeignKey("appointment.id"), nullable=True
+    )  # Link to appointment if created from one
+
+    # Visit Details
+    chief_complaint = db.Column(db.Text)  # Main reason for visit
+    visit_notes = db.Column(db.Text)  # General visit notes
+
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    completed_at = db.Column(db.DateTime, nullable=True)
+
+    # Relationships
+    patient = db.relationship("Patient", backref="visits")
+    veterinarian = db.relationship("User", backref="visits_conducted")
+    soap_notes = db.relationship("SOAPNote", back_populates="visit", cascade="all, delete-orphan")
+    vital_signs = db.relationship("VitalSigns", back_populates="visit", cascade="all, delete-orphan")
+    diagnoses = db.relationship("Diagnosis", back_populates="visit", cascade="all, delete-orphan")
+    vaccinations = db.relationship("Vaccination", back_populates="visit", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<Visit {self.id} - Patient {self.patient_id} - {self.visit_date}>"
+
+    def to_dict(self):
+        """Convert visit to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "visit_date": self.visit_date.isoformat() if self.visit_date else None,
+            "visit_type": self.visit_type,
+            "status": self.status,
+            "patient_id": self.patient_id,
+            "patient_name": self.patient.name if self.patient else None,
+            "veterinarian_id": self.veterinarian_id,
+            "veterinarian_name": self.veterinarian.username if self.veterinarian else None,
+            "appointment_id": self.appointment_id,
+            "chief_complaint": self.chief_complaint,
+            "visit_notes": self.visit_notes,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+        }
+
+
+class VitalSigns(db.Model):
+    """
+    Vital Signs Model - Records vital signs taken during a visit
+
+    Stores temperature, weight, heart rate, respiratory rate, etc.
+    """
+
+    __tablename__ = "vital_signs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    visit_id = db.Column(db.Integer, db.ForeignKey("visit.id"), nullable=False)
+
+    # Vital Signs
+    temperature_c = db.Column(db.Numeric(4, 1), nullable=True)  # Temperature in Celsius
+    weight_kg = db.Column(db.Numeric(5, 2), nullable=True)  # Weight in kilograms
+    heart_rate = db.Column(db.Integer, nullable=True)  # Beats per minute
+    respiratory_rate = db.Column(db.Integer, nullable=True)  # Breaths per minute
+    blood_pressure_systolic = db.Column(db.Integer, nullable=True)  # mmHg
+    blood_pressure_diastolic = db.Column(db.Integer, nullable=True)  # mmHg
+    capillary_refill_time = db.Column(db.String(20), nullable=True)  # e.g., "<2 seconds"
+    mucous_membrane_color = db.Column(db.String(50), nullable=True)  # Pink, Pale, Cyanotic, etc.
+    body_condition_score = db.Column(db.Integer, nullable=True)  # 1-9 scale
+
+    # Additional Info
+    pain_score = db.Column(db.Integer, nullable=True)  # 0-10 scale
+    notes = db.Column(db.Text, nullable=True)
+
+    # Metadata
+    recorded_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    recorded_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+
+    # Relationships
+    visit = db.relationship("Visit", back_populates="vital_signs")
+    recorded_by = db.relationship("User")
+
+    def __repr__(self):
+        return f"<VitalSigns Visit {self.visit_id}>"
+
+    def to_dict(self):
+        """Convert vital signs to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "visit_id": self.visit_id,
+            "temperature_c": float(self.temperature_c) if self.temperature_c else None,
+            "weight_kg": float(self.weight_kg) if self.weight_kg else None,
+            "heart_rate": self.heart_rate,
+            "respiratory_rate": self.respiratory_rate,
+            "blood_pressure_systolic": self.blood_pressure_systolic,
+            "blood_pressure_diastolic": self.blood_pressure_diastolic,
+            "capillary_refill_time": self.capillary_refill_time,
+            "mucous_membrane_color": self.mucous_membrane_color,
+            "body_condition_score": self.body_condition_score,
+            "pain_score": self.pain_score,
+            "notes": self.notes,
+            "recorded_at": self.recorded_at.isoformat() if self.recorded_at else None,
+            "recorded_by_id": self.recorded_by_id,
+            "recorded_by_name": self.recorded_by.username if self.recorded_by else None,
+        }
+
+
+class SOAPNote(db.Model):
+    """
+    SOAP Note Model - Clinical notes following SOAP format
+
+    SOAP = Subjective, Objective, Assessment, Plan
+    Standard format for medical record documentation
+    """
+
+    __tablename__ = "soap_note"
+
+    id = db.Column(db.Integer, primary_key=True)
+    visit_id = db.Column(db.Integer, db.ForeignKey("visit.id"), nullable=False)
+
+    # SOAP Components
+    subjective = db.Column(db.Text, nullable=True)  # Patient history, owner's observations, symptoms
+    objective = db.Column(db.Text, nullable=True)  # Physical exam findings, test results, vital signs
+    assessment = db.Column(db.Text, nullable=True)  # Diagnosis, differential diagnosis
+    plan = db.Column(db.Text, nullable=True)  # Treatment plan, medications, follow-up instructions
+
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+
+    # Relationships
+    visit = db.relationship("Visit", back_populates="soap_notes")
+    created_by = db.relationship("User")
+
+    def __repr__(self):
+        return f"<SOAPNote Visit {self.visit_id}>"
+
+    def to_dict(self):
+        """Convert SOAP note to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "visit_id": self.visit_id,
+            "subjective": self.subjective,
+            "objective": self.objective,
+            "assessment": self.assessment,
+            "plan": self.plan,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "created_by_id": self.created_by_id,
+            "created_by_name": self.created_by.username if self.created_by else None,
+        }
+
+
+class Diagnosis(db.Model):
+    """
+    Diagnosis Model - Medical diagnoses assigned during visits
+
+    Includes ICD-10 codes for standardization
+    """
+
+    __tablename__ = "diagnosis"
+
+    id = db.Column(db.Integer, primary_key=True)
+    visit_id = db.Column(db.Integer, db.ForeignKey("visit.id"), nullable=False)
+
+    # Diagnosis Info
+    diagnosis_name = db.Column(db.String(200), nullable=False)
+    icd_code = db.Column(db.String(20), nullable=True)  # ICD-10 code
+    diagnosis_type = db.Column(db.String(50), default="primary")  # primary, differential, rule-out
+    severity = db.Column(db.String(20), nullable=True)  # mild, moderate, severe
+    status = db.Column(db.String(20), default="active")  # active, resolved, chronic, ruled-out
+
+    # Additional Details
+    notes = db.Column(db.Text, nullable=True)
+    onset_date = db.Column(db.Date, nullable=True)
+    resolution_date = db.Column(db.Date, nullable=True)
+
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+
+    # Relationships
+    visit = db.relationship("Visit", back_populates="diagnoses")
+    created_by = db.relationship("User")
+
+    def __repr__(self):
+        return f"<Diagnosis {self.diagnosis_name} ({self.icd_code})>"
+
+    def to_dict(self):
+        """Convert diagnosis to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "visit_id": self.visit_id,
+            "diagnosis_name": self.diagnosis_name,
+            "icd_code": self.icd_code,
+            "diagnosis_type": self.diagnosis_type,
+            "severity": self.severity,
+            "status": self.status,
+            "notes": self.notes,
+            "onset_date": self.onset_date.isoformat() if self.onset_date else None,
+            "resolution_date": self.resolution_date.isoformat() if self.resolution_date else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "created_by_id": self.created_by_id,
+            "created_by_name": self.created_by.username if self.created_by else None,
+        }
+
+
+class Vaccination(db.Model):
+    """
+    Vaccination Model - Vaccination records
+
+    Tracks all vaccines administered to patients
+    """
+
+    __tablename__ = "vaccination"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Patient and Visit Link
+    patient_id = db.Column(db.Integer, db.ForeignKey("patient.id"), nullable=False)
+    visit_id = db.Column(db.Integer, db.ForeignKey("visit.id"), nullable=True)  # Visit when vaccine was given
+
+    # Vaccine Info
+    vaccine_name = db.Column(db.String(200), nullable=False)  # FVRCP, Rabies, FeLV, etc. (cat vaccines)
+    vaccine_type = db.Column(db.String(100), nullable=True)  # Core, Non-core, Lifestyle-dependent
+    manufacturer = db.Column(db.String(100), nullable=True)
+    lot_number = db.Column(db.String(100), nullable=True)
+    serial_number = db.Column(db.String(100), nullable=True)
+
+    # Administration Details
+    administration_date = db.Column(db.Date, nullable=False)
+    expiration_date = db.Column(db.Date, nullable=True)
+    next_due_date = db.Column(db.Date, nullable=True)  # When next dose/booster is due
+    dosage = db.Column(db.String(50), nullable=True)
+    route = db.Column(db.String(50), nullable=True)  # SC (subcutaneous), IM (intramuscular), etc.
+    administration_site = db.Column(db.String(100), nullable=True)  # Right shoulder, etc.
+
+    # Status
+    status = db.Column(db.String(20), default="current")  # current, overdue, not_due, declined
+
+    # Notes
+    notes = db.Column(db.Text, nullable=True)
+    adverse_reactions = db.Column(db.Text, nullable=True)
+
+    # Metadata
+    administered_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    patient = db.relationship("Patient", backref="vaccinations")
+    visit = db.relationship("Visit", back_populates="vaccinations")
+    administered_by = db.relationship("User")
+
+    def __repr__(self):
+        return f"<Vaccination {self.vaccine_name} - Patient {self.patient_id}>"
+
+    def to_dict(self):
+        """Convert vaccination to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "patient_id": self.patient_id,
+            "patient_name": self.patient.name if self.patient else None,
+            "visit_id": self.visit_id,
+            "vaccine_name": self.vaccine_name,
+            "vaccine_type": self.vaccine_type,
+            "manufacturer": self.manufacturer,
+            "lot_number": self.lot_number,
+            "serial_number": self.serial_number,
+            "administration_date": (self.administration_date.isoformat() if self.administration_date else None),
+            "expiration_date": self.expiration_date.isoformat() if self.expiration_date else None,
+            "next_due_date": self.next_due_date.isoformat() if self.next_due_date else None,
+            "dosage": self.dosage,
+            "route": self.route,
+            "administration_site": self.administration_site,
+            "status": self.status,
+            "notes": self.notes,
+            "adverse_reactions": self.adverse_reactions,
+            "administered_by_id": self.administered_by_id,
+            "administered_by_name": self.administered_by.username if self.administered_by else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }

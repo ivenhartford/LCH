@@ -63,9 +63,7 @@ class ClientUpdateSchema(Schema):
     zip_code = fields.Str(allow_none=True, validate=validate.Length(max=20))
 
     # Communication Preferences
-    preferred_contact = fields.Str(
-        allow_none=True, validate=validate.OneOf(["email", "phone", "sms"])
-    )
+    preferred_contact = fields.Str(allow_none=True, validate=validate.OneOf(["email", "phone", "sms"]))
     email_reminders = fields.Bool()
     sms_reminders = fields.Bool()
 
@@ -95,9 +93,7 @@ class PatientSchema(Schema):
 
     # Physical Characteristics
     sex = fields.Str(allow_none=True, validate=validate.OneOf(["Male", "Female"]))
-    reproductive_status = fields.Str(
-        allow_none=True, validate=validate.OneOf(["Intact", "Spayed", "Neutered"])
-    )
+    reproductive_status = fields.Str(allow_none=True, validate=validate.OneOf(["Intact", "Spayed", "Neutered"]))
     date_of_birth = fields.Date(allow_none=True)
     approximate_age = fields.Str(allow_none=True, validate=validate.Length(max=50))
     weight_kg = fields.Decimal(as_string=True, allow_none=True, places=2)
@@ -122,9 +118,7 @@ class PatientSchema(Schema):
     behavioral_notes = fields.Str(allow_none=True)
 
     # Status
-    status = fields.Str(
-        load_default="Active", validate=validate.OneOf(["Active", "Inactive", "Deceased"])
-    )
+    status = fields.Str(load_default="Active", validate=validate.OneOf(["Active", "Inactive", "Deceased"]))
     deceased_date = fields.Date(allow_none=True)
 
     # Calculated field
@@ -147,9 +141,7 @@ class PatientUpdateSchema(Schema):
 
     # Physical Characteristics
     sex = fields.Str(allow_none=True, validate=validate.OneOf(["Male", "Female"]))
-    reproductive_status = fields.Str(
-        allow_none=True, validate=validate.OneOf(["Intact", "Spayed", "Neutered"])
-    )
+    reproductive_status = fields.Str(allow_none=True, validate=validate.OneOf(["Intact", "Spayed", "Neutered"]))
     date_of_birth = fields.Date(allow_none=True)
     approximate_age = fields.Str(allow_none=True, validate=validate.Length(max=50))
     weight_kg = fields.Decimal(as_string=True, allow_none=True, places=2)
@@ -177,6 +169,155 @@ class PatientUpdateSchema(Schema):
     deceased_date = fields.Date(allow_none=True)
 
 
+class VisitSchema(Schema):
+    """Schema for Visit model validation and serialization"""
+
+    id = fields.Int(dump_only=True)
+
+    # Basic Info
+    visit_date = fields.DateTime(load_default="now")
+    visit_type = fields.Str(
+        required=True,
+        validate=validate.OneOf(["Wellness", "Sick", "Emergency", "Follow-up", "Surgery", "Dental", "Other"]),
+    )
+    status = fields.Str(
+        load_default="scheduled",
+        validate=validate.OneOf(["scheduled", "in_progress", "completed", "cancelled"]),
+    )
+
+    # Links
+    patient_id = fields.Int(required=True)
+    patient_name = fields.Str(dump_only=True)
+    veterinarian_id = fields.Int(allow_none=True)
+    veterinarian_name = fields.Str(dump_only=True)
+    appointment_id = fields.Int(allow_none=True)
+
+    # Details
+    chief_complaint = fields.Str(allow_none=True)
+    visit_notes = fields.Str(allow_none=True)
+
+    # Metadata
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+    completed_at = fields.DateTime(allow_none=True)
+
+
+class VitalSignsSchema(Schema):
+    """Schema for Vital Signs validation and serialization"""
+
+    id = fields.Int(dump_only=True)
+    visit_id = fields.Int(required=True)
+
+    # Vital Signs
+    temperature_c = fields.Decimal(as_string=True, allow_none=True, places=1)
+    weight_kg = fields.Decimal(as_string=True, allow_none=True, places=2)
+    heart_rate = fields.Int(allow_none=True)
+    respiratory_rate = fields.Int(allow_none=True)
+    blood_pressure_systolic = fields.Int(allow_none=True)
+    blood_pressure_diastolic = fields.Int(allow_none=True)
+    capillary_refill_time = fields.Str(allow_none=True, validate=validate.Length(max=20))
+    mucous_membrane_color = fields.Str(allow_none=True, validate=validate.Length(max=50))
+    body_condition_score = fields.Int(allow_none=True, validate=validate.Range(min=1, max=9))  # 1-9 scale
+
+    # Additional Info
+    pain_score = fields.Int(allow_none=True, validate=validate.Range(min=0, max=10))  # 0-10 scale
+    notes = fields.Str(allow_none=True)
+
+    # Metadata
+    recorded_at = fields.DateTime(load_default="now")
+    recorded_by_id = fields.Int(allow_none=True)
+    recorded_by_name = fields.Str(dump_only=True)
+
+
+class SOAPNoteSchema(Schema):
+    """Schema for SOAP Note validation and serialization"""
+
+    id = fields.Int(dump_only=True)
+    visit_id = fields.Int(required=True)
+
+    # SOAP Components
+    subjective = fields.Str(allow_none=True)
+    objective = fields.Str(allow_none=True)
+    assessment = fields.Str(allow_none=True)
+    plan = fields.Str(allow_none=True)
+
+    # Metadata
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+    created_by_id = fields.Int(required=True)
+    created_by_name = fields.Str(dump_only=True)
+
+
+class DiagnosisSchema(Schema):
+    """Schema for Diagnosis validation and serialization"""
+
+    id = fields.Int(dump_only=True)
+    visit_id = fields.Int(required=True)
+
+    # Diagnosis Info
+    diagnosis_name = fields.Str(required=True, validate=validate.Length(min=1, max=200))
+    icd_code = fields.Str(allow_none=True, validate=validate.Length(max=20))
+    diagnosis_type = fields.Str(
+        load_default="primary", validate=validate.OneOf(["primary", "differential", "rule-out"])
+    )
+    severity = fields.Str(allow_none=True, validate=validate.OneOf(["mild", "moderate", "severe"]))
+    status = fields.Str(
+        load_default="active",
+        validate=validate.OneOf(["active", "resolved", "chronic", "ruled-out"]),
+    )
+
+    # Additional Details
+    notes = fields.Str(allow_none=True)
+    onset_date = fields.Date(allow_none=True)
+    resolution_date = fields.Date(allow_none=True)
+
+    # Metadata
+    created_at = fields.DateTime(dump_only=True)
+    created_by_id = fields.Int(required=True)
+    created_by_name = fields.Str(dump_only=True)
+
+
+class VaccinationSchema(Schema):
+    """Schema for Vaccination validation and serialization"""
+
+    id = fields.Int(dump_only=True)
+
+    # Links
+    patient_id = fields.Int(required=True)
+    patient_name = fields.Str(dump_only=True)
+    visit_id = fields.Int(allow_none=True)
+
+    # Vaccine Info
+    vaccine_name = fields.Str(required=True, validate=validate.Length(min=1, max=200))
+    vaccine_type = fields.Str(allow_none=True, validate=validate.OneOf(["Core", "Non-core", "Lifestyle-dependent"]))
+    manufacturer = fields.Str(allow_none=True, validate=validate.Length(max=100))
+    lot_number = fields.Str(allow_none=True, validate=validate.Length(max=100))
+    serial_number = fields.Str(allow_none=True, validate=validate.Length(max=100))
+
+    # Administration Details
+    administration_date = fields.Date(required=True)
+    expiration_date = fields.Date(allow_none=True)
+    next_due_date = fields.Date(allow_none=True)
+    dosage = fields.Str(allow_none=True, validate=validate.Length(max=50))
+    route = fields.Str(allow_none=True, validate=validate.OneOf(["SC", "IM", "IV", "PO", "Intranasal", "Other"]))
+    administration_site = fields.Str(allow_none=True, validate=validate.Length(max=100))
+
+    # Status
+    status = fields.Str(
+        load_default="current",
+        validate=validate.OneOf(["current", "overdue", "not_due", "declined"]),
+    )
+
+    # Notes
+    notes = fields.Str(allow_none=True)
+    adverse_reactions = fields.Str(allow_none=True)
+
+    # Metadata
+    administered_by_id = fields.Int(allow_none=True)
+    administered_by_name = fields.Str(dump_only=True)
+    created_at = fields.DateTime(dump_only=True)
+
+
 # Initialize schema instances for reuse
 client_schema = ClientSchema()
 clients_schema = ClientSchema(many=True)
@@ -185,3 +326,18 @@ client_update_schema = ClientUpdateSchema()
 patient_schema = PatientSchema()
 patients_schema = PatientSchema(many=True)
 patient_update_schema = PatientUpdateSchema()
+
+visit_schema = VisitSchema()
+visits_schema = VisitSchema(many=True)
+
+vital_signs_schema = VitalSignsSchema()
+vital_signs_list_schema = VitalSignsSchema(many=True)
+
+soap_note_schema = SOAPNoteSchema()
+soap_notes_schema = SOAPNoteSchema(many=True)
+
+diagnosis_schema = DiagnosisSchema()
+diagnoses_schema = DiagnosisSchema(many=True)
+
+vaccination_schema = VaccinationSchema()
+vaccinations_schema = VaccinationSchema(many=True)
