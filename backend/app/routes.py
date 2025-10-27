@@ -2296,6 +2296,282 @@ def delete_payment(payment_id):
 
 
 # ============================================================================
+# FINANCIAL REPORTS
+# ============================================================================
+
+
+@bp.route("/api/reports/financial-summary", methods=["GET"])
+@login_required
+def get_financial_summary():
+    """Get overall financial summary"""
+    try:
+        from .models import Invoice, Payment
+        from sqlalchemy import func
+        from decimal import Decimal
+
+        start_date = request.args.get("start_date")
+        end_date = request.args.get("end_date")
+
+        # Base query
+        invoice_query = db.session.query(Invoice)
+        payment_query = db.session.query(Payment)
+
+        if start_date:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            invoice_query = invoice_query.filter(Invoice.invoice_date >= start_dt)
+            payment_query = payment_query.filter(Payment.payment_date >= start_dt)
+
+        if end_date:
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+            invoice_query = invoice_query.filter(Invoice.invoice_date <= end_dt)
+            payment_query = payment_query.filter(Payment.payment_date <= end_dt)
+
+        # Total revenue (paid invoices)
+        total_revenue = invoice_query.filter(Invoice.status == "paid").with_entities(
+            func.sum(Invoice.total_amount)
+        ).scalar() or Decimal("0.0")
+
+        # Total outstanding balance
+        total_outstanding = invoice_query.filter(Invoice.status.in_(["sent", "partial_paid", "overdue"])).with_entities(
+            func.sum(Invoice.balance_due)
+        ).scalar() or Decimal("0.0")
+
+        # Total invoices issued
+        total_invoices = invoice_query.count()
+
+        # Paid invoices count
+        paid_invoices = invoice_query.filter(Invoice.status == "paid").count()
+
+        # Total payments received
+        total_payments = payment_query.with_entities(func.sum(Payment.amount)).scalar() or Decimal("0.0")
+
+        # Average invoice amount
+        avg_invoice = invoice_query.with_entities(func.avg(Invoice.total_amount)).scalar() or Decimal("0.0")
+
+        return (
+            jsonify(
+                {
+                    "total_revenue": float(total_revenue),
+                    "total_outstanding": float(total_outstanding),
+                    "total_invoices": total_invoices,
+                    "paid_invoices": paid_invoices,
+                    "total_payments": float(total_payments),
+                    "avg_invoice": float(avg_invoice),
+                    "start_date": start_date,
+                    "end_date": end_date,
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        app.logger.error(f"Error getting financial summary: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/reports/revenue-by-period", methods=["GET"])
+@login_required
+def get_revenue_by_period():
+    """Get revenue grouped by period (daily, weekly, monthly)"""
+    try:
+        from .models import Invoice
+        from sqlalchemy import func
+
+        period = request.args.get("period", "monthly")  # daily, weekly, monthly
+        start_date = request.args.get("start_date")
+        end_date = request.args.get("end_date")
+
+        query = db.session.query(Invoice).filter(Invoice.status == "paid")
+
+        if start_date:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            query = query.filter(Invoice.invoice_date >= start_dt)
+
+        if end_date:
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+            query = query.filter(Invoice.invoice_date <= end_dt)
+
+        if period == "daily":
+            results = (
+                query.with_entities(
+                    func.date(Invoice.invoice_date).label("period"),
+                    func.sum(Invoice.total_amount).label("revenue"),
+                    func.count(Invoice.id).label("count"),
+                )
+                .group_by(func.date(Invoice.invoice_date))
+                .order_by(func.date(Invoice.invoice_date))
+                .all()
+            )
+        elif period == "monthly":
+            results = (
+                query.with_entities(
+                    func.strftime("%Y-%m", Invoice.invoice_date).label("period"),
+                    func.sum(Invoice.total_amount).label("revenue"),
+                    func.count(Invoice.id).label("count"),
+                )
+                .group_by(func.strftime("%Y-%m", Invoice.invoice_date))
+                .order_by(func.strftime("%Y-%m", Invoice.invoice_date))
+                .all()
+            )
+        else:  # weekly
+            results = (
+                query.with_entities(
+                    func.strftime("%Y-W%W", Invoice.invoice_date).label("period"),
+                    func.sum(Invoice.total_amount).label("revenue"),
+                    func.count(Invoice.id).label("count"),
+                )
+                .group_by(func.strftime("%Y-W%W", Invoice.invoice_date))
+                .order_by(func.strftime("%Y-W%W", Invoice.invoice_date))
+                .all()
+            )
+
+        data = [{"period": str(row.period), "revenue": float(row.revenue or 0), "count": row.count} for row in results]
+
+        return jsonify({"period": period, "data": data}), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting revenue by period: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/reports/outstanding-balance", methods=["GET"])
+@login_required
+def get_outstanding_balance_report():
+    """Get detailed outstanding balance report by client"""
+    try:
+        from .models import Invoice
+        from sqlalchemy import func
+
+        # Get all invoices with outstanding balance
+        results = (
+            db.session.query(
+                Invoice.client_id,
+                Client.name.label("client_name"),
+                func.count(Invoice.id).label("invoice_count"),
+                func.sum(Invoice.balance_due).label("total_outstanding"),
+                func.min(Invoice.invoice_date).label("oldest_invoice_date"),
+            )
+            .join(Client, Invoice.client_id == Client.id)
+            .filter(Invoice.status.in_(["sent", "partial_paid", "overdue"]))
+            .filter(Invoice.balance_due > 0)
+            .group_by(Invoice.client_id, Client.name)
+            .order_by(func.sum(Invoice.balance_due).desc())
+            .all()
+        )
+
+        data = [
+            {
+                "client_id": row.client_id,
+                "client_name": row.client_name,
+                "invoice_count": row.invoice_count,
+                "total_outstanding": float(row.total_outstanding or 0),
+                "oldest_invoice_date": row.oldest_invoice_date.isoformat() if row.oldest_invoice_date else None,
+            }
+            for row in results
+        ]
+
+        return jsonify({"data": data}), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting outstanding balance report: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/reports/payment-methods", methods=["GET"])
+@login_required
+def get_payment_method_breakdown():
+    """Get payment breakdown by payment method"""
+    try:
+        from .models import Payment
+        from sqlalchemy import func
+
+        start_date = request.args.get("start_date")
+        end_date = request.args.get("end_date")
+
+        query = db.session.query(
+            Payment.payment_method, func.sum(Payment.amount).label("total"), func.count(Payment.id).label("count")
+        )
+
+        if start_date:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            query = query.filter(Payment.payment_date >= start_dt)
+
+        if end_date:
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+            query = query.filter(Payment.payment_date <= end_dt)
+
+        results = query.group_by(Payment.payment_method).order_by(func.sum(Payment.amount).desc()).all()
+
+        data = [
+            {"payment_method": row.payment_method, "total": float(row.total or 0), "count": row.count}
+            for row in results
+        ]
+
+        return jsonify({"data": data}), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting payment method breakdown: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/reports/service-revenue", methods=["GET"])
+@login_required
+def get_service_revenue_report():
+    """Get revenue breakdown by service/product"""
+    try:
+        from .models import InvoiceItem, Service, Invoice
+        from sqlalchemy import func
+
+        start_date = request.args.get("start_date")
+        end_date = request.args.get("end_date")
+
+        query = (
+            db.session.query(
+                InvoiceItem.service_id,
+                Service.name.label("service_name"),
+                Service.service_type,
+                func.sum(InvoiceItem.quantity).label("total_quantity"),
+                func.sum(InvoiceItem.total_price).label("total_revenue"),
+                func.count(InvoiceItem.id).label("times_sold"),
+            )
+            .join(Service, InvoiceItem.service_id == Service.id)
+            .join(Invoice, InvoiceItem.invoice_id == Invoice.id)
+        )
+
+        if start_date:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            query = query.filter(Invoice.invoice_date >= start_dt)
+
+        if end_date:
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+            query = query.filter(Invoice.invoice_date <= end_dt)
+
+        results = (
+            query.group_by(InvoiceItem.service_id, Service.name, Service.service_type)
+            .order_by(func.sum(InvoiceItem.total_price).desc())
+            .all()
+        )
+
+        data = [
+            {
+                "service_id": row.service_id,
+                "service_name": row.service_name,
+                "service_type": row.service_type,
+                "total_quantity": float(row.total_quantity or 0),
+                "total_revenue": float(row.total_revenue or 0),
+                "times_sold": row.times_sold,
+            }
+            for row in results
+        ]
+
+        return jsonify({"data": data}), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting service revenue report: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+# ============================================================================
 
 
 @bp.route("/", defaults={"path": ""})
