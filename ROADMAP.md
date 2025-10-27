@@ -246,14 +246,15 @@ max-line-length = 100
 ### Goal
 Implement clinical workflows with SOAP notes, medical history, prescriptions, and invoicing.
 
-### 2.1 Medical Records Foundation (Week 1-2)
-- [ ] Create Visit model (date, type, status)
-- [ ] Create SOAPNote model (subjective, objective, assessment, plan)
-- [ ] Create Diagnosis model (with ICD codes)
-- [ ] Create VitalSigns model
-- [ ] Create Vaccination model and history
-- [ ] Link all to Patient
-- [ ] Create Medical Record API endpoints
+### 2.1 Medical Records Foundation (Week 1-2) ✅
+- [x] Create Visit model (date, type, status)
+- [x] Create SOAPNote model (subjective, objective, assessment, plan)
+- [x] Create Diagnosis model (with ICD codes)
+- [x] Create VitalSigns model
+- [x] Create Vaccination model and history
+- [x] Link all to Patient
+- [x] Create Medical Record API endpoints (25 RESTful endpoints with full CRUD)
+- [x] Write comprehensive test suite (50 tests, 100% passing)
 
 ### 2.2 Visit & SOAP Note UI (Week 2-3)
 - [ ] Build Visit creation workflow
