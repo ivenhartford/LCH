@@ -14,6 +14,7 @@ import PatientDetail from './components/PatientDetail';
 import PatientForm from './components/PatientForm';
 import AppointmentDetail from './components/AppointmentDetail';
 import AppointmentForm from './components/AppointmentForm';
+import Settings from './components/Settings';
 import logger from './utils/logger';
 import './App.css';
 
@@ -135,13 +136,7 @@ function App() {
             {/* Login Route - No layout */}
             <Route
               path="/login"
-              element={
-                user ? (
-                  <Navigate to="/" replace />
-                ) : (
-                  <Login setUser={setUser} />
-                )
-              }
+              element={user ? <Navigate to="/" replace /> : <Login setUser={setUser} />}
             />
 
             {/* Protected Routes - With layout */}
@@ -165,38 +160,22 @@ function App() {
                         path="/medical-records"
                         element={
                           <Box>
-                            <Typography variant="h4">
-                              Medical Records
-                            </Typography>
+                            <Typography variant="h4">Medical Records</Typography>
                             <Typography color="text.secondary">
                               Medical records coming soon (Phase 2)
                             </Typography>
                           </Box>
                         }
                       />
-                      <Route
-                        path="/appointments"
-                        element={<Dashboard />}
-                      />
-                      <Route
-                        path="/appointments/new"
-                        element={<AppointmentForm />}
-                      />
-                      <Route
-                        path="/appointments/:id"
-                        element={<AppointmentDetail />}
-                      />
-                      <Route
-                        path="/appointments/:id/edit"
-                        element={<AppointmentForm />}
-                      />
+                      <Route path="/appointments" element={<Dashboard />} />
+                      <Route path="/appointments/new" element={<AppointmentForm />} />
+                      <Route path="/appointments/:id" element={<AppointmentDetail />} />
+                      <Route path="/appointments/:id/edit" element={<AppointmentForm />} />
                       <Route
                         path="/invoices"
                         element={
                           <Box>
-                            <Typography variant="h4">
-                              Invoices
-                            </Typography>
+                            <Typography variant="h4">Invoices</Typography>
                             <Typography color="text.secondary">
                               Invoicing coming soon (Phase 2)
                             </Typography>
@@ -207,9 +186,7 @@ function App() {
                         path="/inventory"
                         element={
                           <Box>
-                            <Typography variant="h4">
-                              Inventory
-                            </Typography>
+                            <Typography variant="h4">Inventory</Typography>
                             <Typography color="text.secondary">
                               Inventory management coming soon (Phase 3)
                             </Typography>
@@ -220,9 +197,7 @@ function App() {
                         path="/staff"
                         element={
                           <Box>
-                            <Typography variant="h4">
-                              Staff
-                            </Typography>
+                            <Typography variant="h4">Staff</Typography>
                             <Typography color="text.secondary">
                               Staff management coming soon (Phase 3)
                             </Typography>
@@ -233,41 +208,21 @@ function App() {
                         path="/reports"
                         element={
                           <Box>
-                            <Typography variant="h4">
-                              Reports
-                            </Typography>
+                            <Typography variant="h4">Reports</Typography>
                             <Typography color="text.secondary">
                               Reports coming soon (Phase 4)
                             </Typography>
                           </Box>
                         }
                       />
-                      <Route
-                        path="/settings"
-                        element={
-                          <Box>
-                            <Typography variant="h4">
-                              Settings
-                            </Typography>
-                            <Typography color="text.secondary">
-                              Settings coming soon
-                            </Typography>
-                          </Box>
-                        }
-                      />
+                      <Route path="/settings" element={<Settings user={user} />} />
                       <Route
                         path="/profile"
                         element={
                           <Box>
-                            <Typography variant="h4">
-                              Profile
-                            </Typography>
-                            <Typography color="text.secondary">
-                              User: {user?.username}
-                            </Typography>
-                            <Typography color="text.secondary">
-                              Role: {user?.role}
-                            </Typography>
+                            <Typography variant="h4">Profile</Typography>
+                            <Typography color="text.secondary">User: {user?.username}</Typography>
+                            <Typography color="text.secondary">Role: {user?.role}</Typography>
                           </Box>
                         }
                       />

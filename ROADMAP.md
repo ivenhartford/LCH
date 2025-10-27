@@ -167,6 +167,80 @@ date-fns (for date handling) ✅
 
 ---
 
+## Phase 1.7: Code Quality & Linting (Recommended - 1-2 days)
+
+**Priority:** HIGH (before Phase 2)
+**Status:** ⏭️ Recommended
+
+While Phase 1 is functionally complete, adding linting and static analysis tools will improve code quality, consistency, and catch potential bugs early.
+
+### Frontend Linting & Formatting
+- ✅ **ESLint** - Already configured via create-react-app
+- ⏭️ Add **Prettier** for consistent code formatting
+  ```bash
+  npm install --save-dev prettier eslint-config-prettier eslint-plugin-prettier
+  ```
+- ⏭️ Create `.prettierrc` configuration
+- ⏭️ Add pre-commit hooks with **husky** and **lint-staged**
+- ⏭️ Run `npm run lint` and `npm run format` scripts
+- ⏭️ Fix existing linting warnings
+
+### Backend Linting & Formatting
+- ⏭️ Add **Black** for Python code formatting
+  ```bash
+  pip install black flake8 pylint
+  ```
+- ⏭️ Add **Flake8** for style guide enforcement
+- ⏭️ Add **Pylint** for additional static analysis
+- ⏭️ Add **mypy** for type checking (optional)
+- ⏭️ Create `pyproject.toml` for tool configuration
+- ⏭️ Add pre-commit hooks for Python
+- ⏭️ Run `black .` and `flake8` on codebase
+
+### Configuration Files
+**Frontend** (`.prettierrc`):
+```json
+{
+  "semi": true,
+  "trailingComma": "es5",
+  "singleQuote": true,
+  "printWidth": 100,
+  "tabWidth": 2
+}
+```
+
+**Backend** (`pyproject.toml`):
+```toml
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.flake8]
+max-line-length = 100
+extend-ignore = E203, W503
+
+[tool.pylint]
+max-line-length = 100
+```
+
+### Pre-commit Hooks
+- Install **husky** for git hooks
+- Configure **lint-staged** to run linters on staged files only
+- Auto-format code before commit
+- Block commits with linting errors
+
+### Benefits
+- Consistent code style across the team
+- Catch potential bugs before runtime
+- Easier code reviews
+- Better editor/IDE integration
+- Professional codebase quality
+
+**Estimated Time:** 1-2 days
+**Impact:** High - Prevents technical debt accumulation
+
+---
+
 ## Phase 2: Medical Records & Billing (6-8 weeks)
 
 ### Goal

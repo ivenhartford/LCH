@@ -68,13 +68,7 @@ function Patients() {
   }, []);
 
   // Fetch patients with React Query
-  const {
-    data,
-    isLoading,
-    isError,
-    error,
-    refetch,
-  } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['patients', page + 1, rowsPerPage, searchTerm, statusFilter, ownerFilter],
     queryFn: async () => {
       const startTime = performance.now();
@@ -283,11 +277,7 @@ function Patients() {
           </Button>
           <FormControl size="small" sx={{ minWidth: 120 }}>
             <InputLabel>Status</InputLabel>
-            <Select
-              value={statusFilter}
-              onChange={handleStatusFilterChange}
-              label="Status"
-            >
+            <Select value={statusFilter} onChange={handleStatusFilterChange} label="Status">
               <MenuItem value="">All</MenuItem>
               <MenuItem value="Active">Active</MenuItem>
               <MenuItem value="Inactive">Inactive</MenuItem>

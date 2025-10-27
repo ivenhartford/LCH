@@ -7,7 +7,7 @@ jest.mock('react-big-calendar', () => ({
       <button onClick={() => onSelectSlot({ start: new Date(), end: new Date() })}>
         Select Slot
       </button>
-      {events.map(event => (
+      {events.map((event) => (
         <div key={event.id}>{event.title}</div>
       ))}
     </div>
@@ -16,7 +16,7 @@ jest.mock('react-big-calendar', () => ({
 }));
 
 beforeEach(() => {
-  jest.spyOn(window, 'fetch').mockImplementation(url => {
+  jest.spyOn(window, 'fetch').mockImplementation((url) => {
     if (url === '/api/appointments') {
       return Promise.resolve({
         ok: true,

@@ -1,10 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Box, Toolbar, CssBaseline } from '@mui/material';
 import { ThemeProvider } from '@mui/material/styles';
 import Header from './Header';
 import Sidebar, { drawerWidth } from './Sidebar';
-import GlobalSearch from '../GlobalSearch';
-import Breadcrumbs from '../Breadcrumbs';
 import theme from '../../theme';
 import logger from '../../utils/logger';
 
@@ -22,15 +20,12 @@ import logger from '../../utils/logger';
  * - Responsive design (mobile-friendly)
  * - Persistent sidebar on desktop
  * - Temporary drawer on mobile
- * - Global search (Ctrl/Cmd+K)
- * - Keyboard shortcuts
  * - Clean, modern Material-UI theme
  * - Comprehensive logging
  */
 
 const MainLayout = ({ user, onLogout, children }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
 
   React.useEffect(() => {
     logger.logLifecycle('MainLayout', 'mounted', {
@@ -64,50 +59,16 @@ const MainLayout = ({ user, onLogout, children }) => {
     setMobileOpen(false);
   };
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      // Ctrl/Cmd + K: Open global search
-      if ((event.ctrlKey || event.metaKey) && event.key === 'k') {
-        event.preventDefault();
-        logger.logAction('Global search opened via keyboard shortcut');
-        setSearchOpen(true);
-      }
-
-      // ESC: Close search
-      if (event.key === 'Escape' && searchOpen) {
-        setSearchOpen(false);
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [searchOpen]);
-
   return (
     <ThemeProvider theme={theme}>
       <Box sx={{ display: 'flex' }}>
         <CssBaseline />
 
         {/* Header */}
-        <Header
-          user={user}
-          onMenuToggle={handleDrawerToggle}
-          onLogout={onLogout}
-          onSearchClick={() => setSearchOpen(true)}
-        />
+        <Header user={user} onMenuToggle={handleDrawerToggle} onLogout={onLogout} />
 
         {/* Sidebar */}
-        <Sidebar
-          open={mobileOpen}
-          onClose={handleDrawerClose}
-        />
-
-        {/* Global Search */}
-        <GlobalSearch
-          open={searchOpen}
-          onClose={() => setSearchOpen(false)}
-        />
+        <Sidebar open={mobileOpen} onClose={handleDrawerClose} />
 
         {/* Main content area */}
         <Box
@@ -121,7 +82,6 @@ const MainLayout = ({ user, onLogout, children }) => {
           }}
         >
           <Toolbar /> {/* Spacer for AppBar */}
-          <Breadcrumbs />
           {children}
         </Box>
       </Box>

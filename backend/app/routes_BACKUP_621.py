@@ -1,14 +1,21 @@
 import os
 from flask import jsonify, send_from_directory, request, Blueprint
 from flask import current_app as app
-from .models import db, User, Patient, Pet, Appointment, Client
+from .models import db, User, Patient, Pet, Appointment, AppointmentType, Client
 from .schemas import (
+<<<<<<< HEAD
+    client_schema, clients_schema, client_update_schema,
+    patient_schema, patients_schema, patient_update_schema,
+    appointment_type_schema, appointment_types_schema, appointment_type_update_schema,
+    appointment_schema, appointments_schema, appointment_update_schema
+=======
     client_schema,
     clients_schema,
     client_update_schema,
     patient_schema,
     patients_schema,
     patient_update_schema,
+>>>>>>> phase-1
 )
 from flask_login import login_user, logout_user, login_required, current_user
 from datetime import datetime
@@ -118,6 +125,309 @@ def get_pets():
     pets = Pet.query.all()
     return jsonify([{"name": pet.name, "breed": pet.breed, "owner": pet.owner} for pet in pets])
 
+<<<<<<< HEAD
+# ============================================================================
+# AppointmentType Management API Endpoints
+# ============================================================================
+
+@bp.route('/api/appointment-types', methods=['GET'])
+@login_required
+def get_appointment_types():
+    """
+    Get list of appointment types
+    Query params:
+        - active_only: Filter by active status (default true)
+    """
+    try:
+        active_only = request.args.get('active_only', 'true').lower() == 'true'
+
+        app.logger.info(f"GET /api/appointment-types - User: {current_user.username}, Active only: {active_only}")
+
+        query = AppointmentType.query
+        if active_only:
+            query = query.filter_by(is_active=True)
+
+        query = query.order_by(AppointmentType.name)
+        appointment_types = query.all()
+
+        app.logger.info(f"Found {len(appointment_types)} appointment types")
+
+        result = appointment_types_schema.dump(appointment_types)
+        return jsonify(result), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting appointment types: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@bp.route('/api/appointment-types/<int:type_id>', methods=['GET'])
+@login_required
+def get_appointment_type(type_id):
+    """Get a specific appointment type by ID"""
+    try:
+        app.logger.info(f"GET /api/appointment-types/{type_id} - User: {current_user.username}")
+
+        appointment_type = AppointmentType.query.get_or_404(type_id)
+
+        result = appointment_type_schema.dump(appointment_type)
+        return jsonify(result), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting appointment type {type_id}: {str(e)}", exc_info=True)
+        if 'not found' in str(e).lower():
+            return jsonify({'error': 'Appointment type not found'}), 404
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@bp.route('/api/appointment-types', methods=['POST'])
+@login_required
+def create_appointment_type():
+    """Create a new appointment type"""
+    try:
+        data = request.get_json()
+
+        app.logger.info(f"POST /api/appointment-types - User: {current_user.username}, Data: {data.get('name')}")
+
+        # Validate request data
+        try:
+            validated_data = appointment_type_schema.load(data)
+        except MarshmallowValidationError as err:
+            app.logger.warning(f"Validation error creating appointment type: {err.messages}")
+            return jsonify({'error': 'Validation error', 'messages': err.messages}), 400
+
+        # Check for duplicate name
+        existing = AppointmentType.query.filter_by(name=validated_data['name']).first()
+        if existing:
+            app.logger.warning(f"Attempted to create appointment type with duplicate name: {validated_data['name']}")
+            return jsonify({'error': 'Appointment type name already exists'}), 409
+
+        # Create new appointment type
+        new_type = AppointmentType(**validated_data)
+        db.session.add(new_type)
+        db.session.commit()
+
+        app.logger.info(f"Created appointment type {new_type.id}: {new_type.name}")
+
+        result = appointment_type_schema.dump(new_type)
+        return jsonify(result), 201
+
+    except IntegrityError as e:
+        db.session.rollback()
+        app.logger.error(f"Integrity error creating appointment type: {str(e)}")
+        return jsonify({'error': 'Database integrity error', 'message': str(e)}), 409
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating appointment type: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@bp.route('/api/appointment-types/<int:type_id>', methods=['PUT'])
+@login_required
+def update_appointment_type(type_id):
+    """Update an existing appointment type"""
+    try:
+        data = request.get_json()
+
+        app.logger.info(f"PUT /api/appointment-types/{type_id} - User: {current_user.username}")
+
+        appointment_type = AppointmentType.query.get_or_404(type_id)
+
+        # Validate request data
+        try:
+            validated_data = appointment_type_update_schema.load(data)
+        except MarshmallowValidationError as err:
+            app.logger.warning(f"Validation error updating appointment type {type_id}: {err.messages}")
+            return jsonify({'error': 'Validation error', 'messages': err.messages}), 400
+
+        # Check for duplicate name if name is being changed
+        if 'name' in validated_data and validated_data['name'] != appointment_type.name:
+            existing = AppointmentType.query.filter_by(name=validated_data['name']).first()
+            if existing:
+                app.logger.warning(f"Attempted to update appointment type {type_id} with duplicate name: {validated_data['name']}")
+                return jsonify({'error': 'Appointment type name already exists'}), 409
+
+        # Update fields
+        for key, value in validated_data.items():
+            setattr(appointment_type, key, value)
+
+        db.session.commit()
+
+        app.logger.info(f"Updated appointment type {type_id}: {appointment_type.name}")
+
+        result = appointment_type_schema.dump(appointment_type)
+        return jsonify(result), 200
+
+    except IntegrityError as e:
+        db.session.rollback()
+        app.logger.error(f"Integrity error updating appointment type {type_id}: {str(e)}")
+        return jsonify({'error': 'Database integrity error', 'message': str(e)}), 409
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating appointment type {type_id}: {str(e)}", exc_info=True)
+        if 'not found' in str(e).lower():
+            return jsonify({'error': 'Appointment type not found'}), 404
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@bp.route('/api/appointment-types/<int:type_id>', methods=['DELETE'])
+@login_required
+def delete_appointment_type(type_id):
+    """
+    Soft delete an appointment type (sets is_active to False)
+    Use ?hard=true query param for hard delete (requires admin)
+    """
+    try:
+        hard_delete = request.args.get('hard', 'false').lower() == 'true'
+
+        app.logger.info(f"DELETE /api/appointment-types/{type_id} - User: {current_user.username}, Hard: {hard_delete}")
+
+        appointment_type = AppointmentType.query.get_or_404(type_id)
+
+        if hard_delete:
+            # Hard delete requires admin role
+            if current_user.role != 'administrator':
+                app.logger.warning(f"Non-admin user {current_user.username} attempted hard delete of appointment type {type_id}")
+                return jsonify({'error': 'Admin access required for hard delete'}), 403
+
+            db.session.delete(appointment_type)
+            db.session.commit()
+            app.logger.info(f"Hard deleted appointment type {type_id}: {appointment_type.name}")
+            return jsonify({'message': 'Appointment type permanently deleted'}), 200
+        else:
+            # Soft delete
+            appointment_type.is_active = False
+            db.session.commit()
+            app.logger.info(f"Soft deleted (deactivated) appointment type {type_id}: {appointment_type.name}")
+            return jsonify({'message': 'Appointment type deactivated'}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting appointment type {type_id}: {str(e)}", exc_info=True)
+        if 'not found' in str(e).lower():
+            return jsonify({'error': 'Appointment type not found'}), 404
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+# ============================================================================
+# Enhanced Appointment Management API Endpoints
+# ============================================================================
+
+@bp.route('/api/appointments', methods=['GET'])
+@login_required
+def get_appointments():
+    """
+    Get list of appointments with optional filters and pagination
+    Query params:
+        - page: Page number (default 1)
+        - per_page: Items per page (default 100)
+        - status: Filter by status (scheduled, confirmed, checked_in, in_progress, completed, cancelled, no_show)
+        - client_id: Filter by specific client
+        - patient_id: Filter by specific patient
+        - assigned_staff_id: Filter by assigned staff member
+        - start_date: Filter appointments >= this date (ISO format)
+        - end_date: Filter appointments <= this date (ISO format)
+        - appointment_type_id: Filter by appointment type
+    """
+    try:
+        # Get query parameters
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 100, type=int)
+        status_filter = request.args.get('status', '').strip()
+        client_id = request.args.get('client_id', type=int)
+        patient_id = request.args.get('patient_id', type=int)
+        assigned_staff_id = request.args.get('assigned_staff_id', type=int)
+        appointment_type_id = request.args.get('appointment_type_id', type=int)
+        start_date = request.args.get('start_date', '').strip()
+        end_date = request.args.get('end_date', '').strip()
+
+        app.logger.info(f"GET /api/appointments - User: {current_user.username}, Filters: status={status_filter}, client={client_id}, patient={patient_id}")
+
+        # Build query
+        query = Appointment.query
+
+        # Apply filters
+        if status_filter:
+            query = query.filter_by(status=status_filter)
+
+        if client_id:
+            query = query.filter_by(client_id=client_id)
+
+        if patient_id:
+            query = query.filter_by(patient_id=patient_id)
+
+        if assigned_staff_id:
+            query = query.filter_by(assigned_staff_id=assigned_staff_id)
+
+        if appointment_type_id:
+            query = query.filter_by(appointment_type_id=appointment_type_id)
+
+        # Date range filters
+        if start_date:
+            try:
+                start_dt = datetime.fromisoformat(start_date)
+                query = query.filter(Appointment.start_time >= start_dt)
+            except ValueError:
+                return jsonify({'error': 'Invalid start_date format. Use ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)'}), 400
+
+        if end_date:
+            try:
+                end_dt = datetime.fromisoformat(end_date)
+                query = query.filter(Appointment.end_time <= end_dt)
+            except ValueError:
+                return jsonify({'error': 'Invalid end_date format. Use ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)'}), 400
+
+        # Order by start time
+        query = query.order_by(Appointment.start_time)
+
+        # Paginate results
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        appointments = pagination.items
+
+        app.logger.info(f"Found {pagination.total} appointments, returning page {page} of {pagination.pages}")
+
+        # Serialize appointments
+        result = appointments_schema.dump(appointments)
+
+        return jsonify({
+            'appointments': result,
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': pagination.total,
+                'pages': pagination.pages,
+                'has_next': pagination.has_next,
+                'has_prev': pagination.has_prev
+            }
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting appointments: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@bp.route('/api/appointments/<int:appointment_id>', methods=['GET'])
+@login_required
+def get_appointment(appointment_id):
+    """Get a specific appointment by ID"""
+    try:
+        app.logger.info(f"GET /api/appointments/{appointment_id} - User: {current_user.username}")
+
+        appointment = Appointment.query.get_or_404(appointment_id)
+
+        app.logger.info(f"Retrieved appointment {appointment_id}: {appointment.title}")
+
+        result = appointment_schema.dump(appointment)
+        return jsonify(result), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting appointment {appointment_id}: {str(e)}", exc_info=True)
+        if 'not found' in str(e).lower():
+            return jsonify({'error': 'Appointment not found'}), 404
+        return jsonify({'error': 'Internal server error'}), 500
+
+=======
 
 @bp.route("/api/appointments", methods=["GET"])
 @login_required
@@ -135,11 +445,190 @@ def get_appointments():
             for apt in appointments
         ]
     )
+>>>>>>> phase-1
 
 
 @bp.route("/api/appointments", methods=["POST"])
 @login_required
 def create_appointment():
+<<<<<<< HEAD
+    """Create a new appointment"""
+    try:
+        data = request.get_json()
+
+        app.logger.info(f"POST /api/appointments - User: {current_user.username}, Data: {data.get('title')}")
+
+        # Validate request data
+        try:
+            validated_data = appointment_schema.load(data)
+        except MarshmallowValidationError as err:
+            app.logger.warning(f"Validation error creating appointment: {err.messages}")
+            return jsonify({'error': 'Validation error', 'messages': err.messages}), 400
+
+        # Verify client exists
+        client = Client.query.get(validated_data['client_id'])
+        if not client:
+            app.logger.warning(f"Attempted to create appointment with non-existent client_id: {validated_data['client_id']}")
+            return jsonify({'error': 'Client not found'}), 404
+
+        # Verify patient exists if provided
+        if validated_data.get('patient_id'):
+            patient = Patient.query.get(validated_data['patient_id'])
+            if not patient:
+                app.logger.warning(f"Attempted to create appointment with non-existent patient_id: {validated_data['patient_id']}")
+                return jsonify({'error': 'Patient not found'}), 404
+
+        # Verify appointment type exists if provided
+        if validated_data.get('appointment_type_id'):
+            apt_type = AppointmentType.query.get(validated_data['appointment_type_id'])
+            if not apt_type:
+                app.logger.warning(f"Attempted to create appointment with non-existent appointment_type_id: {validated_data['appointment_type_id']}")
+                return jsonify({'error': 'Appointment type not found'}), 404
+
+        # Verify staff exists if provided
+        if validated_data.get('assigned_staff_id'):
+            staff = User.query.get(validated_data['assigned_staff_id'])
+            if not staff:
+                app.logger.warning(f"Attempted to create appointment with non-existent assigned_staff_id: {validated_data['assigned_staff_id']}")
+                return jsonify({'error': 'Assigned staff not found'}), 404
+
+        # Set created_by to current user
+        validated_data['created_by_id'] = current_user.id
+
+        # Create new appointment
+        new_appointment = Appointment(**validated_data)
+        db.session.add(new_appointment)
+        db.session.commit()
+
+        app.logger.info(f"Created appointment {new_appointment.id}: {new_appointment.title}")
+
+        result = appointment_schema.dump(new_appointment)
+        return jsonify(result), 201
+
+    except IntegrityError as e:
+        db.session.rollback()
+        app.logger.error(f"Integrity error creating appointment: {str(e)}")
+        return jsonify({'error': 'Database integrity error', 'message': str(e)}), 409
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating appointment: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@bp.route('/api/appointments/<int:appointment_id>', methods=['PUT'])
+@login_required
+def update_appointment(appointment_id):
+    """Update an existing appointment"""
+    try:
+        data = request.get_json()
+
+        app.logger.info(f"PUT /api/appointments/{appointment_id} - User: {current_user.username}")
+
+        appointment = Appointment.query.get_or_404(appointment_id)
+
+        # Validate request data
+        try:
+            validated_data = appointment_update_schema.load(data)
+        except MarshmallowValidationError as err:
+            app.logger.warning(f"Validation error updating appointment {appointment_id}: {err.messages}")
+            return jsonify({'error': 'Validation error', 'messages': err.messages}), 400
+
+        # Verify entities exist if being changed
+        if 'client_id' in validated_data:
+            client = Client.query.get(validated_data['client_id'])
+            if not client:
+                return jsonify({'error': 'Client not found'}), 404
+
+        if 'patient_id' in validated_data and validated_data['patient_id']:
+            patient = Patient.query.get(validated_data['patient_id'])
+            if not patient:
+                return jsonify({'error': 'Patient not found'}), 404
+
+        if 'appointment_type_id' in validated_data and validated_data['appointment_type_id']:
+            apt_type = AppointmentType.query.get(validated_data['appointment_type_id'])
+            if not apt_type:
+                return jsonify({'error': 'Appointment type not found'}), 404
+
+        if 'assigned_staff_id' in validated_data and validated_data['assigned_staff_id']:
+            staff = User.query.get(validated_data['assigned_staff_id'])
+            if not staff:
+                return jsonify({'error': 'Assigned staff not found'}), 404
+
+        # Handle status changes with special logic
+        if 'status' in validated_data:
+            new_status = validated_data['status']
+
+            # Auto-set check_in_time when status changes to checked_in
+            if new_status == 'checked_in' and not appointment.check_in_time:
+                appointment.check_in_time = datetime.utcnow()
+
+            # Auto-set actual_start_time when status changes to in_progress
+            if new_status == 'in_progress' and not appointment.actual_start_time:
+                appointment.actual_start_time = datetime.utcnow()
+
+            # Auto-set actual_end_time when status changes to completed
+            if new_status == 'completed' and not appointment.actual_end_time:
+                appointment.actual_end_time = datetime.utcnow()
+
+            # Auto-set cancelled_at and cancelled_by when status changes to cancelled
+            if new_status == 'cancelled' and not appointment.cancelled_at:
+                appointment.cancelled_at = datetime.utcnow()
+                appointment.cancelled_by_id = current_user.id
+
+        # Update appointment fields
+        for key, value in validated_data.items():
+            setattr(appointment, key, value)
+
+        db.session.commit()
+
+        app.logger.info(f"Updated appointment {appointment_id}: {appointment.title}")
+
+        result = appointment_schema.dump(appointment)
+        return jsonify(result), 200
+
+    except IntegrityError as e:
+        db.session.rollback()
+        app.logger.error(f"Integrity error updating appointment {appointment_id}: {str(e)}")
+        return jsonify({'error': 'Database integrity error', 'message': str(e)}), 409
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating appointment {appointment_id}: {str(e)}", exc_info=True)
+        if 'not found' in str(e).lower():
+            return jsonify({'error': 'Appointment not found'}), 404
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@bp.route('/api/appointments/<int:appointment_id>', methods=['DELETE'])
+@login_required
+def delete_appointment(appointment_id):
+    """
+    Delete an appointment (requires admin)
+    For non-admin users, use PUT to change status to 'cancelled' instead
+    """
+    try:
+        app.logger.info(f"DELETE /api/appointments/{appointment_id} - User: {current_user.username}")
+
+        # Only admins can delete appointments
+        if current_user.role != 'administrator':
+            app.logger.warning(f"Non-admin user {current_user.username} attempted to delete appointment {appointment_id}")
+            return jsonify({'error': 'Admin access required to delete appointments. Use PUT to cancel instead.'}), 403
+
+        appointment = Appointment.query.get_or_404(appointment_id)
+
+        db.session.delete(appointment)
+        db.session.commit()
+        app.logger.info(f"Deleted appointment {appointment_id}: {appointment.title}")
+        return jsonify({'message': 'Appointment permanently deleted'}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting appointment {appointment_id}: {str(e)}", exc_info=True)
+        if 'not found' in str(e).lower():
+            return jsonify({'error': 'Appointment not found'}), 404
+        return jsonify({'error': 'Internal server error'}), 500
+=======
     data = request.get_json()
     start_time = datetime.fromisoformat(data["start"])
     end_time = datetime.fromisoformat(data["end"])
@@ -155,6 +644,7 @@ def create_appointment():
 
     return jsonify({"message": "Appointment created successfully"}), 201
 
+>>>>>>> phase-1
 
 # ============================================================================
 # Client Management API Endpoints

@@ -37,12 +37,7 @@ const renderWithProviders = () => {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter
-        future={{
-          v7_startTransition: true,
-          v7_relativeSplatPath: true,
-        }}
-      >
+      <BrowserRouter>
         <PatientForm />
       </BrowserRouter>
     </QueryClientProvider>
@@ -698,10 +693,17 @@ describe('PatientForm Component', () => {
 
       // Mock slow create
       global.fetch.mockImplementation(
-        () => new Promise((resolve) => setTimeout(() => resolve({
-          ok: true,
-          json: async () => ({ id: 10, name: 'Fluffy' }),
-        }), 100))
+        () =>
+          new Promise((resolve) =>
+            setTimeout(
+              () =>
+                resolve({
+                  ok: true,
+                  json: async () => ({ id: 10, name: 'Fluffy' }),
+                }),
+              100
+            )
+          )
       );
 
       const saveButton = screen.getByRole('button', { name: /Save Patient/i });

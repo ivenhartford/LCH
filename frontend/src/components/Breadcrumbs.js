@@ -38,10 +38,7 @@ const Breadcrumbs = () => {
 
   return (
     <Box sx={{ mb: 2 }}>
-      <MuiBreadcrumbs
-        separator={<NavigateNextIcon fontSize="small" />}
-        aria-label="breadcrumb"
-      >
+      <MuiBreadcrumbs separator={<NavigateNextIcon fontSize="small" />} aria-label="breadcrumb">
         {/* Home link */}
         <Link
           component={RouterLink}
@@ -61,20 +58,16 @@ const Breadcrumbs = () => {
 
           // Skip numeric IDs and "edit" on the same level
           const isNumeric = !isNaN(Number(value));
-          const label = routeLabels[value] || (isNumeric ? `#${value}` : value.charAt(0).toUpperCase() + value.slice(1));
+          const label =
+            routeLabels[value] ||
+            (isNumeric ? `#${value}` : value.charAt(0).toUpperCase() + value.slice(1));
 
           return last ? (
             <Typography color="text.primary" key={to}>
               {label}
             </Typography>
           ) : (
-            <Link
-              component={RouterLink}
-              underline="hover"
-              color="inherit"
-              to={to}
-              key={to}
-            >
+            <Link component={RouterLink} underline="hover" color="inherit" to={to} key={to}>
               {label}
             </Link>
           );

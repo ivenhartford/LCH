@@ -80,9 +80,7 @@ const Sidebar = ({ open, onClose }) => {
     },
     {
       section: 'Financial',
-      items: [
-        { text: 'Invoices', icon: <ReceiptIcon />, path: '/invoices' },
-      ],
+      items: [{ text: 'Invoices', icon: <ReceiptIcon />, path: '/invoices' }],
     },
     {
       section: 'Operations',
@@ -93,9 +91,7 @@ const Sidebar = ({ open, onClose }) => {
     },
     {
       section: 'Reports',
-      items: [
-        { text: 'Reports', icon: <AssessmentIcon />, path: '/reports' },
-      ],
+      items: [{ text: 'Reports', icon: <AssessmentIcon />, path: '/reports' }],
     },
   ];
 
@@ -117,7 +113,6 @@ const Sidebar = ({ open, onClose }) => {
   const drawerContent = (
     <Box>
       <Toolbar /> {/* Spacer for AppBar */}
-
       {navigationItems.map((section, sectionIndex) => (
         <Box key={section.section}>
           {sectionIndex > 0 && <Divider sx={{ my: 1 }} />}
@@ -170,9 +165,7 @@ const Sidebar = ({ open, onClose }) => {
           </List>
         </Box>
       ))}
-
       <Divider sx={{ my: 1 }} />
-
       {/* Settings at bottom */}
       <List>
         <ListItem disablePadding>

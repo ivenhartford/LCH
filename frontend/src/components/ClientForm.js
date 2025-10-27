@@ -19,10 +19,7 @@ import {
   IconButton,
   Divider,
 } from '@mui/material';
-import {
-  ArrowBack as ArrowBackIcon,
-  Save as SaveIcon,
-} from '@mui/icons-material';
+import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material';
 import logger from '../utils/logger';
 
 // Validation schema using Zod
@@ -117,7 +114,13 @@ function ClientForm() {
       const duration = performance.now() - startTime;
 
       if (!response.ok) {
-        logger.logAPICall('GET', `/api/clients/${clientId}`, response.status, duration, 'Fetch failed');
+        logger.logAPICall(
+          'GET',
+          `/api/clients/${clientId}`,
+          response.status,
+          duration,
+          'Fetch failed'
+        );
         throw new Error('Failed to fetch client');
       }
 
@@ -158,7 +161,13 @@ function ClientForm() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        logger.logAPICall(method, url, response.status, duration, errorData.error || 'Request failed');
+        logger.logAPICall(
+          method,
+          url,
+          response.status,
+          duration,
+          errorData.error || 'Request failed'
+        );
         throw new Error(errorData.error || 'Failed to save client');
       }
 
@@ -232,9 +241,7 @@ function ClientForm() {
     logger.error('Error loading client for edit', clientError);
     return (
       <Box p={3}>
-        <Alert severity="error">
-          Error loading client: {clientError.message}
-        </Alert>
+        <Alert severity="error">Error loading client: {clientError.message}</Alert>
         <Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mt: 2 }}>
           Back
         </Button>
@@ -346,13 +353,7 @@ function ClientForm() {
               <Controller
                 name="phone_secondary"
                 control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    fullWidth
-                    label="Secondary Phone"
-                  />
-                )}
+                render={({ field }) => <TextField {...field} fullWidth label="Secondary Phone" />}
               />
             </Grid>
 
@@ -368,9 +369,7 @@ function ClientForm() {
               <Controller
                 name="address_line1"
                 control={control}
-                render={({ field }) => (
-                  <TextField {...field} fullWidth label="Address Line 1" />
-                )}
+                render={({ field }) => <TextField {...field} fullWidth label="Address Line 1" />}
               />
             </Grid>
 
@@ -378,9 +377,7 @@ function ClientForm() {
               <Controller
                 name="address_line2"
                 control={control}
-                render={({ field }) => (
-                  <TextField {...field} fullWidth label="Address Line 2" />
-                )}
+                render={({ field }) => <TextField {...field} fullWidth label="Address Line 2" />}
               />
             </Grid>
 
@@ -388,9 +385,7 @@ function ClientForm() {
               <Controller
                 name="city"
                 control={control}
-                render={({ field }) => (
-                  <TextField {...field} fullWidth label="City" />
-                )}
+                render={({ field }) => <TextField {...field} fullWidth label="City" />}
               />
             </Grid>
 
@@ -398,9 +393,7 @@ function ClientForm() {
               <Controller
                 name="state"
                 control={control}
-                render={({ field }) => (
-                  <TextField {...field} fullWidth label="State" />
-                )}
+                render={({ field }) => <TextField {...field} fullWidth label="State" />}
               />
             </Grid>
 
@@ -408,9 +401,7 @@ function ClientForm() {
               <Controller
                 name="zip_code"
                 control={control}
-                render={({ field }) => (
-                  <TextField {...field} fullWidth label="ZIP Code" />
-                )}
+                render={({ field }) => <TextField {...field} fullWidth label="ZIP Code" />}
               />
             </Grid>
 

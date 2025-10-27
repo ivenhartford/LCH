@@ -144,10 +144,7 @@ const QueryProvider = ({ children }) => {
       {children}
       {/* Only show dev tools in development */}
       {process.env.NODE_ENV === 'development' && (
-        <ReactQueryDevtools
-          initialIsOpen={false}
-          position="bottom-right"
-        />
+        <ReactQueryDevtools initialIsOpen={false} position="bottom-right" />
       )}
     </QueryClientProvider>
   );

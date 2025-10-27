@@ -40,11 +40,14 @@ const searchAll = async (query) => {
   const appointmentsData = await appointmentsRes.json();
 
   // Filter appointments by title or patient/client names
-  const appointments = (appointmentsData.appointments || []).filter(apt =>
-    apt.title?.toLowerCase().includes(query.toLowerCase()) ||
-    apt.patient_name?.toLowerCase().includes(query.toLowerCase()) ||
-    apt.client_name?.toLowerCase().includes(query.toLowerCase())
-  ).slice(0, 5);
+  const appointments = (appointmentsData.appointments || [])
+    .filter(
+      (apt) =>
+        apt.title?.toLowerCase().includes(query.toLowerCase()) ||
+        apt.patient_name?.toLowerCase().includes(query.toLowerCase()) ||
+        apt.client_name?.toLowerCase().includes(query.toLowerCase())
+    )
+    .slice(0, 5);
 
   return {
     clients: clientsData.clients || [],
@@ -97,11 +100,9 @@ const GlobalSearch = ({ open, onClose }) => {
     onClose();
   };
 
-  const hasResults = results && (
-    results.clients.length > 0 ||
-    results.patients.length > 0 ||
-    results.appointments.length > 0
-  );
+  const hasResults =
+    results &&
+    (results.clients.length > 0 || results.patients.length > 0 || results.appointments.length > 0);
 
   return (
     <Dialog
@@ -181,7 +182,10 @@ const GlobalSearch = ({ open, onClose }) => {
                     <ListItemText
                       primary={`${client.first_name} ${client.last_name}`}
                       secondary={
-                        <Box component="span" sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                        <Box
+                          component="span"
+                          sx={{ display: 'flex', gap: 1, alignItems: 'center' }}
+                        >
                           {client.email && (
                             <Typography variant="body2" color="text.secondary">
                               {client.email}
@@ -224,7 +228,10 @@ const GlobalSearch = ({ open, onClose }) => {
                     <ListItemText
                       primary={patient.name}
                       secondary={
-                        <Box component="span" sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                        <Box
+                          component="span"
+                          sx={{ display: 'flex', gap: 1, alignItems: 'center' }}
+                        >
                           {patient.breed && (
                             <Typography variant="body2" color="text.secondary">
                               {patient.breed}
@@ -287,7 +294,10 @@ const GlobalSearch = ({ open, onClose }) => {
                         </Box>
                       }
                       secondary={
-                        <Box component="span" sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                        <Box
+                          component="span"
+                          sx={{ display: 'flex', gap: 1, alignItems: 'center' }}
+                        >
                           <Typography variant="body2" color="text.secondary">
                             {format(parseISO(appointment.start_time), 'MMM dd, yyyy h:mm a')}
                           </Typography>
@@ -303,9 +313,11 @@ const GlobalSearch = ({ open, onClose }) => {
                             label={appointment.status}
                             size="small"
                             color={
-                              appointment.status === 'completed' ? 'success' :
-                              appointment.status === 'in_progress' ? 'warning' :
-                              'default'
+                              appointment.status === 'completed'
+                                ? 'success'
+                                : appointment.status === 'in_progress'
+                                  ? 'warning'
+                                  : 'default'
                             }
                             sx={{ ml: 'auto', textTransform: 'capitalize' }}
                           />

@@ -26,22 +26,37 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 
 // Validation schema
-const appointmentSchema = z.object({
-  title: z.string().min(1, 'Title is required').max(200, 'Title must be less than 200 characters'),
-  start_time: z.date({ required_error: 'Start time is required' }),
-  end_time: z.date({ required_error: 'End time is required' }),
-  description: z.string().optional(),
-  client_id: z.number({ required_error: 'Client is required' }).positive('Client is required'),
-  patient_id: z.number().positive().optional().nullable(),
-  appointment_type_id: z.number().positive().optional().nullable(),
-  assigned_staff_id: z.number().positive().optional().nullable(),
-  room: z.string().max(50).optional(),
-  notes: z.string().optional(),
-  status: z.enum(['scheduled', 'confirmed', 'checked_in', 'in_progress', 'completed', 'cancelled', 'no_show']).optional(),
-}).refine((data) => data.end_time > data.start_time, {
-  message: 'End time must be after start time',
-  path: ['end_time'],
-});
+const appointmentSchema = z
+  .object({
+    title: z
+      .string()
+      .min(1, 'Title is required')
+      .max(200, 'Title must be less than 200 characters'),
+    start_time: z.date({ required_error: 'Start time is required' }),
+    end_time: z.date({ required_error: 'End time is required' }),
+    description: z.string().optional(),
+    client_id: z.number({ required_error: 'Client is required' }).positive('Client is required'),
+    patient_id: z.number().positive().optional().nullable(),
+    appointment_type_id: z.number().positive().optional().nullable(),
+    assigned_staff_id: z.number().positive().optional().nullable(),
+    room: z.string().max(50).optional(),
+    notes: z.string().optional(),
+    status: z
+      .enum([
+        'scheduled',
+        'confirmed',
+        'checked_in',
+        'in_progress',
+        'completed',
+        'cancelled',
+        'no_show',
+      ])
+      .optional(),
+  })
+  .refine((data) => data.end_time > data.start_time, {
+    message: 'End time must be after start time',
+    path: ['end_time'],
+  });
 
 // Fetch functions
 const fetchAppointment = async (id) => {
@@ -219,11 +234,7 @@ const AppointmentForm = () => {
       <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
         {/* Header */}
         <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Button
-            startIcon={<ArrowBackIcon />}
-            onClick={() => navigate(-1)}
-            variant="outlined"
-          >
+          <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} variant="outlined">
             Back
           </Button>
           <Typography variant="h4" component="h1">
@@ -336,7 +347,11 @@ const AppointmentForm = () => {
                   name="patient_id"
                   control={control}
                   render={({ field }) => (
-                    <FormControl fullWidth error={!!errors.patient_id} disabled={!selectedClientId || loadingPatients}>
+                    <FormControl
+                      fullWidth
+                      error={!!errors.patient_id}
+                      disabled={!selectedClientId || loadingPatients}
+                    >
                       <InputLabel>Patient (Optional)</InputLabel>
                       <Select {...field} label="Patient (Optional)">
                         <MenuItem value="">
@@ -349,7 +364,10 @@ const AppointmentForm = () => {
                         ))}
                       </Select>
                       <FormHelperText>
-                        {errors.patient_id?.message || (selectedClientId ? 'Select a patient for this appointment' : 'Select a client first')}
+                        {errors.patient_id?.message ||
+                          (selectedClientId
+                            ? 'Select a patient for this appointment'
+                            : 'Select a client first')}
                       </FormHelperText>
                     </FormControl>
                   )}

@@ -166,7 +166,7 @@ class Logger {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-      const recentLogs = logs.filter(log => {
+      const recentLogs = logs.filter((log) => {
         const logDate = new Date(log.timestamp);
         return logDate > sevenDaysAgo;
       });
@@ -315,7 +315,7 @@ class Logger {
       newest: logs.length > 0 ? logs[logs.length - 1].timestamp : null,
     };
 
-    logs.forEach(log => {
+    logs.forEach((log) => {
       const level = log.level.toLowerCase();
       if (stats[level] !== undefined) {
         stats[level]++;
@@ -331,27 +331,19 @@ const logger = new Logger();
 
 // Add global error handler
 window.addEventListener('error', (event) => {
-  logger.error(
-    'Unhandled Error',
-    event.error,
-    {
-      message: event.message,
-      filename: event.filename,
-      lineno: event.lineno,
-      colno: event.colno,
-    }
-  );
+  logger.error('Unhandled Error', event.error, {
+    message: event.message,
+    filename: event.filename,
+    lineno: event.lineno,
+    colno: event.colno,
+  });
 });
 
 // Add unhandled promise rejection handler
 window.addEventListener('unhandledrejection', (event) => {
-  logger.error(
-    'Unhandled Promise Rejection',
-    event.reason,
-    {
-      promise: event.promise,
-    }
-  );
+  logger.error('Unhandled Promise Rejection', event.reason, {
+    promise: event.promise,
+  });
 });
 
 // Log app startup

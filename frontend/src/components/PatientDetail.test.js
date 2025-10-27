@@ -32,12 +32,7 @@ const renderWithProviders = (patientId = '1') => {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter
-        future={{
-          v7_startTransition: true,
-          v7_relativeSplatPath: true,
-        }}
-      >
+      <BrowserRouter>
         <Routes>
           <Route path="/" element={<PatientDetail />} />
         </Routes>
@@ -112,9 +107,12 @@ describe('PatientDetail Component', () => {
 
       renderWithProviders();
 
-      await waitFor(() => {
-        expect(screen.getByText(/Error loading patient/)).toBeInTheDocument();
-      }, { timeout: 3000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText(/Error loading patient/)).toBeInTheDocument();
+        },
+        { timeout: 3000 }
+      );
 
       expect(logger.error).toHaveBeenCalled();
       expect(screen.getByRole('button', { name: /Back to Patients/i })).toBeInTheDocument();
@@ -129,9 +127,12 @@ describe('PatientDetail Component', () => {
 
       renderWithProviders();
 
-      await waitFor(() => {
-        expect(screen.getByText(/Error loading patient/)).toBeInTheDocument();
-      }, { timeout: 3000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText(/Error loading patient/)).toBeInTheDocument();
+        },
+        { timeout: 3000 }
+      );
 
       const backButton = screen.getByRole('button', { name: /Back to Patients/i });
       await userEvent.click(backButton);

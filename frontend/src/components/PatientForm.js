@@ -18,10 +18,7 @@ import {
   Divider,
   Autocomplete,
 } from '@mui/material';
-import {
-  ArrowBack as ArrowBackIcon,
-  Save as SaveIcon,
-} from '@mui/icons-material';
+import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material';
 import logger from '../utils/logger';
 
 // Validation schema using Zod
@@ -117,10 +114,7 @@ function PatientForm() {
   const statusValue = watch('status');
 
   // Fetch owners/clients for selection
-  const {
-    data: ownersData,
-    isLoading: isLoadingOwners,
-  } = useQuery({
+  const { data: ownersData, isLoading: isLoadingOwners } = useQuery({
     queryKey: ['clients', 'all'],
     queryFn: async () => {
       logger.logAction('Fetching owners for patient form');
@@ -156,7 +150,13 @@ function PatientForm() {
       const duration = performance.now() - startTime;
 
       if (!response.ok) {
-        logger.logAPICall('GET', `/api/patients/${patientId}`, response.status, duration, 'Fetch failed');
+        logger.logAPICall(
+          'GET',
+          `/api/patients/${patientId}`,
+          response.status,
+          duration,
+          'Fetch failed'
+        );
         throw new Error('Failed to fetch patient');
       }
 
@@ -175,7 +175,7 @@ function PatientForm() {
 
       // Find and set owner
       if (ownersData) {
-        const owner = ownersData.find(o => o.id === data.owner_id);
+        const owner = ownersData.find((o) => o.id === data.owner_id);
         if (owner) {
           setSelectedOwner(owner);
         }
@@ -194,11 +194,14 @@ function PatientForm() {
   useEffect(() => {
     if (preselectedOwnerId && ownersData && !isEditMode) {
       const ownerId = parseInt(preselectedOwnerId, 10);
-      const owner = ownersData.find(o => o.id === ownerId);
+      const owner = ownersData.find((o) => o.id === ownerId);
       if (owner) {
         setSelectedOwner(owner);
         setValue('owner_id', owner.id);
-        logger.info('Pre-populated owner from URL', { ownerId, ownerName: `${owner.first_name} ${owner.last_name}` });
+        logger.info('Pre-populated owner from URL', {
+          ownerId,
+          ownerName: `${owner.first_name} ${owner.last_name}`,
+        });
       }
     }
   }, [preselectedOwnerId, ownersData, isEditMode, setValue]);
@@ -228,7 +231,13 @@ function PatientForm() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        logger.logAPICall(method, url, response.status, duration, errorData.error || 'Request failed');
+        logger.logAPICall(
+          method,
+          url,
+          response.status,
+          duration,
+          errorData.error || 'Request failed'
+        );
         throw new Error(errorData.error || 'Failed to save patient');
       }
 
@@ -315,9 +324,7 @@ function PatientForm() {
     logger.error('Error loading patient for edit', patientError);
     return (
       <Box p={3}>
-        <Alert severity="error">
-          Error loading patient: {patientError.message}
-        </Alert>
+        <Alert severity="error">Error loading patient: {patientError.message}</Alert>
         <Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mt: 2 }}>
           Back
         </Button>
@@ -567,7 +574,9 @@ function PatientForm() {
                         label="Owner"
                         required
                         error={!!errors.owner_id}
-                        helperText={errors.owner_id?.message || 'Select the cat owner from the list'}
+                        helperText={
+                          errors.owner_id?.message || 'Select the cat owner from the list'
+                        }
                       />
                     )}
                   />
@@ -648,13 +657,7 @@ function PatientForm() {
               <Controller
                 name="insurance_company"
                 control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    fullWidth
-                    label="Insurance Company"
-                  />
-                )}
+                render={({ field }) => <TextField {...field} fullWidth label="Insurance Company" />}
               />
             </Grid>
 
@@ -662,13 +665,7 @@ function PatientForm() {
               <Controller
                 name="insurance_policy_number"
                 control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    fullWidth
-                    label="Policy Number"
-                  />
-                )}
+                render={({ field }) => <TextField {...field} fullWidth label="Policy Number" />}
               />
             </Grid>
 

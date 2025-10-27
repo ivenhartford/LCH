@@ -76,7 +76,13 @@ function ClientDetail() {
       const duration = performance.now() - startTime;
 
       if (!response.ok) {
-        logger.logAPICall('GET', `/api/clients/${clientId}`, response.status, duration, 'Fetch failed');
+        logger.logAPICall(
+          'GET',
+          `/api/clients/${clientId}`,
+          response.status,
+          duration,
+          'Fetch failed'
+        );
         throw new Error(`Failed to fetch client: ${response.status}`);
       }
 
@@ -94,10 +100,7 @@ function ClientDetail() {
   });
 
   // Fetch client's patients
-  const {
-    data: patientsData,
-    isLoading: isPatientsLoading,
-  } = useQuery({
+  const { data: patientsData, isLoading: isPatientsLoading } = useQuery({
     queryKey: ['patients', 'by-owner', clientId],
     queryFn: async () => {
       const startTime = performance.now();
@@ -110,7 +113,13 @@ function ClientDetail() {
       const duration = performance.now() - startTime;
 
       if (!response.ok) {
-        logger.logAPICall('GET', `/api/patients?owner_id=${clientId}`, response.status, duration, 'Fetch failed');
+        logger.logAPICall(
+          'GET',
+          `/api/patients?owner_id=${clientId}`,
+          response.status,
+          duration,
+          'Fetch failed'
+        );
         throw new Error('Failed to fetch patients');
       }
 
@@ -178,9 +187,7 @@ function ClientDetail() {
   if (!client) {
     return (
       <Box p={3}>
-        <Alert severity="warning">
-          Client not found.
-        </Alert>
+        <Alert severity="warning">Client not found.</Alert>
         <Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mt: 2 }}>
           Back to Clients
         </Button>
@@ -203,11 +210,7 @@ function ClientDetail() {
             <Chip label="Inactive" color="default" size="small" sx={{ ml: 2 }} />
           )}
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<EditIcon />}
-          onClick={handleEdit}
-        >
+        <Button variant="contained" startIcon={<EditIcon />} onClick={handleEdit}>
           Edit
         </Button>
       </Box>
@@ -224,9 +227,7 @@ function ClientDetail() {
                   <Typography variant="caption" color="text.secondary">
                     Email
                   </Typography>
-                  <Typography variant="body1">
-                    {client.email || 'Not provided'}
-                  </Typography>
+                  <Typography variant="body1">{client.email || 'Not provided'}</Typography>
                 </Box>
               </Box>
 
@@ -270,9 +271,7 @@ function ClientDetail() {
                       )}
                       {(client.city || client.state || client.zip_code) && (
                         <Typography variant="body1">
-                          {[client.city, client.state, client.zip_code]
-                            .filter(Boolean)
-                            .join(', ')}
+                          {[client.city, client.state, client.zip_code].filter(Boolean).join(', ')}
                         </Typography>
                       )}
                     </>
@@ -298,7 +297,12 @@ function ClientDetail() {
                   <Typography variant="caption" color="text.secondary">
                     Account Balance
                   </Typography>
-                  <Typography variant="h6" color={parseFloat(client.account_balance || 0) > 0 ? 'error.main' : 'success.main'}>
+                  <Typography
+                    variant="h6"
+                    color={
+                      parseFloat(client.account_balance || 0) > 0 ? 'error.main' : 'success.main'
+                    }
+                  >
                     ${parseFloat(client.account_balance || 0).toFixed(2)}
                   </Typography>
                 </Box>
@@ -349,11 +353,7 @@ function ClientDetail() {
               title="Patients (Cats)"
               avatar={<PetsIcon />}
               action={
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={handleAddPatient}
-                >
+                <Button size="small" variant="outlined" onClick={handleAddPatient}>
                   Add Patient
                 </Button>
               }
@@ -395,16 +395,13 @@ function ClientDetail() {
                                 patient.status === 'Active'
                                   ? 'success'
                                   : patient.status === 'Deceased'
-                                  ? 'error'
-                                  : 'default'
+                                    ? 'error'
+                                    : 'default'
                               }
                             />
                           </TableCell>
                           <TableCell align="right">
-                            <Button
-                              size="small"
-                              onClick={() => handleViewPatient(patient.id)}
-                            >
+                            <Button size="small" onClick={() => handleViewPatient(patient.id)}>
                               View
                             </Button>
                           </TableCell>
@@ -455,8 +452,8 @@ function ClientDetail() {
         <Grid item xs={12}>
           <Paper sx={{ p: 2, bgcolor: 'grey.50' }}>
             <Typography variant="caption" color="text.secondary">
-              Created: {new Date(client.created_at).toLocaleString()} |
-              Last Updated: {new Date(client.updated_at).toLocaleString()}
+              Created: {new Date(client.created_at).toLocaleString()} | Last Updated:{' '}
+              {new Date(client.updated_at).toLocaleString()}
             </Typography>
           </Paper>
         </Grid>

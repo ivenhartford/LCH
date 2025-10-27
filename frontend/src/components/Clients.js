@@ -64,13 +64,7 @@ function Clients() {
   }, []);
 
   // Fetch clients with React Query
-  const {
-    data,
-    isLoading,
-    isError,
-    error,
-    refetch,
-  } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['clients', page + 1, rowsPerPage, searchTerm, activeOnly],
     queryFn: async () => {
       const startTime = performance.now();
@@ -247,17 +241,11 @@ function Clients() {
             }}
             sx={{ mr: 2 }}
           />
-          <Button
-            variant="contained"
-            onClick={handleSearch}
-            disabled={!searchInput && !searchTerm}
-          >
+          <Button variant="contained" onClick={handleSearch} disabled={!searchInput && !searchTerm}>
             Search
           </Button>
           <FormControlLabel
-            control={
-              <Switch checked={activeOnly} onChange={handleActiveFilterChange} />
-            }
+            control={<Switch checked={activeOnly} onChange={handleActiveFilterChange} />}
             label="Active Only"
             sx={{ ml: 2 }}
           />

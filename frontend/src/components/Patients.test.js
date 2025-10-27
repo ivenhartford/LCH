@@ -32,14 +32,7 @@ const renderWithProviders = (component) => {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter
-        future={{
-          v7_startTransition: true,
-          v7_relativeSplatPath: true,
-        }}
-      >
-        {component}
-      </BrowserRouter>
+      <BrowserRouter>{component}</BrowserRouter>
     </QueryClientProvider>
   );
 };
@@ -77,9 +70,12 @@ describe('Patients Component', () => {
 
       renderWithProviders(<Patients />);
 
-      await waitFor(() => {
-        expect(screen.getByText(/Error loading patients/)).toBeInTheDocument();
-      }, { timeout: 3000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText(/Error loading patients/)).toBeInTheDocument();
+        },
+        { timeout: 3000 }
+      );
 
       expect(logger.error).toHaveBeenCalled();
     });
@@ -93,9 +89,12 @@ describe('Patients Component', () => {
 
       renderWithProviders(<Patients />);
 
-      await waitFor(() => {
-        expect(screen.getByText(/Error loading patients/)).toBeInTheDocument();
-      }, { timeout: 3000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText(/Error loading patients/)).toBeInTheDocument();
+        },
+        { timeout: 3000 }
+      );
 
       // Click the alert to retry (clicking the close button triggers refetch)
       const alert = screen.getByRole('alert');
@@ -436,16 +435,18 @@ describe('Patients Component', () => {
       global.fetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          patients: Array(50).fill(null).map((_, i) => ({
-            id: i + 1,
-            name: `Cat ${i + 1}`,
-            breed: 'Persian',
-            color: 'White',
-            age_display: '3 years',
-            sex: 'Male',
-            owner_name: 'Owner',
-            status: 'Active',
-          })),
+          patients: Array(50)
+            .fill(null)
+            .map((_, i) => ({
+              id: i + 1,
+              name: `Cat ${i + 1}`,
+              breed: 'Persian',
+              color: 'White',
+              age_display: '3 years',
+              sex: 'Male',
+              owner_name: 'Owner',
+              status: 'Active',
+            })),
           pagination: { page: 1, total: 100, pages: 2 },
         }),
       });
@@ -459,16 +460,18 @@ describe('Patients Component', () => {
       global.fetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          patients: Array(50).fill(null).map((_, i) => ({
-            id: i + 51,
-            name: `Cat ${i + 51}`,
-            breed: 'Persian',
-            color: 'White',
-            age_display: '3 years',
-            sex: 'Male',
-            owner_name: 'Owner',
-            status: 'Active',
-          })),
+          patients: Array(50)
+            .fill(null)
+            .map((_, i) => ({
+              id: i + 51,
+              name: `Cat ${i + 51}`,
+              breed: 'Persian',
+              color: 'White',
+              age_display: '3 years',
+              sex: 'Male',
+              owner_name: 'Owner',
+              status: 'Active',
+            })),
           pagination: { page: 2, total: 100, pages: 2 },
         }),
       });
