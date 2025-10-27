@@ -2,6 +2,7 @@
 Marshmallow schemas for API request/response validation and serialization
 """
 
+from datetime import datetime
 from marshmallow import Schema, fields, validate
 
 
@@ -175,7 +176,7 @@ class VisitSchema(Schema):
     id = fields.Int(dump_only=True)
 
     # Basic Info
-    visit_date = fields.DateTime(load_default="now")
+    visit_date = fields.DateTime(load_default=lambda: datetime.utcnow())
     visit_type = fields.Str(
         required=True,
         validate=validate.OneOf(["Wellness", "Sick", "Emergency", "Follow-up", "Surgery", "Dental", "Other"]),
@@ -224,9 +225,13 @@ class VitalSignsSchema(Schema):
     notes = fields.Str(allow_none=True)
 
     # Metadata
-    recorded_at = fields.DateTime(load_default="now")
-    recorded_by_id = fields.Int(allow_none=True)
-    recorded_by_name = fields.Str(dump_only=True)
+    recorded_at = fields.DateTime(load_default=lambda: datetime.utcnow())
+    recorded_by_id = fields.Int(dump_only=True)  # Auto-populated from current_user
+    recorded_by_name = fields.Method("get_recorded_by_name")
+
+    def get_recorded_by_name(self, obj):
+        """Get the name of the user who recorded the vital signs"""
+        return obj.recorded_by.username if obj.recorded_by else None
 
 
 class SOAPNoteSchema(Schema):
@@ -244,7 +249,7 @@ class SOAPNoteSchema(Schema):
     # Metadata
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
-    created_by_id = fields.Int(required=True)
+    created_by_id = fields.Int(dump_only=True)  # Auto-populated from current_user
     created_by_name = fields.Str(dump_only=True)
 
 
@@ -273,7 +278,7 @@ class DiagnosisSchema(Schema):
 
     # Metadata
     created_at = fields.DateTime(dump_only=True)
-    created_by_id = fields.Int(required=True)
+    created_by_id = fields.Int(dump_only=True)  # Auto-populated from current_user
     created_by_name = fields.Str(dump_only=True)
 
 
