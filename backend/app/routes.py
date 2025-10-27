@@ -1443,6 +1443,336 @@ def delete_vaccination(vaccination_id):
 
 
 # ============================================================================
+# MEDICATION ENDPOINTS
+# ============================================================================
+
+
+@bp.route("/api/medications", methods=["GET"])
+@login_required
+def get_medications():
+    """Get all medications (drug database) with optional filtering"""
+    try:
+        from .models import Medication
+        from .schemas import medications_schema
+
+        is_active = request.args.get("is_active", "").strip()
+        drug_class = request.args.get("drug_class", "").strip()
+        search = request.args.get("search", "").strip()
+
+        query = Medication.query
+
+        if is_active:
+            active_val = is_active.lower() == "true"
+            query = query.filter_by(is_active=active_val)
+
+        if drug_class:
+            query = query.filter_by(drug_class=drug_class)
+
+        if search:
+            search_term = f"%{search}%"
+            query = query.filter(Medication.drug_name.ilike(search_term))
+
+        medications = query.order_by(Medication.drug_name).all()
+        return jsonify({"medications": medications_schema.dump(medications), "total": len(medications)}), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching medications: {str(e)}", exc_info=True)
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@bp.route("/api/medications/<int:medication_id>", methods=["GET"])
+@login_required
+def get_medication(medication_id):
+    """Get a specific medication by ID"""
+    try:
+        from .models import Medication
+        from .schemas import medication_schema
+
+        medication = Medication.query.get_or_404(medication_id)
+        return jsonify(medication_schema.dump(medication)), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching medication {medication_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Medication not found"}), 404
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@bp.route("/api/medications", methods=["POST"])
+@login_required
+def create_medication():
+    """Create a new medication in the drug database"""
+    try:
+        from .models import Medication
+        from .schemas import medication_schema
+
+        data = request.get_json()
+        validated_data = medication_schema.load(data)
+
+        # Check for duplicate drug name
+        existing = Medication.query.filter_by(drug_name=validated_data["drug_name"]).first()
+        if existing:
+            return jsonify({"error": "Medication with this name already exists"}), 400
+
+        medication = Medication(
+            drug_name=validated_data["drug_name"],
+            brand_names=validated_data.get("brand_names"),
+            drug_class=validated_data.get("drug_class"),
+            controlled_substance=validated_data.get("controlled_substance", False),
+            dea_schedule=validated_data.get("dea_schedule"),
+            available_forms=validated_data.get("available_forms"),
+            strengths=validated_data.get("strengths"),
+            typical_dose_cats=validated_data.get("typical_dose_cats"),
+            dosing_frequency=validated_data.get("dosing_frequency"),
+            route_of_administration=validated_data.get("route_of_administration"),
+            indications=validated_data.get("indications"),
+            contraindications=validated_data.get("contraindications"),
+            side_effects=validated_data.get("side_effects"),
+            warnings=validated_data.get("warnings"),
+            stock_quantity=validated_data.get("stock_quantity", 0),
+            reorder_level=validated_data.get("reorder_level", 0),
+            unit_cost=validated_data.get("unit_cost"),
+            is_active=validated_data.get("is_active", True),
+        )
+
+        db.session.add(medication)
+        db.session.commit()
+
+        app.logger.info(f"Created medication: {medication.drug_name}")
+        return jsonify(medication_schema.dump(medication)), 201
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating medication: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/medications/<int:medication_id>", methods=["PUT"])
+@login_required
+def update_medication(medication_id):
+    """Update a medication"""
+    try:
+        from .models import Medication
+        from .schemas import medication_schema
+
+        medication = Medication.query.get_or_404(medication_id)
+        data = request.get_json()
+        validated_data = medication_schema.load(data, partial=True)
+
+        for key, value in validated_data.items():
+            if hasattr(medication, key):
+                setattr(medication, key, value)
+
+        db.session.commit()
+        app.logger.info(f"Updated medication {medication_id}")
+        return jsonify(medication_schema.dump(medication)), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating medication {medication_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Medication not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/medications/<int:medication_id>", methods=["DELETE"])
+@login_required
+def delete_medication(medication_id):
+    """Delete a medication"""
+    try:
+        from .models import Medication
+
+        medication = Medication.query.get_or_404(medication_id)
+
+        # Check if medication has prescriptions
+        if medication.prescriptions:
+            return (
+                jsonify({"error": "Cannot delete medication with existing prescriptions. Set to inactive instead."}),
+                400,
+            )
+
+        db.session.delete(medication)
+        db.session.commit()
+
+        app.logger.info(f"Deleted medication {medication_id}")
+        return jsonify({"message": "Medication deleted"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting medication {medication_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Medication not found"}), 404
+        return jsonify({"error": "Internal server error"}), 500
+
+
+# ============================================================================
+# PRESCRIPTION ENDPOINTS
+# ============================================================================
+
+
+@bp.route("/api/prescriptions", methods=["GET"])
+@login_required
+def get_prescriptions():
+    """Get all prescriptions with optional filtering"""
+    try:
+        from .models import Prescription
+        from .schemas import prescriptions_schema
+
+        patient_id = request.args.get("patient_id", type=int)
+        visit_id = request.args.get("visit_id", type=int)
+        status = request.args.get("status", "").strip()
+
+        query = Prescription.query
+
+        if patient_id:
+            query = query.filter_by(patient_id=patient_id)
+
+        if visit_id:
+            query = query.filter_by(visit_id=visit_id)
+
+        if status:
+            query = query.filter_by(status=status)
+
+        prescriptions = query.order_by(Prescription.created_at.desc()).all()
+        return jsonify({"prescriptions": prescriptions_schema.dump(prescriptions), "total": len(prescriptions)}), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching prescriptions: {str(e)}", exc_info=True)
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@bp.route("/api/prescriptions/<int:prescription_id>", methods=["GET"])
+@login_required
+def get_prescription(prescription_id):
+    """Get a specific prescription by ID"""
+    try:
+        from .models import Prescription
+        from .schemas import prescription_schema
+
+        prescription = Prescription.query.get_or_404(prescription_id)
+        return jsonify(prescription_schema.dump(prescription)), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching prescription {prescription_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Prescription not found"}), 404
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@bp.route("/api/prescriptions", methods=["POST"])
+@login_required
+def create_prescription():
+    """Create a new prescription"""
+    try:
+        from .models import Prescription, Patient, Medication, Visit
+        from .schemas import prescription_schema
+
+        data = request.get_json()
+        validated_data = prescription_schema.load(data)
+
+        # Verify patient exists
+        patient = Patient.query.get(validated_data["patient_id"])
+        if not patient:
+            return jsonify({"error": "Patient not found"}), 404
+
+        # Verify medication exists
+        medication = Medication.query.get(validated_data["medication_id"])
+        if not medication:
+            return jsonify({"error": "Medication not found"}), 404
+
+        # Verify visit if provided
+        if validated_data.get("visit_id"):
+            visit = Visit.query.get(validated_data["visit_id"])
+            if not visit:
+                return jsonify({"error": "Visit not found"}), 404
+
+        # Initialize refills_remaining if not provided
+        if "refills_remaining" not in validated_data or validated_data["refills_remaining"] is None:
+            validated_data["refills_remaining"] = validated_data.get("refills_allowed", 0)
+
+        prescription = Prescription(
+            patient_id=validated_data["patient_id"],
+            visit_id=validated_data.get("visit_id"),
+            medication_id=validated_data["medication_id"],
+            dosage=validated_data["dosage"],
+            dosage_form=validated_data.get("dosage_form"),
+            frequency=validated_data["frequency"],
+            route=validated_data.get("route"),
+            duration_days=validated_data.get("duration_days"),
+            quantity=validated_data["quantity"],
+            refills_allowed=validated_data.get("refills_allowed", 0),
+            refills_remaining=validated_data["refills_remaining"],
+            instructions=validated_data.get("instructions"),
+            indication=validated_data.get("indication"),
+            status=validated_data.get("status", "active"),
+            start_date=validated_data["start_date"],
+            end_date=validated_data.get("end_date"),
+            prescribed_by_id=current_user.id,
+        )
+
+        db.session.add(prescription)
+        db.session.commit()
+
+        app.logger.info(f"Created prescription {prescription.id} for patient {patient.name}")
+        return jsonify(prescription_schema.dump(prescription)), 201
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating prescription: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/prescriptions/<int:prescription_id>", methods=["PUT"])
+@login_required
+def update_prescription(prescription_id):
+    """Update a prescription"""
+    try:
+        from .models import Prescription
+        from .schemas import prescription_schema
+
+        prescription = Prescription.query.get_or_404(prescription_id)
+        data = request.get_json()
+        validated_data = prescription_schema.load(data, partial=True)
+
+        for key, value in validated_data.items():
+            if hasattr(prescription, key) and key not in ["patient_id", "medication_id", "prescribed_by_id"]:
+                setattr(prescription, key, value)
+
+        db.session.commit()
+        app.logger.info(f"Updated prescription {prescription_id}")
+        return jsonify(prescription_schema.dump(prescription)), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating prescription {prescription_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Prescription not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/prescriptions/<int:prescription_id>", methods=["DELETE"])
+@login_required
+def delete_prescription(prescription_id):
+    """Delete a prescription"""
+    try:
+        from .models import Prescription
+
+        prescription = Prescription.query.get_or_404(prescription_id)
+        db.session.delete(prescription)
+        db.session.commit()
+
+        app.logger.info(f"Deleted prescription {prescription_id}")
+        return jsonify({"message": "Prescription deleted"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting prescription {prescription_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Prescription not found"}), 404
+        return jsonify({"error": "Internal server error"}), 500
+
+
+# ============================================================================
 
 
 @bp.route("/", defaults={"path": ""})
