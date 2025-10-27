@@ -16,6 +16,7 @@ import AppointmentDetail from './components/AppointmentDetail';
 import AppointmentForm from './components/AppointmentForm';
 import Visits from './components/Visits';
 import VisitDetail from './components/VisitDetail';
+import Medications from './components/Medications';
 import Settings from './components/Settings';
 import logger from './utils/logger';
 import './App.css';
@@ -165,6 +166,7 @@ function App() {
                       <Route path="/appointments/new" element={<AppointmentForm />} />
                       <Route path="/appointments/:id" element={<AppointmentDetail />} />
                       <Route path="/appointments/:id/edit" element={<AppointmentForm />} />
+                      <Route path="/medications" element={<Medications />} />
                       <Route
                         path="/invoices"
                         element={

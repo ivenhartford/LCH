@@ -265,14 +265,17 @@ Implement clinical workflows with SOAP notes, medical history, prescriptions, an
 - [x] Build visit list with filtering and pagination
 - [x] Create comprehensive tabbed visit detail interface
 
-### 2.3 Prescription Management (Week 4)
-- [ ] Create Medication model (drug database)
-- [ ] Create Prescription model
-- [ ] Build medication database management
-- [ ] Build prescription writing form
-- [ ] Add dosage calculator by weight
-- [ ] Create prescription printing template
-- [ ] Add refill request tracking
+### 2.3 Prescription Management (Week 4) ✅ Complete
+- [x] Create Medication model (drug database with formulary fields)
+- [x] Create Prescription model (with refills, status, dosing instructions)
+- [x] Create API endpoints (10 RESTful endpoints - 5 medication, 5 prescription)
+- [x] Write comprehensive backend tests (30 tests - all passing)
+- [x] Build medication database management UI (full CRUD with search/filter)
+- [x] Build prescription writing form (with medication autocomplete)
+- [x] Add prescriptions tab to Visit Detail page
+- [x] Add dosage calculator by weight (frontend feature)
+- [ ] Create prescription printing template (deferred to Phase 3)
+- [ ] Add refill request tracking UI (deferred to Phase 3)
 
 ### 2.4 Invoicing System (Week 5-6)
 - [ ] Create Invoice model

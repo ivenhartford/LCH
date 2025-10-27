@@ -346,3 +346,97 @@ diagnoses_schema = DiagnosisSchema(many=True)
 
 vaccination_schema = VaccinationSchema()
 vaccinations_schema = VaccinationSchema(many=True)
+
+
+class MedicationSchema(Schema):
+    """Schema for Medication (drug database) validation and serialization"""
+
+    id = fields.Int(dump_only=True)
+
+    # Drug Information
+    drug_name = fields.Str(required=True, validate=validate.Length(min=1, max=200))
+    brand_names = fields.Str(allow_none=True)
+    drug_class = fields.Str(allow_none=True, validate=validate.Length(max=100))
+    controlled_substance = fields.Bool(load_default=False)
+    dea_schedule = fields.Str(allow_none=True, validate=validate.Length(max=10))
+
+    # Forms and Strengths
+    available_forms = fields.Str(allow_none=True)
+    strengths = fields.Str(allow_none=True)
+
+    # Dosing Information
+    typical_dose_cats = fields.Str(allow_none=True)
+    dosing_frequency = fields.Str(allow_none=True, validate=validate.Length(max=100))
+    route_of_administration = fields.Str(allow_none=True, validate=validate.Length(max=50))
+
+    # Clinical Information
+    indications = fields.Str(allow_none=True)
+    contraindications = fields.Str(allow_none=True)
+    side_effects = fields.Str(allow_none=True)
+    warnings = fields.Str(allow_none=True)
+
+    # Inventory
+    stock_quantity = fields.Int(load_default=0)
+    reorder_level = fields.Int(load_default=0)
+    unit_cost = fields.Decimal(as_string=True, allow_none=True, places=2)
+
+    # Status
+    is_active = fields.Bool(load_default=True)
+
+    # Metadata
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+
+
+class PrescriptionSchema(Schema):
+    """Schema for Prescription validation and serialization"""
+
+    id = fields.Int(dump_only=True)
+
+    # Links
+    patient_id = fields.Int(required=True)
+    patient_name = fields.Str(dump_only=True)
+    visit_id = fields.Int(allow_none=True)
+    medication_id = fields.Int(required=True)
+    medication_name = fields.Str(dump_only=True)
+
+    # Prescription Details
+    dosage = fields.Str(required=True, validate=validate.Length(min=1, max=100))
+    dosage_form = fields.Str(allow_none=True, validate=validate.Length(max=50))
+    frequency = fields.Str(required=True, validate=validate.Length(min=1, max=100))
+    route = fields.Str(allow_none=True, validate=validate.Length(max=50))
+
+    # Duration and Quantity
+    duration_days = fields.Int(allow_none=True)
+    quantity = fields.Decimal(as_string=True, required=True, places=2)
+    refills_allowed = fields.Int(load_default=0)
+    refills_remaining = fields.Int(load_default=0)
+
+    # Instructions
+    instructions = fields.Str(allow_none=True)
+    indication = fields.Str(allow_none=True)
+
+    # Status
+    status = fields.Str(
+        load_default="active", validate=validate.OneOf(["active", "completed", "discontinued", "expired"])
+    )
+    start_date = fields.Date(required=True)
+    end_date = fields.Date(allow_none=True)
+    discontinued_date = fields.Date(allow_none=True)
+    discontinuation_reason = fields.Str(allow_none=True)
+
+    # Prescriber
+    prescribed_by_id = fields.Int(dump_only=True)  # Auto-populated from current_user
+    prescribed_by_name = fields.Str(dump_only=True)
+
+    # Metadata
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+
+
+# Initialize schema instances for reuse
+medication_schema = MedicationSchema()
+medications_schema = MedicationSchema(many=True)
+
+prescription_schema = PrescriptionSchema()
+prescriptions_schema = PrescriptionSchema(many=True)

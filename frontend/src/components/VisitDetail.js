@@ -19,6 +19,7 @@ import SOAPNoteTab from './visits/SOAPNoteTab';
 import VitalSignsTab from './visits/VitalSignsTab';
 import DiagnosesTab from './visits/DiagnosesTab';
 import VaccinationsTab from './visits/VaccinationsTab';
+import PrescriptionsTab from './visits/PrescriptionsTab';
 import logger from '../utils/logger';
 
 /**
@@ -216,6 +217,7 @@ function VisitDetail() {
           <Tab label="Vital Signs" disabled={isNewVisit} />
           <Tab label="Diagnoses" disabled={isNewVisit} />
           <Tab label="Vaccinations" disabled={isNewVisit} />
+          <Tab label="Prescriptions" disabled={isNewVisit} />
         </Tabs>
       </Paper>
 
@@ -234,6 +236,9 @@ function VisitDetail() {
         {currentTab === 3 && visit && <DiagnosesTab visitId={visitId} />}
         {currentTab === 4 && visit && (
           <VaccinationsTab visitId={visitId} patientId={visit.patient_id} />
+        )}
+        {currentTab === 5 && visit && (
+          <PrescriptionsTab visitId={visitId} patientId={visit.patient_id} />
         )}
       </Box>
     </Box>

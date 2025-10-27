@@ -266,6 +266,7 @@ class Visit(db.Model):
     vital_signs = db.relationship("VitalSigns", back_populates="visit", cascade="all, delete-orphan")
     diagnoses = db.relationship("Diagnosis", back_populates="visit", cascade="all, delete-orphan")
     vaccinations = db.relationship("Vaccination", back_populates="visit", cascade="all, delete-orphan")
+    prescriptions = db.relationship("Prescription", back_populates="visit", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Visit {self.id} - Patient {self.patient_id} - {self.visit_date}>"
@@ -524,4 +525,170 @@ class Vaccination(db.Model):
             "administered_by_id": self.administered_by_id,
             "administered_by_name": self.administered_by.username if self.administered_by else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class Medication(db.Model):
+    """
+    Medication Model - Drug database for prescriptions
+
+    Stores information about medications available for prescription.
+    This is essentially the drug database/formulary.
+    """
+
+    __tablename__ = "medication"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Drug Information
+    drug_name = db.Column(db.String(200), nullable=False, unique=True)  # Generic name
+    brand_names = db.Column(db.Text, nullable=True)  # Comma-separated brand names
+    drug_class = db.Column(db.String(100), nullable=True)  # Antibiotic, NSAID, etc.
+    controlled_substance = db.Column(db.Boolean, default=False, nullable=False)
+    dea_schedule = db.Column(db.String(10), nullable=True)  # Schedule II, III, IV, V
+
+    # Forms and Strengths
+    available_forms = db.Column(db.Text, nullable=True)  # Tablet, Capsule, Liquid, Injectable
+    strengths = db.Column(db.Text, nullable=True)  # e.g., "5mg, 10mg, 25mg"
+
+    # Dosing Information
+    typical_dose_cats = db.Column(db.Text, nullable=True)  # Typical dosage range for cats
+    dosing_frequency = db.Column(db.String(100), nullable=True)  # Once daily, BID, TID, etc.
+    route_of_administration = db.Column(db.String(50), nullable=True)  # PO, IV, SC, IM
+
+    # Clinical Information
+    indications = db.Column(db.Text, nullable=True)  # What it's used for
+    contraindications = db.Column(db.Text, nullable=True)  # When not to use
+    side_effects = db.Column(db.Text, nullable=True)  # Common side effects
+    warnings = db.Column(db.Text, nullable=True)  # Special warnings
+
+    # Inventory (optional)
+    stock_quantity = db.Column(db.Integer, default=0)
+    reorder_level = db.Column(db.Integer, default=0)
+    unit_cost = db.Column(db.Numeric(10, 2), nullable=True)
+
+    # Status
+    is_active = db.Column(db.Boolean, default=True, nullable=False)  # Active in formulary
+
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships
+    prescriptions = db.relationship("Prescription", back_populates="medication")
+
+    def __repr__(self):
+        return f"<Medication {self.drug_name}>"
+
+    def to_dict(self):
+        """Convert medication to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "drug_name": self.drug_name,
+            "brand_names": self.brand_names,
+            "drug_class": self.drug_class,
+            "controlled_substance": self.controlled_substance,
+            "dea_schedule": self.dea_schedule,
+            "available_forms": self.available_forms,
+            "strengths": self.strengths,
+            "typical_dose_cats": self.typical_dose_cats,
+            "dosing_frequency": self.dosing_frequency,
+            "route_of_administration": self.route_of_administration,
+            "indications": self.indications,
+            "contraindications": self.contraindications,
+            "side_effects": self.side_effects,
+            "warnings": self.warnings,
+            "stock_quantity": self.stock_quantity,
+            "reorder_level": self.reorder_level,
+            "unit_cost": float(self.unit_cost) if self.unit_cost else None,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class Prescription(db.Model):
+    """
+    Prescription Model - Medication prescriptions for patients
+
+    Links patients, visits, and medications with specific dosing instructions.
+    """
+
+    __tablename__ = "prescription"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Links
+    patient_id = db.Column(db.Integer, db.ForeignKey("patient.id"), nullable=False)
+    visit_id = db.Column(db.Integer, db.ForeignKey("visit.id"), nullable=True)
+    medication_id = db.Column(db.Integer, db.ForeignKey("medication.id"), nullable=False)
+
+    # Prescription Details
+    dosage = db.Column(db.String(100), nullable=False)  # e.g., "5mg", "0.5ml"
+    dosage_form = db.Column(db.String(50), nullable=True)  # Tablet, Capsule, Liquid
+    frequency = db.Column(db.String(100), nullable=False)  # Once daily, BID, TID, QID, PRN
+    route = db.Column(db.String(50), nullable=True)  # PO (oral), SC, IM, IV, Topical
+
+    # Duration and Quantity
+    duration_days = db.Column(db.Integer, nullable=True)  # How many days to take
+    quantity = db.Column(db.Numeric(10, 2), nullable=False)  # Number of units (tablets, ml, etc.)
+    refills_allowed = db.Column(db.Integer, default=0, nullable=False)
+    refills_remaining = db.Column(db.Integer, default=0, nullable=False)
+
+    # Instructions
+    instructions = db.Column(db.Text, nullable=True)  # "Give with food", "Apply to affected area"
+    indication = db.Column(db.Text, nullable=True)  # Why this medication was prescribed
+
+    # Status
+    status = db.Column(db.String(20), default="active")  # active, completed, discontinued, expired
+    start_date = db.Column(db.Date, nullable=False)
+    end_date = db.Column(db.Date, nullable=True)
+    discontinued_date = db.Column(db.Date, nullable=True)
+    discontinuation_reason = db.Column(db.Text, nullable=True)
+
+    # Prescriber
+    prescribed_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships
+    patient = db.relationship("Patient", backref="prescriptions")
+    visit = db.relationship("Visit", back_populates="prescriptions")
+    medication = db.relationship("Medication", back_populates="prescriptions")
+    prescribed_by = db.relationship("User")
+
+    def __repr__(self):
+        med_name = self.medication.drug_name if self.medication else 'Unknown'
+        return f"<Prescription {self.id} - {med_name} for Patient {self.patient_id}>"
+
+    def to_dict(self):
+        """Convert prescription to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "patient_id": self.patient_id,
+            "patient_name": self.patient.name if self.patient else None,
+            "visit_id": self.visit_id,
+            "medication_id": self.medication_id,
+            "medication_name": self.medication.drug_name if self.medication else None,
+            "dosage": self.dosage,
+            "dosage_form": self.dosage_form,
+            "frequency": self.frequency,
+            "route": self.route,
+            "duration_days": self.duration_days,
+            "quantity": float(self.quantity) if self.quantity else None,
+            "refills_allowed": self.refills_allowed,
+            "refills_remaining": self.refills_remaining,
+            "instructions": self.instructions,
+            "indication": self.indication,
+            "status": self.status,
+            "start_date": self.start_date.isoformat() if self.start_date else None,
+            "end_date": self.end_date.isoformat() if self.end_date else None,
+            "discontinued_date": self.discontinued_date.isoformat() if self.discontinued_date else None,
+            "discontinuation_reason": self.discontinuation_reason,
+            "prescribed_by_id": self.prescribed_by_id,
+            "prescribed_by_name": self.prescribed_by.username if self.prescribed_by else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
