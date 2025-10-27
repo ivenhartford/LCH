@@ -1453,7 +1453,6 @@ def get_medications():
     """Get all medications (drug database) with optional filtering"""
     try:
         from .models import Medication
-        from .schemas import medications_schema
 
         is_active = request.args.get("is_active", "").strip()
         drug_class = request.args.get("drug_class", "").strip()
@@ -1473,7 +1472,7 @@ def get_medications():
             query = query.filter(Medication.drug_name.ilike(search_term))
 
         medications = query.order_by(Medication.drug_name).all()
-        return jsonify({"medications": medications_schema.dump(medications), "total": len(medications)}), 200
+        return jsonify({"medications": [med.to_dict() for med in medications], "total": len(medications)}), 200
 
     except Exception as e:
         app.logger.error(f"Error fetching medications: {str(e)}", exc_info=True)
@@ -1486,10 +1485,9 @@ def get_medication(medication_id):
     """Get a specific medication by ID"""
     try:
         from .models import Medication
-        from .schemas import medication_schema
 
         medication = Medication.query.get_or_404(medication_id)
-        return jsonify(medication_schema.dump(medication)), 200
+        return jsonify(medication.to_dict()), 200
 
     except Exception as e:
         app.logger.error(f"Error fetching medication {medication_id}: {str(e)}", exc_info=True)
@@ -1539,7 +1537,7 @@ def create_medication():
         db.session.commit()
 
         app.logger.info(f"Created medication: {medication.drug_name}")
-        return jsonify(medication_schema.dump(medication)), 201
+        return jsonify(medication.to_dict()), 201
 
     except Exception as e:
         db.session.rollback()
@@ -1565,7 +1563,7 @@ def update_medication(medication_id):
 
         db.session.commit()
         app.logger.info(f"Updated medication {medication_id}")
-        return jsonify(medication_schema.dump(medication)), 200
+        return jsonify(medication.to_dict()), 200
 
     except Exception as e:
         db.session.rollback()
@@ -1616,7 +1614,6 @@ def get_prescriptions():
     """Get all prescriptions with optional filtering"""
     try:
         from .models import Prescription
-        from .schemas import prescriptions_schema
 
         patient_id = request.args.get("patient_id", type=int)
         visit_id = request.args.get("visit_id", type=int)
@@ -1634,7 +1631,7 @@ def get_prescriptions():
             query = query.filter_by(status=status)
 
         prescriptions = query.order_by(Prescription.created_at.desc()).all()
-        return jsonify({"prescriptions": prescriptions_schema.dump(prescriptions), "total": len(prescriptions)}), 200
+        return jsonify({"prescriptions": [rx.to_dict() for rx in prescriptions], "total": len(prescriptions)}), 200
 
     except Exception as e:
         app.logger.error(f"Error fetching prescriptions: {str(e)}", exc_info=True)
@@ -1647,10 +1644,9 @@ def get_prescription(prescription_id):
     """Get a specific prescription by ID"""
     try:
         from .models import Prescription
-        from .schemas import prescription_schema
 
         prescription = Prescription.query.get_or_404(prescription_id)
-        return jsonify(prescription_schema.dump(prescription)), 200
+        return jsonify(prescription.to_dict()), 200
 
     except Exception as e:
         app.logger.error(f"Error fetching prescription {prescription_id}: {str(e)}", exc_info=True)
@@ -1714,7 +1710,7 @@ def create_prescription():
         db.session.commit()
 
         app.logger.info(f"Created prescription {prescription.id} for patient {patient.name}")
-        return jsonify(prescription_schema.dump(prescription)), 201
+        return jsonify(prescription.to_dict()), 201
 
     except Exception as e:
         db.session.rollback()
@@ -1740,7 +1736,7 @@ def update_prescription(prescription_id):
 
         db.session.commit()
         app.logger.info(f"Updated prescription {prescription_id}")
-        return jsonify(prescription_schema.dump(prescription)), 200
+        return jsonify(prescription.to_dict()), 200
 
     except Exception as e:
         db.session.rollback()
