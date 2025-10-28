@@ -448,15 +448,23 @@ class ServiceSchema(Schema):
     id = fields.Int(dump_only=True)
 
     # Service Information
+    code = fields.Str(required=True, validate=validate.Length(min=1, max=50))
     name = fields.Str(required=True, validate=validate.Length(min=1, max=200))
     description = fields.Str(allow_none=True)
-    category = fields.Str(allow_none=True, validate=validate.Length(max=100))
-    service_type = fields.Str(load_default="service", validate=validate.OneOf(["service", "product"]))
+
+    # Category
+    category = fields.Str(
+        required=True,
+        validate=validate.OneOf(["Service", "Procedure", "Lab", "Medication", "Supply", "Retail"]),
+    )
 
     # Pricing
-    unit_price = fields.Decimal(as_string=True, required=True, places=2)
+    default_price = fields.Decimal(as_string=True, required=True, places=2)
     cost = fields.Decimal(as_string=True, allow_none=True, places=2)
+
+    # Tax
     taxable = fields.Bool(load_default=True)
+    tax_rate = fields.Decimal(as_string=True, load_default="0.00", places=2)
 
     # Status
     is_active = fields.Bool(load_default=True)
@@ -467,21 +475,27 @@ class ServiceSchema(Schema):
 
 
 class InvoiceItemSchema(Schema):
-    """Schema for InvoiceItem validation and serialization"""
+    """Schema for Invoice Item validation and serialization"""
 
     id = fields.Int(dump_only=True)
 
     # Links
     invoice_id = fields.Int(dump_only=True)
     service_id = fields.Int(allow_none=True)
-    service_name = fields.Str(dump_only=True)
+    service_code = fields.Str(dump_only=True)
 
     # Item Details
     description = fields.Str(required=True, validate=validate.Length(min=1, max=200))
-    quantity = fields.Decimal(as_string=True, load_default="1.0", places=2)
+    quantity = fields.Decimal(as_string=True, load_default="1.00", places=2)
     unit_price = fields.Decimal(as_string=True, required=True, places=2)
-    total_price = fields.Decimal(as_string=True, required=True, places=2)
+
+    # Tax
     taxable = fields.Bool(load_default=True)
+    tax_rate = fields.Decimal(as_string=True, load_default="0.00", places=2)
+    tax_amount = fields.Decimal(as_string=True, dump_only=True, places=2)
+
+    # Totals
+    line_total = fields.Decimal(as_string=True, dump_only=True, places=2)
 
     # Metadata
     created_at = fields.DateTime(dump_only=True)
@@ -492,44 +506,73 @@ class InvoiceSchema(Schema):
 
     id = fields.Int(dump_only=True)
 
+    # Invoice Number (auto-generated)
+    invoice_number = fields.Str(dump_only=True)
+
     # Links
+    patient_id = fields.Int(required=True)
+    patient_name = fields.Str(dump_only=True)
     client_id = fields.Int(required=True)
     client_name = fields.Str(dump_only=True)
-    patient_id = fields.Int(allow_none=True)
-    patient_name = fields.Str(dump_only=True)
     visit_id = fields.Int(allow_none=True)
 
     # Invoice Details
-    invoice_number = fields.Str(dump_only=True)  # Auto-generated
-    invoice_date = fields.Date(required=True)
+    invoice_date = fields.DateTime(load_default=datetime.utcnow)
     due_date = fields.Date(allow_none=True)
 
     # Amounts
-    subtotal = fields.Decimal(as_string=True, load_default="0.0", places=2)
-    tax_rate = fields.Decimal(as_string=True, load_default="0.0", places=2)
-    tax_amount = fields.Decimal(as_string=True, load_default="0.0", places=2)
-    discount_amount = fields.Decimal(as_string=True, load_default="0.0", places=2)
-    total_amount = fields.Decimal(as_string=True, load_default="0.0", places=2)
+    subtotal = fields.Decimal(as_string=True, dump_only=True, places=2)
+    tax_amount = fields.Decimal(as_string=True, dump_only=True, places=2)
+    discount_amount = fields.Decimal(as_string=True, load_default="0.00", places=2)
+    total_amount = fields.Decimal(as_string=True, dump_only=True, places=2)
     amount_paid = fields.Decimal(as_string=True, dump_only=True, places=2)
     balance_due = fields.Decimal(as_string=True, dump_only=True, places=2)
 
     # Status
     status = fields.Str(
         load_default="draft",
-        validate=validate.OneOf(["draft", "sent", "partial_paid", "paid", "overdue", "cancelled"]),
+        validate=validate.OneOf(["draft", "issued", "partially_paid", "paid", "overdue", "cancelled"]),
     )
 
     # Notes
     notes = fields.Str(allow_none=True)
-
-    # Line items (nested)
-    items = fields.Nested(InvoiceItemSchema, many=True, load_default=[])
+    internal_notes = fields.Str(allow_none=True)
 
     # Metadata
     created_by_id = fields.Int(dump_only=True)
     created_by_name = fields.Str(dump_only=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
+
+    # Nested relationships (optional)
+    items = fields.Nested(InvoiceItemSchema, many=True, dump_only=True)
+    payments = fields.Nested("PaymentSchema", many=True, dump_only=True)
+
+
+class InvoiceCreateSchema(Schema):
+    """Schema for creating a new invoice with items"""
+
+    # Links
+    patient_id = fields.Int(required=True)
+    client_id = fields.Int(required=True)
+    visit_id = fields.Int(allow_none=True)
+
+    # Invoice Details
+    invoice_date = fields.DateTime(load_default=datetime.utcnow)
+    due_date = fields.Date(allow_none=True)
+
+    # Discount
+    discount_amount = fields.Decimal(as_string=True, load_default="0.00", places=2)
+
+    # Status
+    status = fields.Str(load_default="draft")
+
+    # Notes
+    notes = fields.Str(allow_none=True)
+    internal_notes = fields.Str(allow_none=True)
+
+    # Items
+    items = fields.List(fields.Nested(InvoiceItemSchema), required=True, validate=validate.Length(min=1))
 
 
 class PaymentSchema(Schema):
@@ -544,13 +587,24 @@ class PaymentSchema(Schema):
     client_name = fields.Str(dump_only=True)
 
     # Payment Details
-    payment_date = fields.DateTime(required=True)
+    payment_date = fields.DateTime(load_default=datetime.utcnow)
     amount = fields.Decimal(as_string=True, required=True, places=2)
     payment_method = fields.Str(
         required=True,
-        validate=validate.OneOf(["cash", "check", "credit_card", "debit_card", "bank_transfer", "other"]),
+        validate=validate.OneOf(
+            ["Cash", "Check", "Credit Card", "Debit Card", "Bank Transfer", "Other"]
+        ),
     )
+
+    # Payment Method Details
     reference_number = fields.Str(allow_none=True, validate=validate.Length(max=100))
+    card_last_four = fields.Str(allow_none=True, validate=validate.Length(max=4))
+    card_type = fields.Str(allow_none=True, validate=validate.Length(max=20))
+
+    # Status
+    status = fields.Str(
+        load_default="completed", validate=validate.OneOf(["completed", "pending", "failed", "refunded"])
+    )
 
     # Notes
     notes = fields.Str(allow_none=True)
@@ -559,231 +613,19 @@ class PaymentSchema(Schema):
     processed_by_id = fields.Int(dump_only=True)
     processed_by_name = fields.Str(dump_only=True)
     created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
 
 
-# Initialize schema instances
+# Initialize schema instances for reuse
 service_schema = ServiceSchema()
 services_schema = ServiceSchema(many=True)
-
-invoice_schema = InvoiceSchema()
-invoices_schema = InvoiceSchema(many=True)
 
 invoice_item_schema = InvoiceItemSchema()
 invoice_items_schema = InvoiceItemSchema(many=True)
 
+invoice_schema = InvoiceSchema()
+invoices_schema = InvoiceSchema(many=True)
+invoice_create_schema = InvoiceCreateSchema()
+
 payment_schema = PaymentSchema()
 payments_schema = PaymentSchema(many=True)
-
-
-# ============================================================================
-# PHASE 3.1: INVENTORY MANAGEMENT SCHEMAS
-# ============================================================================
-
-
-class VendorSchema(Schema):
-    """Schema for Vendor model"""
-
-    # Primary Key
-    id = fields.Int(dump_only=True)
-
-    # Company Info
-    company_name = fields.Str(required=True, validate=validate.Length(min=1, max=200))
-    contact_name = fields.Str(allow_none=True, validate=validate.Length(max=200))
-    email = fields.Email(allow_none=True)
-    phone = fields.Str(allow_none=True, validate=validate.Length(max=20))
-    fax = fields.Str(allow_none=True, validate=validate.Length(max=20))
-    website = fields.Str(allow_none=True, validate=validate.Length(max=200))
-
-    # Address
-    address_line1 = fields.Str(allow_none=True, validate=validate.Length(max=200))
-    address_line2 = fields.Str(allow_none=True, validate=validate.Length(max=200))
-    city = fields.Str(allow_none=True, validate=validate.Length(max=100))
-    state = fields.Str(allow_none=True, validate=validate.Length(max=50))
-    zip_code = fields.Str(allow_none=True, validate=validate.Length(max=20))
-    country = fields.Str(allow_none=True, validate=validate.Length(max=100))
-
-    # Account Info
-    account_number = fields.Str(allow_none=True, validate=validate.Length(max=100))
-    payment_terms = fields.Str(allow_none=True, validate=validate.Length(max=100))
-    tax_id = fields.Str(allow_none=True, validate=validate.Length(max=50))
-
-    # Settings
-    preferred_vendor = fields.Bool(load_default=False)
-    is_active = fields.Bool(load_default=True)
-
-    # Notes
-    notes = fields.Str(allow_none=True)
-
-    # Metadata
-    created_at = fields.DateTime(dump_only=True)
-    updated_at = fields.DateTime(dump_only=True)
-
-
-class ProductSchema(Schema):
-    """Schema for Product model"""
-
-    # Primary Key
-    id = fields.Int(dump_only=True)
-
-    # Basic Info
-    name = fields.Str(required=True, validate=validate.Length(min=1, max=200))
-    sku = fields.Str(allow_none=True, validate=validate.Length(max=100))
-    description = fields.Str(allow_none=True)
-
-    # Categorization
-    product_type = fields.Str(
-        required=True,
-        validate=validate.OneOf(["medication", "supply", "equipment", "retail"]),
-    )
-    category = fields.Str(allow_none=True, validate=validate.Length(max=100))
-
-    # Vendor Info
-    vendor_id = fields.Int(allow_none=True)
-    vendor_name = fields.Str(dump_only=True)
-    vendor_sku = fields.Str(allow_none=True, validate=validate.Length(max=100))
-
-    # Inventory Tracking
-    stock_quantity = fields.Int(load_default=0)
-    reorder_level = fields.Int(load_default=0)
-    reorder_quantity = fields.Int(load_default=0)
-    unit_of_measure = fields.Str(load_default="each", validate=validate.Length(max=50))
-
-    # Pricing
-    unit_cost = fields.Decimal(as_string=True, allow_none=True, places=2)
-    unit_price = fields.Decimal(as_string=True, allow_none=True, places=2)
-    markup_percentage = fields.Decimal(as_string=True, allow_none=True, places=2)
-
-    # Product Details
-    manufacturer = fields.Str(allow_none=True, validate=validate.Length(max=200))
-    lot_number = fields.Str(allow_none=True, validate=validate.Length(max=100))
-    expiration_date = fields.Date(allow_none=True)
-    storage_location = fields.Str(allow_none=True, validate=validate.Length(max=100))
-
-    # Flags
-    requires_prescription = fields.Bool(load_default=False)
-    controlled_substance = fields.Bool(load_default=False)
-    taxable = fields.Bool(load_default=True)
-    is_active = fields.Bool(load_default=True)
-
-    # Notes
-    notes = fields.Str(allow_none=True)
-
-    # Computed Properties
-    needs_reorder = fields.Bool(dump_only=True)
-    is_out_of_stock = fields.Bool(dump_only=True)
-    stock_value = fields.Float(dump_only=True)
-
-    # Metadata
-    created_at = fields.DateTime(dump_only=True)
-    updated_at = fields.DateTime(dump_only=True)
-
-
-class PurchaseOrderItemSchema(Schema):
-    """Schema for Purchase Order Item model"""
-
-    # Primary Key
-    id = fields.Int(dump_only=True)
-
-    # Links
-    purchase_order_id = fields.Int(dump_only=True)
-    product_id = fields.Int(required=True)
-    product_name = fields.Str(dump_only=True)
-
-    # Order Details
-    quantity_ordered = fields.Int(required=True, validate=validate.Range(min=1))
-    quantity_received = fields.Int(load_default=0)
-    unit_cost = fields.Decimal(as_string=True, required=True, places=2)
-    total_cost = fields.Decimal(as_string=True, required=True, places=2)
-
-    # Notes
-    notes = fields.Str(allow_none=True)
-
-
-class PurchaseOrderSchema(Schema):
-    """Schema for Purchase Order model"""
-
-    # Primary Key
-    id = fields.Int(dump_only=True)
-
-    # Order Info
-    po_number = fields.Str(dump_only=True)
-    vendor_id = fields.Int(required=True)
-    vendor_name = fields.Str(dump_only=True)
-    order_date = fields.Date(required=True)
-    expected_delivery_date = fields.Date(allow_none=True)
-    actual_delivery_date = fields.Date(allow_none=True)
-
-    # Status
-    status = fields.Str(
-        load_default="draft",
-        validate=validate.OneOf(["draft", "submitted", "received", "partially_received", "cancelled"]),
-    )
-
-    # Amounts
-    subtotal = fields.Decimal(as_string=True, load_default="0.0", places=2)
-    tax = fields.Decimal(as_string=True, load_default="0.0", places=2)
-    shipping = fields.Decimal(as_string=True, load_default="0.0", places=2)
-    total_amount = fields.Decimal(as_string=True, load_default="0.0", places=2)
-
-    # Notes
-    notes = fields.Str(allow_none=True)
-    shipping_address = fields.Str(allow_none=True)
-
-    # Metadata
-    created_by_id = fields.Int(dump_only=True)
-    created_by_name = fields.Str(dump_only=True)
-    received_by_id = fields.Int(dump_only=True)
-    received_by_name = fields.Str(dump_only=True)
-    created_at = fields.DateTime(dump_only=True)
-    updated_at = fields.DateTime(dump_only=True)
-
-    # Nested Items
-    items = fields.List(fields.Nested(PurchaseOrderItemSchema), allow_none=True)
-
-
-class InventoryTransactionSchema(Schema):
-    """Schema for Inventory Transaction model"""
-
-    # Primary Key
-    id = fields.Int(dump_only=True)
-
-    # Links
-    product_id = fields.Int(required=True)
-    product_name = fields.Str(dump_only=True)
-    purchase_order_id = fields.Int(allow_none=True)
-
-    # Transaction Details
-    transaction_type = fields.Str(
-        required=True,
-        validate=validate.OneOf(["received", "dispensed", "adjustment", "return", "expired", "damaged"]),
-    )
-    quantity = fields.Int(required=True)
-    quantity_before = fields.Int(required=True)
-    quantity_after = fields.Int(required=True)
-
-    # Additional Info
-    reason = fields.Str(allow_none=True, validate=validate.Length(max=200))
-    reference_number = fields.Str(allow_none=True, validate=validate.Length(max=100))
-    notes = fields.Str(allow_none=True)
-
-    # Metadata
-    transaction_date = fields.DateTime(required=True)
-    performed_by_id = fields.Int(dump_only=True)
-    performed_by_name = fields.Str(dump_only=True)
-
-
-# Initialize inventory schema instances
-vendor_schema = VendorSchema()
-vendors_schema = VendorSchema(many=True)
-
-product_schema = ProductSchema()
-products_schema = ProductSchema(many=True)
-
-purchase_order_schema = PurchaseOrderSchema()
-purchase_orders_schema = PurchaseOrderSchema(many=True)
-
-purchase_order_item_schema = PurchaseOrderItemSchema()
-purchase_order_items_schema = PurchaseOrderItemSchema(many=True)
-
-inventory_transaction_schema = InventoryTransactionSchema()
-inventory_transactions_schema = InventoryTransactionSchema(many=True)
