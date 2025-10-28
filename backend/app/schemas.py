@@ -576,6 +576,85 @@ payments_schema = PaymentSchema(many=True)
 
 
 # ============================================================================
+# PHASE 1.5: APPOINTMENT SCHEMAS
+# ============================================================================
+
+
+class AppointmentTypeSchema(Schema):
+    """Schema for AppointmentType validation and serialization"""
+
+    id = fields.Int(dump_only=True)
+    name = fields.Str(required=True, validate=validate.Length(min=1, max=100))
+    description = fields.Str(allow_none=True)
+    default_duration_minutes = fields.Int(load_default=30, validate=validate.Range(min=5, max=480))
+    color = fields.Str(load_default="#2563eb", validate=validate.Regexp(r"^#[0-9A-Fa-f]{6}$"))
+    is_active = fields.Bool(load_default=True)
+    created_at = fields.DateTime(dump_only=True)
+
+
+class AppointmentSchema(Schema):
+    """Schema for Appointment validation and serialization"""
+
+    id = fields.Int(dump_only=True)
+
+    # Basic Info
+    title = fields.Str(required=True, validate=validate.Length(min=1, max=200))
+    start_time = fields.DateTime(required=True)
+    end_time = fields.DateTime(required=True)
+    description = fields.Str(allow_none=True)
+
+    # Relationships
+    patient_id = fields.Int(allow_none=True)
+    patient_name = fields.Str(dump_only=True)
+    client_id = fields.Int(required=True)
+    client_name = fields.Str(dump_only=True)
+    appointment_type_id = fields.Int(allow_none=True)
+    appointment_type_name = fields.Str(dump_only=True)
+    appointment_type_color = fields.Str(dump_only=True)
+
+    # Staff and Resources
+    assigned_staff_id = fields.Int(allow_none=True)
+    assigned_staff_name = fields.Str(dump_only=True)
+    room = fields.Str(allow_none=True, validate=validate.Length(max=50))
+
+    # Status
+    status = fields.Str(
+        load_default="scheduled",
+        validate=validate.OneOf(
+            ["scheduled", "confirmed", "checked_in", "in_progress", "completed", "cancelled", "no_show"]
+        ),
+    )
+
+    # Workflow Timestamps
+    check_in_time = fields.DateTime(allow_none=True)
+    actual_start_time = fields.DateTime(allow_none=True)
+    actual_end_time = fields.DateTime(allow_none=True)
+
+    # Cancellation
+    cancelled_at = fields.DateTime(allow_none=True)
+    cancelled_by_id = fields.Int(allow_none=True)
+    cancellation_reason = fields.Str(allow_none=True)
+
+    # Notes and Reminders
+    notes = fields.Str(allow_none=True)
+    reminder_sent = fields.Bool(dump_only=True)
+    reminder_sent_at = fields.DateTime(allow_none=True)
+
+    # Metadata
+    created_at = fields.DateTime(dump_only=True)
+    created_by_id = fields.Int(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+
+
+# Initialize appointment schema instances
+appointment_type_schema = AppointmentTypeSchema()
+appointment_types_schema = AppointmentTypeSchema(many=True)
+
+appointment_schema = AppointmentSchema()
+appointments_schema = AppointmentSchema(many=True)
+
+
+# ============================================================================
 # PHASE 3.1: INVENTORY MANAGEMENT SCHEMAS
 # ============================================================================
 
