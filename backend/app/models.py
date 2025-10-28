@@ -213,15 +213,141 @@ class Patient(db.Model):
 Pet = Patient
 
 
-class Appointment(db.Model):
+class AppointmentType(db.Model):
+    """
+    AppointmentType Model - Categories of appointments (e.g., Wellness, Surgery, Emergency)
+
+    Used for color-coding calendar, duration defaults, and pricing
+    """
+
+    __tablename__ = "appointment_type"
+
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(100), nullable=False)
-    start_time = db.Column(db.DateTime, nullable=False)
-    end_time = db.Column(db.DateTime, nullable=False)
+    name = db.Column(db.String(100), nullable=False, unique=True)
     description = db.Column(db.Text)
+    default_duration_minutes = db.Column(db.Integer, default=30)  # Default appointment length
+    color = db.Column(db.String(7), default="#2563eb")  # Hex color for calendar
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationship
+    appointments = db.relationship("Appointment", back_populates="appointment_type", lazy=True)
 
     def __repr__(self):
-        return f"<Appointment {self.title}>"
+        return f"<AppointmentType {self.name}>"
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "default_duration_minutes": self.default_duration_minutes,
+            "color": self.color,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class Appointment(db.Model):
+    """
+    Enhanced Appointment Model
+
+    Tracks appointments with patient, client, type, status, assigned staff, and room information.
+    Includes full appointment workflow from scheduled to completed.
+    """
+
+    __tablename__ = "appointment"
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    start_time = db.Column(db.DateTime, nullable=False, index=True)
+    end_time = db.Column(db.DateTime, nullable=False, index=True)
+    description = db.Column(db.Text)
+
+    # Relationships to core entities
+    patient_id = db.Column(
+        db.Integer, db.ForeignKey("patient.id"), nullable=True
+    )  # Nullable for client-only appointments
+    client_id = db.Column(db.Integer, db.ForeignKey("client.id"), nullable=False, index=True)
+
+    # Appointment categorization
+    appointment_type_id = db.Column(db.Integer, db.ForeignKey("appointment_type.id"), nullable=True)
+
+    # Status workflow: scheduled, confirmed, checked_in, in_progress, completed, cancelled, no_show
+    status = db.Column(db.String(20), default="scheduled", nullable=False, index=True)
+
+    # Staff and resources
+    assigned_staff_id = db.Column(
+        db.Integer, db.ForeignKey("user.id"), nullable=True
+    )  # Veterinarian/technician
+    room = db.Column(db.String(50))  # Exam room identifier
+
+    # Additional tracking
+    check_in_time = db.Column(db.DateTime)  # When patient checked in
+    actual_start_time = db.Column(db.DateTime)  # When appointment actually started
+    actual_end_time = db.Column(db.DateTime)  # When appointment actually ended
+
+    # Cancellation tracking
+    cancelled_at = db.Column(db.DateTime)
+    cancelled_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    cancellation_reason = db.Column(db.Text)
+
+    # Notes and reminders
+    notes = db.Column(db.Text)  # Internal staff notes
+    reminder_sent = db.Column(db.Boolean, default=False)
+    reminder_sent_at = db.Column(db.DateTime)
+
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    patient = db.relationship("Patient", backref="appointments", lazy=True)
+    client = db.relationship("Client", backref="appointments", lazy=True)
+    appointment_type = db.relationship("AppointmentType", back_populates="appointments", lazy=True)
+    assigned_staff = db.relationship(
+        "User", foreign_keys=[assigned_staff_id], backref="assigned_appointments", lazy=True
+    )
+    cancelled_by = db.relationship(
+        "User", foreign_keys=[cancelled_by_id], backref="cancelled_appointments", lazy=True
+    )
+    created_by = db.relationship(
+        "User", foreign_keys=[created_by_id], backref="created_appointments", lazy=True
+    )
+
+    def __repr__(self):
+        return f"<Appointment {self.id}: {self.title} at {self.start_time}>"
+
+    def to_dict(self):
+        """Convert appointment to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "title": self.title,
+            "start_time": self.start_time.isoformat() if self.start_time else None,
+            "end_time": self.end_time.isoformat() if self.end_time else None,
+            "description": self.description,
+            "patient_id": self.patient_id,
+            "patient_name": self.patient.name if self.patient else None,
+            "client_id": self.client_id,
+            "client_name": f"{self.client.first_name} {self.client.last_name}" if self.client else None,
+            "appointment_type_id": self.appointment_type_id,
+            "appointment_type_name": self.appointment_type.name if self.appointment_type else None,
+            "appointment_type_color": self.appointment_type.color if self.appointment_type else "#2563eb",
+            "status": self.status,
+            "assigned_staff_id": self.assigned_staff_id,
+            "assigned_staff_name": self.assigned_staff.username if self.assigned_staff else None,
+            "room": self.room,
+            "check_in_time": self.check_in_time.isoformat() if self.check_in_time else None,
+            "actual_start_time": self.actual_start_time.isoformat() if self.actual_start_time else None,
+            "actual_end_time": self.actual_end_time.isoformat() if self.actual_end_time else None,
+            "cancelled_at": self.cancelled_at.isoformat() if self.cancelled_at else None,
+            "cancellation_reason": self.cancellation_reason,
+            "notes": self.notes,
+            "reminder_sent": self.reminder_sent,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
 
 
 class Visit(db.Model):
