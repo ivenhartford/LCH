@@ -213,15 +213,141 @@ class Patient(db.Model):
 Pet = Patient
 
 
-class Appointment(db.Model):
+class AppointmentType(db.Model):
+    """
+    AppointmentType Model - Categories of appointments (e.g., Wellness, Surgery, Emergency)
+
+    Used for color-coding calendar, duration defaults, and pricing
+    """
+
+    __tablename__ = "appointment_type"
+
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(100), nullable=False)
-    start_time = db.Column(db.DateTime, nullable=False)
-    end_time = db.Column(db.DateTime, nullable=False)
+    name = db.Column(db.String(100), nullable=False, unique=True)
     description = db.Column(db.Text)
+    default_duration_minutes = db.Column(db.Integer, default=30)  # Default appointment length
+    color = db.Column(db.String(7), default="#2563eb")  # Hex color for calendar
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationship
+    appointments = db.relationship("Appointment", back_populates="appointment_type", lazy=True)
 
     def __repr__(self):
-        return f"<Appointment {self.title}>"
+        return f"<AppointmentType {self.name}>"
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "default_duration_minutes": self.default_duration_minutes,
+            "color": self.color,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class Appointment(db.Model):
+    """
+    Enhanced Appointment Model
+
+    Tracks appointments with patient, client, type, status, assigned staff, and room information.
+    Includes full appointment workflow from scheduled to completed.
+    """
+
+    __tablename__ = "appointment"
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    start_time = db.Column(db.DateTime, nullable=False, index=True)
+    end_time = db.Column(db.DateTime, nullable=False, index=True)
+    description = db.Column(db.Text)
+
+    # Relationships to core entities
+    patient_id = db.Column(
+        db.Integer, db.ForeignKey("patient.id"), nullable=True
+    )  # Nullable for client-only appointments
+    client_id = db.Column(db.Integer, db.ForeignKey("client.id"), nullable=False, index=True)
+
+    # Appointment categorization
+    appointment_type_id = db.Column(db.Integer, db.ForeignKey("appointment_type.id"), nullable=True)
+
+    # Status workflow: scheduled, confirmed, checked_in, in_progress, completed, cancelled, no_show
+    status = db.Column(db.String(20), default="scheduled", nullable=False, index=True)
+
+    # Staff and resources
+    assigned_staff_id = db.Column(
+        db.Integer, db.ForeignKey("user.id"), nullable=True
+    )  # Veterinarian/technician
+    room = db.Column(db.String(50))  # Exam room identifier
+
+    # Additional tracking
+    check_in_time = db.Column(db.DateTime)  # When patient checked in
+    actual_start_time = db.Column(db.DateTime)  # When appointment actually started
+    actual_end_time = db.Column(db.DateTime)  # When appointment actually ended
+
+    # Cancellation tracking
+    cancelled_at = db.Column(db.DateTime)
+    cancelled_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    cancellation_reason = db.Column(db.Text)
+
+    # Notes and reminders
+    notes = db.Column(db.Text)  # Internal staff notes
+    reminder_sent = db.Column(db.Boolean, default=False)
+    reminder_sent_at = db.Column(db.DateTime)
+
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    patient = db.relationship("Patient", backref="appointments", lazy=True)
+    client = db.relationship("Client", backref="appointments", lazy=True)
+    appointment_type = db.relationship("AppointmentType", back_populates="appointments", lazy=True)
+    assigned_staff = db.relationship(
+        "User", foreign_keys=[assigned_staff_id], backref="assigned_appointments", lazy=True
+    )
+    cancelled_by = db.relationship(
+        "User", foreign_keys=[cancelled_by_id], backref="cancelled_appointments", lazy=True
+    )
+    created_by = db.relationship(
+        "User", foreign_keys=[created_by_id], backref="created_appointments", lazy=True
+    )
+
+    def __repr__(self):
+        return f"<Appointment {self.id}: {self.title} at {self.start_time}>"
+
+    def to_dict(self):
+        """Convert appointment to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "title": self.title,
+            "start_time": self.start_time.isoformat() if self.start_time else None,
+            "end_time": self.end_time.isoformat() if self.end_time else None,
+            "description": self.description,
+            "patient_id": self.patient_id,
+            "patient_name": self.patient.name if self.patient else None,
+            "client_id": self.client_id,
+            "client_name": f"{self.client.first_name} {self.client.last_name}" if self.client else None,
+            "appointment_type_id": self.appointment_type_id,
+            "appointment_type_name": self.appointment_type.name if self.appointment_type else None,
+            "appointment_type_color": self.appointment_type.color if self.appointment_type else "#2563eb",
+            "status": self.status,
+            "assigned_staff_id": self.assigned_staff_id,
+            "assigned_staff_name": self.assigned_staff.username if self.assigned_staff else None,
+            "room": self.room,
+            "check_in_time": self.check_in_time.isoformat() if self.check_in_time else None,
+            "actual_start_time": self.actual_start_time.isoformat() if self.actual_start_time else None,
+            "actual_end_time": self.actual_end_time.isoformat() if self.actual_end_time else None,
+            "cancelled_at": self.cancelled_at.isoformat() if self.cancelled_at else None,
+            "cancellation_reason": self.cancellation_reason,
+            "notes": self.notes,
+            "reminder_sent": self.reminder_sent,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
 
 
 class Visit(db.Model):
@@ -660,7 +786,7 @@ class Prescription(db.Model):
     prescribed_by = db.relationship("User")
 
     def __repr__(self):
-        med_name = self.medication.drug_name if self.medication else 'Unknown'
+        med_name = self.medication.drug_name if self.medication else "Unknown"
         return f"<Prescription {self.id} - {med_name} for Patient {self.patient_id}>"
 
     def to_dict(self):
@@ -696,12 +822,10 @@ class Prescription(db.Model):
 
 class Service(db.Model):
     """
-    Service Model - Catalog of services and products for billing
+    Service Model - Catalog of billable services and products
 
-    This is the master catalog of all billable items including:
-    - Medical services (exams, procedures, surgeries)
-    - Laboratory tests
-    - Products (medications, supplies, retail items)
+    Used for creating invoice line items. Includes both services (exams, procedures)
+    and products (medications, supplies) that can be billed to clients.
     """
 
     __tablename__ = "service"
@@ -709,45 +833,37 @@ class Service(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     # Service Information
-    code = db.Column(db.String(50), unique=True, nullable=False)  # Internal service code
     name = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text, nullable=True)
-
-    # Category
-    category = db.Column(
-        db.String(50), nullable=False
-    )  # Service, Procedure, Lab, Medication, Supply, Retail
+    category = db.Column(db.String(100), nullable=True)  # Exam, Surgery, Lab, Medication, Supply, etc.
+    service_type = db.Column(db.String(50), nullable=False, default="service")  # service or product
 
     # Pricing
-    default_price = db.Column(db.Numeric(10, 2), nullable=False)
-    cost = db.Column(db.Numeric(10, 2), nullable=True)  # Cost to clinic
-
-    # Tax
+    unit_price = db.Column(db.Numeric(10, 2), nullable=False)
+    cost = db.Column(db.Numeric(10, 2), nullable=True)  # Cost to clinic (for margin calculation)
     taxable = db.Column(db.Boolean, default=True, nullable=False)
-    tax_rate = db.Column(db.Numeric(5, 2), default=0.00)  # Default tax rate (e.g., 8.5 for 8.5%)
 
     # Status
     is_active = db.Column(db.Boolean, default=True, nullable=False)
 
     # Metadata
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def __repr__(self):
-        return f"<Service {self.code} - {self.name}>"
+        return f"<Service {self.id} - {self.name}>"
 
     def to_dict(self):
         """Convert service to dictionary for API responses"""
         return {
             "id": self.id,
-            "code": self.code,
             "name": self.name,
             "description": self.description,
             "category": self.category,
-            "default_price": float(self.default_price) if self.default_price else 0.0,
+            "service_type": self.service_type,
+            "unit_price": float(self.unit_price) if self.unit_price else 0.0,
             "cost": float(self.cost) if self.cost else None,
             "taxable": self.taxable,
-            "tax_rate": float(self.tax_rate) if self.tax_rate else 0.0,
             "is_active": self.is_active,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
@@ -756,73 +872,73 @@ class Service(db.Model):
 
 class Invoice(db.Model):
     """
-    Invoice Model - Billing invoices for services rendered
+    Invoice Model - Billing invoices for clients
 
-    Invoices are linked to patients, clients, and optionally visits.
+    Tracks all charges for services rendered and products sold.
+    Can be linked to visits or standalone.
     """
 
     __tablename__ = "invoice"
 
     id = db.Column(db.Integer, primary_key=True)
 
-    # Invoice Number (auto-generated)
-    invoice_number = db.Column(db.String(50), unique=True, nullable=False)
-
     # Links
-    patient_id = db.Column(db.Integer, db.ForeignKey("patient.id"), nullable=False)
     client_id = db.Column(db.Integer, db.ForeignKey("client.id"), nullable=False)
+    patient_id = db.Column(db.Integer, db.ForeignKey("patient.id"), nullable=True)
     visit_id = db.Column(db.Integer, db.ForeignKey("visit.id"), nullable=True)
 
     # Invoice Details
-    invoice_date = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    invoice_number = db.Column(db.String(50), unique=True, nullable=False)
+    invoice_date = db.Column(db.Date, nullable=False, default=datetime.utcnow)
     due_date = db.Column(db.Date, nullable=True)
 
     # Amounts
-    subtotal = db.Column(db.Numeric(10, 2), default=0.00, nullable=False)
-    tax_amount = db.Column(db.Numeric(10, 2), default=0.00, nullable=False)
-    discount_amount = db.Column(db.Numeric(10, 2), default=0.00, nullable=False)
-    total_amount = db.Column(db.Numeric(10, 2), default=0.00, nullable=False)
-    amount_paid = db.Column(db.Numeric(10, 2), default=0.00, nullable=False)
-    balance_due = db.Column(db.Numeric(10, 2), default=0.00, nullable=False)
+    subtotal = db.Column(db.Numeric(10, 2), default=0.0, nullable=False)
+    tax_rate = db.Column(db.Numeric(5, 2), default=0.0, nullable=False)  # Percentage
+    tax_amount = db.Column(db.Numeric(10, 2), default=0.0, nullable=False)
+    discount_amount = db.Column(db.Numeric(10, 2), default=0.0, nullable=False)
+    total_amount = db.Column(db.Numeric(10, 2), default=0.0, nullable=False)
+    amount_paid = db.Column(db.Numeric(10, 2), default=0.0, nullable=False)
+    balance_due = db.Column(db.Numeric(10, 2), default=0.0, nullable=False)
 
     # Status
     status = db.Column(
         db.String(20), default="draft", nullable=False
-    )  # draft, issued, partially_paid, paid, overdue, cancelled
+    )  # draft, sent, partial_paid, paid, overdue, cancelled
 
     # Notes
     notes = db.Column(db.Text, nullable=True)
-    internal_notes = db.Column(db.Text, nullable=True)
 
     # Metadata
     created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    patient = db.relationship("Patient", backref="invoices")
     client = db.relationship("Client", backref="invoices")
-    visit = db.relationship("Visit", backref="invoices")
+    patient = db.relationship("Patient")
+    visit = db.relationship("Visit")
     created_by = db.relationship("User")
     items = db.relationship("InvoiceItem", back_populates="invoice", cascade="all, delete-orphan")
     payments = db.relationship("Payment", back_populates="invoice", cascade="all, delete-orphan")
 
     def __repr__(self):
-        return f"<Invoice {self.invoice_number} - {self.status}>"
+        return f"<Invoice {self.invoice_number} - Client {self.client_id}>"
 
-    def to_dict(self, include_items=False, include_payments=False):
+    def to_dict(self):
         """Convert invoice to dictionary for API responses"""
-        data = {
+        return {
             "id": self.id,
-            "invoice_number": self.invoice_number,
-            "patient_id": self.patient_id,
-            "patient_name": self.patient.name if self.patient else None,
             "client_id": self.client_id,
             "client_name": f"{self.client.first_name} {self.client.last_name}" if self.client else None,
+            "patient_id": self.patient_id,
+            "patient_name": self.patient.name if self.patient else None,
             "visit_id": self.visit_id,
+            "invoice_number": self.invoice_number,
             "invoice_date": self.invoice_date.isoformat() if self.invoice_date else None,
             "due_date": self.due_date.isoformat() if self.due_date else None,
             "subtotal": float(self.subtotal) if self.subtotal else 0.0,
+            "tax_rate": float(self.tax_rate) if self.tax_rate else 0.0,
             "tax_amount": float(self.tax_amount) if self.tax_amount else 0.0,
             "discount_amount": float(self.discount_amount) if self.discount_amount else 0.0,
             "total_amount": float(self.total_amount) if self.total_amount else 0.0,
@@ -830,45 +946,18 @@ class Invoice(db.Model):
             "balance_due": float(self.balance_due) if self.balance_due else 0.0,
             "status": self.status,
             "notes": self.notes,
-            "internal_notes": self.internal_notes,
             "created_by_id": self.created_by_id,
             "created_by_name": self.created_by.username if self.created_by else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
-        if include_items:
-            data["items"] = [item.to_dict() for item in self.items]
-
-        if include_payments:
-            data["payments"] = [payment.to_dict() for payment in self.payments]
-
-        return data
-
-    def calculate_totals(self):
-        """Recalculate invoice totals based on line items"""
-        subtotal = sum(float(item.line_total) for item in self.items)
-        tax_amount = sum(float(item.tax_amount) for item in self.items)
-
-        self.subtotal = subtotal
-        self.tax_amount = tax_amount
-        self.total_amount = subtotal + tax_amount - float(self.discount_amount or 0)
-        self.balance_due = float(self.total_amount) - float(self.amount_paid or 0)
-
-        # Update status based on payment
-        if self.balance_due <= 0:
-            self.status = "paid"
-        elif self.amount_paid > 0:
-            self.status = "partially_paid"
-        elif self.status == "draft":
-            self.status = "issued"
-
 
 class InvoiceItem(db.Model):
     """
     Invoice Item Model - Line items on invoices
 
-    Each line item represents a service or product with quantity and price.
+    Individual services or products billed on an invoice.
     """
 
     __tablename__ = "invoice_item"
@@ -877,30 +966,24 @@ class InvoiceItem(db.Model):
 
     # Links
     invoice_id = db.Column(db.Integer, db.ForeignKey("invoice.id"), nullable=False)
-    service_id = db.Column(db.Integer, db.ForeignKey("service.id"), nullable=True)  # Link to service catalog
+    service_id = db.Column(db.Integer, db.ForeignKey("service.id"), nullable=True)  # Optional link to service catalog
 
     # Item Details
     description = db.Column(db.String(200), nullable=False)
-    quantity = db.Column(db.Numeric(10, 2), default=1.00, nullable=False)
+    quantity = db.Column(db.Numeric(10, 2), default=1.0, nullable=False)
     unit_price = db.Column(db.Numeric(10, 2), nullable=False)
-
-    # Tax
+    total_price = db.Column(db.Numeric(10, 2), nullable=False)
     taxable = db.Column(db.Boolean, default=True, nullable=False)
-    tax_rate = db.Column(db.Numeric(5, 2), default=0.00)
-    tax_amount = db.Column(db.Numeric(10, 2), default=0.00)
-
-    # Totals
-    line_total = db.Column(db.Numeric(10, 2), nullable=False)  # quantity * unit_price
 
     # Metadata
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships
     invoice = db.relationship("Invoice", back_populates="items")
     service = db.relationship("Service")
 
     def __repr__(self):
-        return f"<InvoiceItem {self.description} - ${self.line_total}>"
+        return f"<InvoiceItem {self.id} - {self.description}>"
 
     def to_dict(self):
         """Convert invoice item to dictionary for API responses"""
@@ -908,32 +991,21 @@ class InvoiceItem(db.Model):
             "id": self.id,
             "invoice_id": self.invoice_id,
             "service_id": self.service_id,
-            "service_code": self.service.code if self.service else None,
+            "service_name": self.service.name if self.service else None,
             "description": self.description,
             "quantity": float(self.quantity) if self.quantity else 1.0,
             "unit_price": float(self.unit_price) if self.unit_price else 0.0,
+            "total_price": float(self.total_price) if self.total_price else 0.0,
             "taxable": self.taxable,
-            "tax_rate": float(self.tax_rate) if self.tax_rate else 0.0,
-            "tax_amount": float(self.tax_amount) if self.tax_amount else 0.0,
-            "line_total": float(self.line_total) if self.line_total else 0.0,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
-
-    def calculate_totals(self):
-        """Calculate line item totals including tax"""
-        self.line_total = float(self.quantity) * float(self.unit_price)
-
-        if self.taxable and self.tax_rate:
-            self.tax_amount = (float(self.line_total) * float(self.tax_rate)) / 100
-        else:
-            self.tax_amount = 0.00
 
 
 class Payment(db.Model):
     """
     Payment Model - Payment records for invoices
 
-    Tracks all payments made against invoices.
+    Tracks payments made against invoices. Supports partial payments.
     """
 
     __tablename__ = "payment"
@@ -945,35 +1017,25 @@ class Payment(db.Model):
     client_id = db.Column(db.Integer, db.ForeignKey("client.id"), nullable=False)
 
     # Payment Details
-    payment_date = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    payment_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     amount = db.Column(db.Numeric(10, 2), nullable=False)
-    payment_method = db.Column(
-        db.String(50), nullable=False
-    )  # Cash, Check, Credit Card, Debit Card, Bank Transfer, Other
-
-    # Payment Method Details
+    payment_method = db.Column(db.String(50), nullable=False)  # cash, check, credit_card, debit_card, etc.
     reference_number = db.Column(db.String(100), nullable=True)  # Check number, transaction ID, etc.
-    card_last_four = db.Column(db.String(4), nullable=True)  # Last 4 digits of card
-    card_type = db.Column(db.String(20), nullable=True)  # Visa, Mastercard, Amex, etc.
-
-    # Status
-    status = db.Column(db.String(20), default="completed", nullable=False)  # completed, pending, failed, refunded
 
     # Notes
     notes = db.Column(db.Text, nullable=True)
 
     # Metadata
     processed_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships
     invoice = db.relationship("Invoice", back_populates="payments")
-    client = db.relationship("Client", backref="payments")
+    client = db.relationship("Client")
     processed_by = db.relationship("User")
 
     def __repr__(self):
-        return f"<Payment {self.id} - ${self.amount} - {self.payment_method}>"
+        return f"<Payment {self.id} - Invoice {self.invoice_id} - ${self.amount}>"
 
     def to_dict(self):
         """Convert payment to dictionary for API responses"""
@@ -987,12 +1049,389 @@ class Payment(db.Model):
             "amount": float(self.amount) if self.amount else 0.0,
             "payment_method": self.payment_method,
             "reference_number": self.reference_number,
-            "card_last_four": self.card_last_four,
-            "card_type": self.card_type,
-            "status": self.status,
             "notes": self.notes,
             "processed_by_id": self.processed_by_id,
             "processed_by_name": self.processed_by.username if self.processed_by else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# ============================================================================
+# PHASE 3.1: INVENTORY MANAGEMENT
+# ============================================================================
+
+
+class Vendor(db.Model):
+    """
+    Vendor Model - Suppliers of medications, supplies, and products
+
+    Stores vendor/supplier information for inventory management.
+    """
+
+    __tablename__ = "vendor"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Company Info
+    company_name = db.Column(db.String(200), nullable=False)
+    contact_name = db.Column(db.String(200), nullable=True)
+    email = db.Column(db.String(120), nullable=True)
+    phone = db.Column(db.String(20), nullable=True)
+    fax = db.Column(db.String(20), nullable=True)
+    website = db.Column(db.String(200), nullable=True)
+
+    # Address
+    address_line1 = db.Column(db.String(200), nullable=True)
+    address_line2 = db.Column(db.String(200), nullable=True)
+    city = db.Column(db.String(100), nullable=True)
+    state = db.Column(db.String(50), nullable=True)
+    zip_code = db.Column(db.String(20), nullable=True)
+    country = db.Column(db.String(100), default="USA")
+
+    # Account Info
+    account_number = db.Column(db.String(100), nullable=True)
+    payment_terms = db.Column(db.String(100), nullable=True)  # Net 30, Net 60, etc.
+    tax_id = db.Column(db.String(50), nullable=True)
+
+    # Settings
+    preferred_vendor = db.Column(db.Boolean, default=False)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+
+    # Notes
+    notes = db.Column(db.Text, nullable=True)
+
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    products = db.relationship("Product", back_populates="vendor", lazy=True)
+    purchase_orders = db.relationship("PurchaseOrder", back_populates="vendor", lazy=True)
+
+    def __repr__(self):
+        return f"<Vendor {self.id} - {self.company_name}>"
+
+    def to_dict(self):
+        """Convert vendor to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "company_name": self.company_name,
+            "contact_name": self.contact_name,
+            "email": self.email,
+            "phone": self.phone,
+            "fax": self.fax,
+            "website": self.website,
+            "address_line1": self.address_line1,
+            "address_line2": self.address_line2,
+            "city": self.city,
+            "state": self.state,
+            "zip_code": self.zip_code,
+            "country": self.country,
+            "account_number": self.account_number,
+            "payment_terms": self.payment_terms,
+            "tax_id": self.tax_id,
+            "preferred_vendor": self.preferred_vendor,
+            "is_active": self.is_active,
+            "notes": self.notes,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class Product(db.Model):
+    """
+    Product Model - Inventory items (medications, supplies, retail products)
+
+    Comprehensive inventory management for all types of products.
+    Links to vendors and tracks stock levels.
+    """
+
+    __tablename__ = "product"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Basic Info
+    name = db.Column(db.String(200), nullable=False)
+    sku = db.Column(db.String(100), unique=True, nullable=True)  # Stock Keeping Unit
+    description = db.Column(db.Text, nullable=True)
+
+    # Categorization
+    product_type = db.Column(db.String(50), nullable=False)  # medication, supply, equipment, retail
+    category = db.Column(db.String(100), nullable=True)  # Surgical, Diagnostic, Food, Toys, etc.
+
+    # Vendor Info
+    vendor_id = db.Column(db.Integer, db.ForeignKey("vendor.id"), nullable=True)
+    vendor_sku = db.Column(db.String(100), nullable=True)  # Vendor's product code
+
+    # Inventory Tracking
+    stock_quantity = db.Column(db.Integer, default=0, nullable=False)
+    reorder_level = db.Column(db.Integer, default=0, nullable=False)  # Minimum stock before reorder
+    reorder_quantity = db.Column(db.Integer, default=0, nullable=False)  # How many to order
+    unit_of_measure = db.Column(db.String(50), default="each")  # each, box, case, bottle, etc.
+
+    # Pricing
+    unit_cost = db.Column(db.Numeric(10, 2), nullable=True)  # What we pay
+    unit_price = db.Column(db.Numeric(10, 2), nullable=True)  # What we charge
+    markup_percentage = db.Column(db.Numeric(5, 2), nullable=True)
+
+    # Product Details
+    manufacturer = db.Column(db.String(200), nullable=True)
+    lot_number = db.Column(db.String(100), nullable=True)
+    expiration_date = db.Column(db.Date, nullable=True)
+    storage_location = db.Column(db.String(100), nullable=True)  # Shelf A, Refrigerator, etc.
+
+    # Flags
+    requires_prescription = db.Column(db.Boolean, default=False)
+    controlled_substance = db.Column(db.Boolean, default=False)
+    taxable = db.Column(db.Boolean, default=True)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+
+    # Notes
+    notes = db.Column(db.Text, nullable=True)
+
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    vendor = db.relationship("Vendor", back_populates="products")
+    transactions = db.relationship("InventoryTransaction", back_populates="product", lazy=True)
+
+    def __repr__(self):
+        return f"<Product {self.id} - {self.name} (Stock: {self.stock_quantity})>"
+
+    @property
+    def needs_reorder(self):
+        """Check if product stock is below reorder level"""
+        return self.stock_quantity <= self.reorder_level
+
+    @property
+    def is_out_of_stock(self):
+        """Check if product is out of stock"""
+        return self.stock_quantity <= 0
+
+    @property
+    def stock_value(self):
+        """Calculate total value of stock on hand"""
+        if self.unit_cost and self.stock_quantity:
+            return float(self.unit_cost) * self.stock_quantity
+        return 0.0
+
+    def to_dict(self):
+        """Convert product to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "sku": self.sku,
+            "description": self.description,
+            "product_type": self.product_type,
+            "category": self.category,
+            "vendor_id": self.vendor_id,
+            "vendor_name": self.vendor.company_name if self.vendor else None,
+            "vendor_sku": self.vendor_sku,
+            "stock_quantity": self.stock_quantity,
+            "reorder_level": self.reorder_level,
+            "reorder_quantity": self.reorder_quantity,
+            "unit_of_measure": self.unit_of_measure,
+            "unit_cost": float(self.unit_cost) if self.unit_cost else None,
+            "unit_price": float(self.unit_price) if self.unit_price else None,
+            "markup_percentage": float(self.markup_percentage) if self.markup_percentage else None,
+            "manufacturer": self.manufacturer,
+            "lot_number": self.lot_number,
+            "expiration_date": self.expiration_date.isoformat() if self.expiration_date else None,
+            "storage_location": self.storage_location,
+            "requires_prescription": self.requires_prescription,
+            "controlled_substance": self.controlled_substance,
+            "taxable": self.taxable,
+            "is_active": self.is_active,
+            "notes": self.notes,
+            "needs_reorder": self.needs_reorder,
+            "is_out_of_stock": self.is_out_of_stock,
+            "stock_value": self.stock_value,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class PurchaseOrder(db.Model):
+    """
+    Purchase Order Model - Orders to vendors
+
+    Tracks purchase orders for inventory replenishment.
+    """
+
+    __tablename__ = "purchase_order"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Order Info
+    po_number = db.Column(db.String(50), unique=True, nullable=False)
+    vendor_id = db.Column(db.Integer, db.ForeignKey("vendor.id"), nullable=False)
+    order_date = db.Column(db.Date, nullable=False, default=datetime.utcnow)
+    expected_delivery_date = db.Column(db.Date, nullable=True)
+    actual_delivery_date = db.Column(db.Date, nullable=True)
+
+    # Status
+    status = db.Column(
+        db.String(20), nullable=False, default="draft"
+    )  # draft, submitted, received, partially_received, cancelled
+
+    # Amounts
+    subtotal = db.Column(db.Numeric(10, 2), default=0.0, nullable=False)
+    tax = db.Column(db.Numeric(10, 2), default=0.0, nullable=False)
+    shipping = db.Column(db.Numeric(10, 2), default=0.0, nullable=False)
+    total_amount = db.Column(db.Numeric(10, 2), default=0.0, nullable=False)
+
+    # Notes
+    notes = db.Column(db.Text, nullable=True)
+    shipping_address = db.Column(db.Text, nullable=True)
+
+    # Metadata
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    received_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    vendor = db.relationship("Vendor", back_populates="purchase_orders")
+    items = db.relationship("PurchaseOrderItem", back_populates="purchase_order", cascade="all, delete-orphan")
+    created_by = db.relationship("User", foreign_keys=[created_by_id])
+    received_by = db.relationship("User", foreign_keys=[received_by_id])
+
+    def __repr__(self):
+        return f"<PurchaseOrder {self.po_number} - {self.vendor.company_name if self.vendor else 'N/A'}>"
+
+    def to_dict(self):
+        """Convert purchase order to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "po_number": self.po_number,
+            "vendor_id": self.vendor_id,
+            "vendor_name": self.vendor.company_name if self.vendor else None,
+            "order_date": self.order_date.isoformat() if self.order_date else None,
+            "expected_delivery_date": self.expected_delivery_date.isoformat() if self.expected_delivery_date else None,
+            "actual_delivery_date": self.actual_delivery_date.isoformat() if self.actual_delivery_date else None,
+            "status": self.status,
+            "subtotal": float(self.subtotal) if self.subtotal else 0.0,
+            "tax": float(self.tax) if self.tax else 0.0,
+            "shipping": float(self.shipping) if self.shipping else 0.0,
+            "total_amount": float(self.total_amount) if self.total_amount else 0.0,
+            "notes": self.notes,
+            "shipping_address": self.shipping_address,
+            "created_by_id": self.created_by_id,
+            "created_by_name": self.created_by.username if self.created_by else None,
+            "received_by_id": self.received_by_id,
+            "received_by_name": self.received_by.username if self.received_by else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "items": [item.to_dict() for item in self.items] if self.items else [],
+        }
+
+
+class PurchaseOrderItem(db.Model):
+    """
+    Purchase Order Item Model - Line items for purchase orders
+
+    Individual products and quantities on a purchase order.
+    """
+
+    __tablename__ = "purchase_order_item"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Links
+    purchase_order_id = db.Column(db.Integer, db.ForeignKey("purchase_order.id"), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey("product.id"), nullable=False)
+
+    # Order Details
+    quantity_ordered = db.Column(db.Integer, nullable=False)
+    quantity_received = db.Column(db.Integer, default=0, nullable=False)
+    unit_cost = db.Column(db.Numeric(10, 2), nullable=False)
+    total_cost = db.Column(db.Numeric(10, 2), nullable=False)
+
+    # Notes
+    notes = db.Column(db.Text, nullable=True)
+
+    # Relationships
+    purchase_order = db.relationship("PurchaseOrder", back_populates="items")
+    product = db.relationship("Product")
+
+    def __repr__(self):
+        return (
+            f"<PurchaseOrderItem {self.id} - {self.product.name if self.product else 'N/A'} x{self.quantity_ordered}>"
+        )
+
+    def to_dict(self):
+        """Convert purchase order item to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "purchase_order_id": self.purchase_order_id,
+            "product_id": self.product_id,
+            "product_name": self.product.name if self.product else None,
+            "quantity_ordered": self.quantity_ordered,
+            "quantity_received": self.quantity_received,
+            "unit_cost": float(self.unit_cost) if self.unit_cost else 0.0,
+            "total_cost": float(self.total_cost) if self.total_cost else 0.0,
+            "notes": self.notes,
+        }
+
+
+class InventoryTransaction(db.Model):
+    """
+    Inventory Transaction Model - Track all inventory movements
+
+    Records all changes to inventory levels for audit trail.
+    """
+
+    __tablename__ = "inventory_transaction"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Links
+    product_id = db.Column(db.Integer, db.ForeignKey("product.id"), nullable=False)
+    purchase_order_id = db.Column(db.Integer, db.ForeignKey("purchase_order.id"), nullable=True)
+
+    # Transaction Details
+    transaction_type = db.Column(
+        db.String(50), nullable=False
+    )  # received, dispensed, adjustment, return, expired, damaged
+    quantity = db.Column(db.Integer, nullable=False)  # Positive for increase, negative for decrease
+    quantity_before = db.Column(db.Integer, nullable=False)
+    quantity_after = db.Column(db.Integer, nullable=False)
+
+    # Additional Info
+    reason = db.Column(db.String(200), nullable=True)
+    reference_number = db.Column(db.String(100), nullable=True)  # Invoice #, PO #, etc.
+    notes = db.Column(db.Text, nullable=True)
+
+    # Metadata
+    transaction_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    performed_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+
+    # Relationships
+    product = db.relationship("Product", back_populates="transactions")
+    purchase_order = db.relationship("PurchaseOrder")
+    performed_by = db.relationship("User")
+
+    def __repr__(self):
+        product_name = self.product.name if self.product else "N/A"
+        return f"<InventoryTransaction {self.id} - {product_name} {self.transaction_type} {self.quantity}>"
+
+    def to_dict(self):
+        """Convert inventory transaction to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "product_id": self.product_id,
+            "product_name": self.product.name if self.product else None,
+            "purchase_order_id": self.purchase_order_id,
+            "transaction_type": self.transaction_type,
+            "quantity": self.quantity,
+            "quantity_before": self.quantity_before,
+            "quantity_after": self.quantity_after,
+            "reason": self.reason,
+            "reference_number": self.reference_number,
+            "notes": self.notes,
+            "transaction_date": self.transaction_date.isoformat() if self.transaction_date else None,
+            "performed_by_id": self.performed_by_id,
+            "performed_by_name": self.performed_by.username if self.performed_by else None,
         }
