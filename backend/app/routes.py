@@ -1130,7 +1130,6 @@ def update_visit(visit_id):
 
         # If marking as completed, set completed_at
         if validated_data.get("status") == "completed" and not visit.completed_at:
-            from datetime import datetime
 
             visit.completed_at = datetime.utcnow()
 
@@ -2937,7 +2936,7 @@ def create_vendor():
         
         return jsonify(vendor.to_dict()), 201
     
-    except ValidationError as err:
+    except MarshmallowValidationError as err:
         return jsonify({"error": err.messages}), 400
     except Exception as e:
         db.session.rollback()
@@ -2963,7 +2962,7 @@ def update_vendor(vendor_id):
         db.session.commit()
         return jsonify(vendor.to_dict()), 200
     
-    except ValidationError as err:
+    except MarshmallowValidationError as err:
         return jsonify({"error": err.messages}), 400
     except Exception as e:
         db.session.rollback()
@@ -3093,7 +3092,7 @@ def create_product():
         
         return jsonify(product.to_dict()), 201
     
-    except ValidationError as err:
+    except MarshmallowValidationError as err:
         return jsonify({"error": err.messages}), 400
     except Exception as e:
         db.session.rollback()
@@ -3119,7 +3118,7 @@ def update_product(product_id):
         db.session.commit()
         return jsonify(product.to_dict()), 200
     
-    except ValidationError as err:
+    except MarshmallowValidationError as err:
         return jsonify({"error": err.messages}), 400
     except Exception as e:
         db.session.rollback()
@@ -3217,7 +3216,7 @@ def create_purchase_order():
         
         return jsonify(po.to_dict()), 201
     
-    except ValidationError as err:
+    except MarshmallowValidationError as err:
         return jsonify({"error": err.messages}), 400
     except Exception as e:
         db.session.rollback()
@@ -3244,7 +3243,7 @@ def update_purchase_order(po_id):
         db.session.commit()
         return jsonify(po.to_dict()), 200
     
-    except ValidationError as err:
+    except MarshmallowValidationError as err:
         return jsonify({"error": err.messages}), 400
     except Exception as e:
         db.session.rollback()
@@ -3400,7 +3399,7 @@ def create_inventory_transaction():
         
         return jsonify(transaction.to_dict()), 201
     
-    except ValidationError as err:
+    except MarshmallowValidationError as err:
         return jsonify({"error": err.messages}), 400
     except Exception as e:
         db.session.rollback()
