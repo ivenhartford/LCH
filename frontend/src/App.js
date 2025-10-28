@@ -21,6 +21,10 @@ import Services from './components/Services';
 import Invoices from './components/Invoices';
 import InvoiceDetail from './components/InvoiceDetail';
 import FinancialReports from './components/FinancialReports';
+import InventoryDashboard from './components/InventoryDashboard';
+import Products from './components/Products';
+import Vendors from './components/Vendors';
+import PurchaseOrders from './components/PurchaseOrders';
 import Settings from './components/Settings';
 import logger from './utils/logger';
 import './App.css';
@@ -186,17 +190,10 @@ function App() {
                           </Box>
                         }
                       />
-                      <Route
-                        path="/inventory"
-                        element={
-                          <Box>
-                            <Typography variant="h4">Inventory</Typography>
-                            <Typography color="text.secondary">
-                              Inventory management coming soon (Phase 3)
-                            </Typography>
-                          </Box>
-                        }
-                      />
+                      <Route path="/inventory" element={<InventoryDashboard />} />
+                      <Route path="/products" element={<Products />} />
+                      <Route path="/vendors" element={<Vendors />} />
+                      <Route path="/purchase-orders" element={<PurchaseOrders />} />
                       <Route
                         path="/staff"
                         element={

@@ -19,6 +19,9 @@ import {
   Medication as MedicationIcon,
   Receipt as ReceiptIcon,
   Inventory as InventoryIcon,
+  Category as CategoryIcon,
+  LocalShipping as LocalShippingIcon,
+  ShoppingCart as ShoppingCartIcon,
   Group as GroupIcon,
   Assessment as AssessmentIcon,
   Settings as SettingsIcon,
@@ -86,9 +89,17 @@ const Sidebar = ({ open, onClose }) => {
       items: [{ text: 'Invoices', icon: <ReceiptIcon />, path: '/invoices' }],
     },
     {
+      section: 'Inventory',
+      items: [
+        { text: 'Dashboard', icon: <InventoryIcon />, path: '/inventory' },
+        { text: 'Products', icon: <CategoryIcon />, path: '/products' },
+        { text: 'Vendors', icon: <LocalShippingIcon />, path: '/vendors' },
+        { text: 'Purchase Orders', icon: <ShoppingCartIcon />, path: '/purchase-orders' },
+      ],
+    },
+    {
       section: 'Operations',
       items: [
-        { text: 'Inventory', icon: <InventoryIcon />, path: '/inventory' },
         { text: 'Staff', icon: <GroupIcon />, path: '/staff' },
       ],
     },

@@ -1,7 +1,12 @@
 import os
 from flask import jsonify, send_from_directory, request, Blueprint
 from flask import current_app as app
-from .models import db, User, Patient, Pet, Appointment, AppointmentType, Client
+from .models import (
+    db, User, Patient, Pet, Appointment, AppointmentType, Client,
+    Visit, VitalSigns, SOAPNote, Diagnosis, Vaccination,
+    Medication, Prescription, Service, Invoice, InvoiceItem, Payment,
+    Vendor, Product, PurchaseOrder, PurchaseOrderItem, InventoryTransaction
+)
 from .schemas import (
     client_schema,
     clients_schema,
@@ -13,6 +18,14 @@ from .schemas import (
     appointments_schema,
     appointment_type_schema,
     appointment_types_schema,
+    vendor_schema,
+    vendors_schema,
+    product_schema,
+    products_schema,
+    purchase_order_schema,
+    purchase_orders_schema,
+    inventory_transaction_schema,
+    inventory_transactions_schema,
 )
 from flask_login import login_user, logout_user, login_required, current_user
 from datetime import datetime
@@ -1117,7 +1130,6 @@ def update_visit(visit_id):
 
         # If marking as completed, set completed_at
         if validated_data.get("status") == "completed" and not visit.completed_at:
-            from datetime import datetime
 
             visit.completed_at = datetime.utcnow()
 
@@ -2860,6 +2872,551 @@ def get_service_revenue_report():
     except Exception as e:
         app.logger.error(f"Error getting service revenue report: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 400
+
+
+
+# ============================================================================
+# INVENTORY MANAGEMENT - Phase 3.1
+# ============================================================================
+
+# ------------------ VENDOR ENDPOINTS ------------------
+
+@bp.route("/api/vendors", methods=["GET"])
+@login_required
+def get_vendors():
+    """Get list of all vendors with optional filtering"""
+    try:
+        query = Vendor.query
+        
+        # Filter by active status
+        is_active = request.args.get("is_active")
+        if is_active is not None:
+            query = query.filter(Vendor.is_active == (is_active.lower() == "true"))
+        
+        # Filter by preferred
+        preferred = request.args.get("preferred")
+        if preferred is not None:
+            query = query.filter(Vendor.preferred_vendor == (preferred.lower() == "true"))
+        
+        # Search by company name
+        search = request.args.get("search")
+        if search:
+            query = query.filter(Vendor.company_name.ilike(f"%{search}%"))
+        
+        vendors = query.order_by(Vendor.company_name).all()
+        return jsonify({"vendors": [v.to_dict() for v in vendors], "total": len(vendors)}), 200
+    
+    except Exception as e:
+        app.logger.error(f"Error getting vendors: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/vendors/<int:vendor_id>", methods=["GET"])
+@login_required
+def get_vendor(vendor_id):
+    """Get single vendor by ID"""
+    vendor = Vendor.query.get(vendor_id)
+    if not vendor:
+        return jsonify({"error": "Vendor not found"}), 404
+    
+    return jsonify(vendor.to_dict()), 200
+
+
+@bp.route("/api/vendors", methods=["POST"])
+@login_required
+def create_vendor():
+    """Create new vendor"""
+    try:
+        data = request.get_json()
+        validated_data = vendor_schema.load(data)
+        
+        vendor = Vendor(**validated_data)
+        db.session.add(vendor)
+        db.session.commit()
+        
+        return jsonify(vendor.to_dict()), 201
+    
+    except MarshmallowValidationError as err:
+        return jsonify({"error": err.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating vendor: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/vendors/<int:vendor_id>", methods=["PUT"])
+@login_required
+def update_vendor(vendor_id):
+    """Update vendor"""
+    vendor = Vendor.query.get(vendor_id)
+    if not vendor:
+        return jsonify({"error": "Vendor not found"}), 404
+    
+    try:
+        data = request.get_json()
+        validated_data = vendor_schema.load(data, partial=True)
+        
+        for key, value in validated_data.items():
+            setattr(vendor, key, value)
+        
+        db.session.commit()
+        return jsonify(vendor.to_dict()), 200
+    
+    except MarshmallowValidationError as err:
+        return jsonify({"error": err.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating vendor: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/vendors/<int:vendor_id>", methods=["DELETE"])
+@admin_required
+def delete_vendor(vendor_id):
+    """Delete vendor (soft delete by default, hard delete with ?hard=true)"""
+    vendor = Vendor.query.get(vendor_id)
+    if not vendor:
+        return jsonify({"error": "Vendor not found"}), 404
+    
+    try:
+        hard_delete = request.args.get("hard", "false").lower() == "true"
+        
+        if hard_delete:
+            db.session.delete(vendor)
+        else:
+            vendor.is_active = False
+        
+        db.session.commit()
+        return jsonify({"message": "Vendor deleted successfully"}), 200
+    
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting vendor: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+# ------------------ PRODUCT ENDPOINTS ------------------
+
+@bp.route("/api/products", methods=["GET"])
+@login_required
+def get_products():
+    """Get list of all products with optional filtering"""
+    try:
+        query = Product.query
+        
+        # Filter by active status
+        is_active = request.args.get("is_active")
+        if is_active is not None:
+            query = query.filter(Product.is_active == (is_active.lower() == "true"))
+        
+        # Filter by product type
+        product_type = request.args.get("product_type")
+        if product_type:
+            query = query.filter(Product.product_type == product_type)
+        
+        # Filter by category
+        category = request.args.get("category")
+        if category:
+            query = query.filter(Product.category == category)
+        
+        # Filter by vendor
+        vendor_id = request.args.get("vendor_id")
+        if vendor_id:
+            query = query.filter(Product.vendor_id == int(vendor_id))
+        
+        # Filter by low stock
+        low_stock = request.args.get("low_stock")
+        if low_stock and low_stock.lower() == "true":
+            query = query.filter(Product.stock_quantity <= Product.reorder_level)
+        
+        # Search by name or SKU
+        search = request.args.get("search")
+        if search:
+            query = query.filter(
+                db.or_(
+                    Product.name.ilike(f"%{search}%"),
+                    Product.sku.ilike(f"%{search}%")
+                )
+            )
+        
+        products = query.order_by(Product.name).all()
+        return jsonify({"products": [p.to_dict() for p in products], "total": len(products)}), 200
+    
+    except Exception as e:
+        app.logger.error(f"Error getting products: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/products/low-stock", methods=["GET"])
+@login_required
+def get_low_stock_products():
+    """Get products that need reordering"""
+    try:
+        products = Product.query.filter(
+            Product.is_active == True,
+            Product.stock_quantity <= Product.reorder_level
+        ).order_by(Product.stock_quantity).all()
+        
+        return jsonify({
+            "products": [p.to_dict() for p in products],
+            "total": len(products)
+        }), 200
+    
+    except Exception as e:
+        app.logger.error(f"Error getting low stock products: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/products/<int:product_id>", methods=["GET"])
+@login_required
+def get_product(product_id):
+    """Get single product by ID"""
+    product = Product.query.get(product_id)
+    if not product:
+        return jsonify({"error": "Product not found"}), 404
+    
+    return jsonify(product.to_dict()), 200
+
+
+@bp.route("/api/products", methods=["POST"])
+@login_required
+def create_product():
+    """Create new product"""
+    try:
+        data = request.get_json()
+        validated_data = product_schema.load(data)
+        
+        product = Product(**validated_data)
+        db.session.add(product)
+        db.session.commit()
+        
+        return jsonify(product.to_dict()), 201
+    
+    except MarshmallowValidationError as err:
+        return jsonify({"error": err.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating product: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/products/<int:product_id>", methods=["PUT"])
+@login_required
+def update_product(product_id):
+    """Update product"""
+    product = Product.query.get(product_id)
+    if not product:
+        return jsonify({"error": "Product not found"}), 404
+    
+    try:
+        data = request.get_json()
+        validated_data = product_schema.load(data, partial=True)
+        
+        for key, value in validated_data.items():
+            setattr(product, key, value)
+        
+        db.session.commit()
+        return jsonify(product.to_dict()), 200
+    
+    except MarshmallowValidationError as err:
+        return jsonify({"error": err.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating product: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/products/<int:product_id>", methods=["DELETE"])
+@admin_required
+def delete_product(product_id):
+    """Delete product (soft delete by default)"""
+    product = Product.query.get(product_id)
+    if not product:
+        return jsonify({"error": "Product not found"}), 404
+    
+    try:
+        hard_delete = request.args.get("hard", "false").lower() == "true"
+        
+        if hard_delete:
+            db.session.delete(product)
+        else:
+            product.is_active = False
+        
+        db.session.commit()
+        return jsonify({"message": "Product deleted successfully"}), 200
+    
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting product: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+# ------------------ PURCHASE ORDER ENDPOINTS ------------------
+
+@bp.route("/api/purchase-orders", methods=["GET"])
+@login_required
+def get_purchase_orders():
+    """Get list of all purchase orders with optional filtering"""
+    try:
+        query = PurchaseOrder.query
+        
+        # Filter by status
+        status = request.args.get("status")
+        if status:
+            query = query.filter(PurchaseOrder.status == status)
+        
+        # Filter by vendor
+        vendor_id = request.args.get("vendor_id")
+        if vendor_id:
+            query = query.filter(PurchaseOrder.vendor_id == int(vendor_id))
+        
+        # Search by PO number
+        search = request.args.get("search")
+        if search:
+            query = query.filter(PurchaseOrder.po_number.ilike(f"%{search}%"))
+        
+        pos = query.order_by(PurchaseOrder.order_date.desc()).all()
+        return jsonify({"purchase_orders": [po.to_dict() for po in pos], "total": len(pos)}), 200
+    
+    except Exception as e:
+        app.logger.error(f"Error getting purchase orders: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/purchase-orders/<int:po_id>", methods=["GET"])
+@login_required
+def get_purchase_order(po_id):
+    """Get single purchase order by ID"""
+    po = PurchaseOrder.query.get(po_id)
+    if not po:
+        return jsonify({"error": "Purchase order not found"}), 404
+    
+    return jsonify(po.to_dict()), 200
+
+
+@bp.route("/api/purchase-orders", methods=["POST"])
+@login_required
+def create_purchase_order():
+    """Create new purchase order"""
+    try:
+        data = request.get_json()
+        validated_data = purchase_order_schema.load(data)
+        
+        # Generate PO number
+        from datetime import datetime
+        today = datetime.utcnow().strftime("%Y%m%d")
+        count = PurchaseOrder.query.filter(PurchaseOrder.po_number.like(f"PO-{today}%")).count()
+        po_number = f"PO-{today}-{count + 1:04d}"
+        validated_data["po_number"] = po_number
+        validated_data["created_by_id"] = current_user.id
+        
+        po = PurchaseOrder(**validated_data)
+        db.session.add(po)
+        db.session.commit()
+        
+        return jsonify(po.to_dict()), 201
+    
+    except MarshmallowValidationError as err:
+        return jsonify({"error": err.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating purchase order: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/purchase-orders/<int:po_id>", methods=["PUT"])
+@login_required
+def update_purchase_order(po_id):
+    """Update purchase order"""
+    po = PurchaseOrder.query.get(po_id)
+    if not po:
+        return jsonify({"error": "Purchase order not found"}), 404
+    
+    try:
+        data = request.get_json()
+        validated_data = purchase_order_schema.load(data, partial=True)
+        
+        for key, value in validated_data.items():
+            if key != "po_number":  # Don't allow PO number changes
+                setattr(po, key, value)
+        
+        db.session.commit()
+        return jsonify(po.to_dict()), 200
+    
+    except MarshmallowValidationError as err:
+        return jsonify({"error": err.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating purchase order: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/purchase-orders/<int:po_id>/receive", methods=["POST"])
+@login_required
+def receive_purchase_order(po_id):
+    """Mark purchase order as received and update inventory"""
+    po = PurchaseOrder.query.get(po_id)
+    if not po:
+        return jsonify({"error": "Purchase order not found"}), 404
+    
+    if po.status == "received":
+        return jsonify({"error": "Purchase order already received"}), 400
+    
+    try:
+        from datetime import datetime
+        
+        # Mark PO as received
+        po.status = "received"
+        po.actual_delivery_date = datetime.utcnow().date()
+        po.received_by_id = current_user.id
+        
+        # Update inventory for each item
+        for item in po.items:
+            product = Product.query.get(item.product_id)
+            if product:
+                quantity_before = product.stock_quantity
+                product.stock_quantity += item.quantity_received
+                quantity_after = product.stock_quantity
+                
+                # Create inventory transaction
+                transaction = InventoryTransaction(
+                    product_id=product.id,
+                    purchase_order_id=po.id,
+                    transaction_type="received",
+                    quantity=item.quantity_received,
+                    quantity_before=quantity_before,
+                    quantity_after=quantity_after,
+                    reason=f"Received from PO {po.po_number}",
+                    reference_number=po.po_number,
+                    performed_by_id=current_user.id
+                )
+                db.session.add(transaction)
+        
+        db.session.commit()
+        return jsonify(po.to_dict()), 200
+    
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error receiving purchase order: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/purchase-orders/<int:po_id>", methods=["DELETE"])
+@admin_required
+def delete_purchase_order(po_id):
+    """Delete purchase order (only if status is draft)"""
+    po = PurchaseOrder.query.get(po_id)
+    if not po:
+        return jsonify({"error": "Purchase order not found"}), 404
+    
+    if po.status != "draft":
+        return jsonify({"error": "Can only delete draft purchase orders"}), 400
+    
+    try:
+        db.session.delete(po)
+        db.session.commit()
+        return jsonify({"message": "Purchase order deleted successfully"}), 200
+    
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting purchase order: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+# ------------------ INVENTORY TRANSACTION ENDPOINTS ------------------
+
+@bp.route("/api/inventory-transactions", methods=["GET"])
+@login_required
+def get_inventory_transactions():
+    """Get inventory transaction history with optional filtering"""
+    try:
+        query = InventoryTransaction.query
+        
+        # Filter by product
+        product_id = request.args.get("product_id")
+        if product_id:
+            query = query.filter(InventoryTransaction.product_id == int(product_id))
+        
+        # Filter by transaction type
+        transaction_type = request.args.get("transaction_type")
+        if transaction_type:
+            query = query.filter(InventoryTransaction.transaction_type == transaction_type)
+        
+        # Filter by date range
+        start_date = request.args.get("start_date")
+        if start_date:
+            query = query.filter(InventoryTransaction.transaction_date >= start_date)
+        
+        end_date = request.args.get("end_date")
+        if end_date:
+            query = query.filter(InventoryTransaction.transaction_date <= end_date)
+        
+        transactions = query.order_by(InventoryTransaction.transaction_date.desc()).limit(100).all()
+        return jsonify({
+            "transactions": [t.to_dict() for t in transactions],
+            "total": len(transactions)
+        }), 200
+    
+    except Exception as e:
+        app.logger.error(f"Error getting inventory transactions: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/inventory-transactions", methods=["POST"])
+@login_required
+def create_inventory_transaction():
+    """Create manual inventory transaction (adjustment, damaged, expired, etc.)"""
+    try:
+        data = request.get_json()
+        
+        # Get product
+        product_id = data.get("product_id")
+        product = Product.query.get(product_id)
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
+        
+        # Prepare transaction data
+        quantity_before = product.stock_quantity
+        quantity = data.get("quantity", 0)
+        quantity_after = quantity_before + quantity
+        
+        # Validate transaction
+        validated_data = inventory_transaction_schema.load({
+            **data,
+            "quantity_before": quantity_before,
+            "quantity_after": quantity_after,
+            "performed_by_id": current_user.id
+        })
+        
+        # Create transaction
+        transaction = InventoryTransaction(**validated_data)
+        
+        # Update product stock
+        product.stock_quantity = quantity_after
+        
+        db.session.add(transaction)
+        db.session.commit()
+        
+        return jsonify(transaction.to_dict()), 201
+    
+    except MarshmallowValidationError as err:
+        return jsonify({"error": err.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating inventory transaction: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/inventory-transactions/<int:transaction_id>", methods=["GET"])
+@login_required
+def get_inventory_transaction(transaction_id):
+    """Get single inventory transaction by ID"""
+    transaction = InventoryTransaction.query.get(transaction_id)
+    if not transaction:
+        return jsonify({"error": "Inventory transaction not found"}), 404
+    
+    return jsonify(transaction.to_dict()), 200
+
 
 
 # ============================================================================
