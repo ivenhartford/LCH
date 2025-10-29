@@ -866,3 +866,351 @@ purchase_order_items_schema = PurchaseOrderItemSchema(many=True)
 
 inventory_transaction_schema = InventoryTransactionSchema()
 inventory_transactions_schema = InventoryTransactionSchema(many=True)
+
+
+# ============================================================================
+# STAFF & SCHEDULING SCHEMAS
+# ============================================================================
+
+
+class StaffSchema(Schema):
+    """Schema for Staff model validation"""
+
+    # IDs
+    id = fields.Int(dump_only=True)
+    user_id = fields.Int(allow_none=True)
+
+    # Personal Information
+    first_name = fields.Str(required=True, validate=validate.Length(min=1, max=100))
+    last_name = fields.Str(required=True, validate=validate.Length(min=1, max=100))
+    full_name = fields.Str(dump_only=True)
+    email = fields.Email(required=True)
+    phone = fields.Str(allow_none=True, validate=validate.Length(max=20))
+    emergency_contact_name = fields.Str(allow_none=True, validate=validate.Length(max=100))
+    emergency_contact_phone = fields.Str(allow_none=True, validate=validate.Length(max=20))
+
+    # Employment Details
+    position = fields.Str(required=True, validate=validate.Length(min=1, max=100))
+    department = fields.Str(allow_none=True, validate=validate.Length(max=100))
+    employment_type = fields.Str(
+        required=True,
+        validate=validate.OneOf(["full-time", "part-time", "contract", "intern"]),
+    )
+    hire_date = fields.Date(required=True)
+    termination_date = fields.Date(allow_none=True)
+
+    # Credentials & Certifications
+    license_number = fields.Str(allow_none=True, validate=validate.Length(max=100))
+    license_state = fields.Str(allow_none=True, validate=validate.Length(max=50))
+    license_expiry = fields.Date(allow_none=True)
+    certifications = fields.Str(allow_none=True)
+    education = fields.Str(allow_none=True)
+
+    # Work Schedule
+    default_schedule = fields.Str(allow_none=True, validate=validate.Length(max=200))
+    hourly_rate = fields.Decimal(allow_none=True, as_string=True, places=2)
+
+    # Permissions & Access
+    can_prescribe = fields.Bool(load_default=False)
+    can_perform_surgery = fields.Bool(load_default=False)
+    can_access_billing = fields.Bool(load_default=False)
+
+    # Notes
+    notes = fields.Str(allow_none=True)
+
+    # Metadata
+    is_active = fields.Bool(load_default=True)
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+
+
+class ScheduleSchema(Schema):
+    """Schema for Schedule/Shift model validation"""
+
+    # IDs
+    id = fields.Int(dump_only=True)
+    staff_id = fields.Int(required=True)
+    staff_name = fields.Str(dump_only=True)
+    staff_position = fields.Str(dump_only=True)
+
+    # Schedule Details
+    shift_date = fields.Date(required=True)
+    start_time = fields.Time(required=True)
+    end_time = fields.Time(required=True)
+
+    # Shift Type & Status
+    shift_type = fields.Str(
+        required=True,
+        validate=validate.OneOf(["regular", "on-call", "overtime", "training"]),
+    )
+    status = fields.Str(
+        required=True,
+        validate=validate.OneOf(["scheduled", "completed", "cancelled", "no-show"]),
+    )
+
+    # Break Information
+    break_minutes = fields.Int(load_default=30, validate=validate.Range(min=0, max=480))
+
+    # Location & Role
+    location = fields.Str(allow_none=True, validate=validate.Length(max=100))
+    role = fields.Str(allow_none=True, validate=validate.Length(max=100))
+
+    # Time Off / Leave
+    is_time_off = fields.Bool(load_default=False)
+    time_off_type = fields.Str(
+        allow_none=True,
+        validate=validate.OneOf(["vacation", "sick", "personal", "unpaid", "bereavement"]),
+    )
+    time_off_approved = fields.Bool(load_default=False)
+    approved_by_id = fields.Int(allow_none=True)
+    approved_by_name = fields.Str(dump_only=True)
+
+    # Notes
+    notes = fields.Str(allow_none=True)
+
+    # Metadata
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+
+    # Note: End time validation is handled in the API endpoint to ensure
+    # both start_time and end_time are available for comparison
+
+
+# Initialize staff schema instances
+staff_schema = StaffSchema()
+staffs_schema = StaffSchema(many=True)
+
+schedule_schema = ScheduleSchema()
+schedules_schema = ScheduleSchema(many=True)
+
+
+# ============================================================================
+# LABORATORY SCHEMAS
+# ============================================================================
+
+
+class LabTestSchema(Schema):
+    """Schema for LabTest model validation"""
+
+    # IDs
+    id = fields.Int(dump_only=True)
+
+    # Test Information
+    test_code = fields.Str(required=True, validate=validate.Length(min=1, max=50))
+    test_name = fields.Str(required=True, validate=validate.Length(min=1, max=200))
+    category = fields.Str(required=True, validate=validate.Length(min=1, max=100))
+    description = fields.Str(allow_none=True)
+
+    # Specimen Requirements
+    specimen_type = fields.Str(allow_none=True, validate=validate.Length(max=100))
+    specimen_volume = fields.Str(allow_none=True, validate=validate.Length(max=50))
+    collection_instructions = fields.Str(allow_none=True)
+
+    # Reference Range
+    reference_range = fields.Str(allow_none=True)
+
+    # Turnaround Time
+    turnaround_time = fields.Str(allow_none=True, validate=validate.Length(max=100))
+
+    # External Lab Information
+    external_lab = fields.Bool(load_default=False)
+    external_lab_name = fields.Str(allow_none=True, validate=validate.Length(max=200))
+    external_lab_code = fields.Str(allow_none=True, validate=validate.Length(max=100))
+
+    # Pricing
+    cost = fields.Decimal(allow_none=True, as_string=True, places=2)
+    price = fields.Decimal(allow_none=True, as_string=True, places=2)
+
+    # Metadata
+    is_active = fields.Bool(load_default=True)
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+
+
+class LabResultSchema(Schema):
+    """Schema for LabResult model validation"""
+
+    # IDs
+    id = fields.Int(dump_only=True)
+
+    # Associations
+    patient_id = fields.Int(required=True)
+    patient_name = fields.Str(dump_only=True)
+    visit_id = fields.Int(allow_none=True)
+    test_id = fields.Int(required=True)
+    test_code = fields.Str(dump_only=True)
+    test_name = fields.Str(dump_only=True)
+    test_category = fields.Str(dump_only=True)
+
+    # Order Information
+    order_date = fields.DateTime(required=True)
+    ordered_by_id = fields.Int(dump_only=True)
+    ordered_by_name = fields.Str(dump_only=True)
+
+    # Status Tracking
+    status = fields.Str(
+        required=True,
+        validate=validate.OneOf(["pending", "in_progress", "completed", "cancelled"]),
+    )
+
+    # Result Information
+    result_date = fields.DateTime(allow_none=True)
+    result_value = fields.Str(allow_none=True)
+    result_unit = fields.Str(allow_none=True, validate=validate.Length(max=50))
+
+    # Interpretation
+    is_abnormal = fields.Bool(load_default=False)
+    abnormal_flag = fields.Str(
+        allow_none=True, validate=validate.OneOf(["H", "L", "A", ""])
+    )
+    interpretation = fields.Str(allow_none=True)
+
+    # External Lab Tracking
+    external_reference_number = fields.Str(allow_none=True, validate=validate.Length(max=100))
+
+    # Reviewed Status
+    reviewed = fields.Bool(load_default=False)
+    reviewed_by_id = fields.Int(allow_none=True, dump_only=True)
+    reviewed_by_name = fields.Str(dump_only=True)
+    reviewed_date = fields.DateTime(allow_none=True, dump_only=True)
+
+    # Notes
+    notes = fields.Str(allow_none=True)
+
+    # Metadata
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+
+
+# Initialize lab schema instances
+lab_test_schema = LabTestSchema()
+lab_tests_schema = LabTestSchema(many=True)
+
+lab_result_schema = LabResultSchema()
+lab_results_schema = LabResultSchema(many=True)
+
+
+# ============================================================================
+# NOTIFICATION & REMINDER SCHEMAS
+# ============================================================================
+
+
+class NotificationTemplateSchema(Schema):
+    """Schema for NotificationTemplate model"""
+
+    id = fields.Int(dump_only=True)
+    name = fields.Str(required=True)
+    description = fields.Str(allow_none=True)
+
+    # Template Type
+    template_type = fields.Str(required=True)
+    channel = fields.Str(required=True)
+
+    # Template Content
+    subject = fields.Str(allow_none=True)
+    body = fields.Str(required=True)
+
+    # Template Variables (stored as JSON string, returned as list)
+    variables = fields.List(fields.Str(), allow_none=True)
+
+    # Settings
+    is_active = fields.Bool(load_default=True)
+    is_default = fields.Bool(load_default=False)
+
+    # Metadata
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+    created_by_id = fields.Int(allow_none=True, dump_only=True)
+    created_by = fields.Str(dump_only=True)
+
+
+class ClientCommunicationPreferenceSchema(Schema):
+    """Schema for ClientCommunicationPreference model"""
+
+    id = fields.Int(dump_only=True)
+    client_id = fields.Int(required=True)
+
+    # Communication Channels
+    email_enabled = fields.Bool(load_default=True)
+    sms_enabled = fields.Bool(load_default=False)
+    phone_enabled = fields.Bool(load_default=True)
+
+    # Notification Types
+    appointment_reminders = fields.Bool(load_default=True)
+    vaccination_reminders = fields.Bool(load_default=True)
+    medication_reminders = fields.Bool(load_default=True)
+    marketing = fields.Bool(load_default=False)
+    newsletters = fields.Bool(load_default=False)
+
+    # Preferred Times
+    preferred_contact_time = fields.Str(allow_none=True)
+    do_not_contact_before = fields.Time(allow_none=True)
+    do_not_contact_after = fields.Time(allow_none=True)
+
+    # Reminder Timing
+    appointment_reminder_days = fields.Int(load_default=1)
+    vaccination_reminder_days = fields.Int(load_default=7)
+
+    # Metadata
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+
+
+class ReminderSchema(Schema):
+    """Schema for Reminder model"""
+
+    id = fields.Int(dump_only=True)
+
+    # Related Records
+    client_id = fields.Int(required=True)
+    client_name = fields.Str(dump_only=True)
+    patient_id = fields.Int(allow_none=True)
+    patient_name = fields.Str(dump_only=True)
+    appointment_id = fields.Int(allow_none=True)
+
+    # Reminder Type
+    reminder_type = fields.Str(required=True)
+
+    # Scheduling
+    scheduled_date = fields.Date(required=True)
+    scheduled_time = fields.Time(allow_none=True)
+    send_at = fields.DateTime(required=True)
+
+    # Delivery
+    delivery_method = fields.Str(required=True)
+    status = fields.Str(load_default="pending")
+
+    # Template
+    template_id = fields.Int(allow_none=True)
+    template_name = fields.Str(dump_only=True)
+
+    # Message Content
+    subject = fields.Str(allow_none=True)
+    message = fields.Str(required=True)
+
+    # Delivery Tracking
+    sent_at = fields.DateTime(allow_none=True, dump_only=True)
+    failed_at = fields.DateTime(allow_none=True, dump_only=True)
+    failure_reason = fields.Str(allow_none=True, dump_only=True)
+
+    # Retry Logic
+    retry_count = fields.Int(load_default=0, dump_only=True)
+    max_retries = fields.Int(load_default=3)
+
+    # Metadata
+    notes = fields.Str(allow_none=True)
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+    created_by_id = fields.Int(allow_none=True, dump_only=True)
+    created_by = fields.Str(dump_only=True)
+
+
+# Initialize reminder schema instances
+notification_template_schema = NotificationTemplateSchema()
+notification_templates_schema = NotificationTemplateSchema(many=True)
+
+client_preference_schema = ClientCommunicationPreferenceSchema()
+client_preferences_schema = ClientCommunicationPreferenceSchema(many=True)
+
+reminder_schema = ReminderSchema()
+reminders_schema = ReminderSchema(many=True)

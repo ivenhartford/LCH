@@ -23,6 +23,10 @@ import {
   LocalShipping as LocalShippingIcon,
   ShoppingCart as ShoppingCartIcon,
   Group as GroupIcon,
+  Science as ScienceIcon,
+  Biotech as BiotechIcon,
+  Notifications as NotificationsIcon,
+  Email as EmailIcon,
   Assessment as AssessmentIcon,
   Settings as SettingsIcon,
 } from '@mui/icons-material';
@@ -98,9 +102,24 @@ const Sidebar = ({ open, onClose }) => {
       ],
     },
     {
-      section: 'Operations',
+      section: 'Staff',
       items: [
-        { text: 'Staff', icon: <GroupIcon />, path: '/staff' },
+        { text: 'Staff Directory', icon: <GroupIcon />, path: '/staff' },
+        { text: 'Schedule', icon: <CalendarIcon />, path: '/staff-schedule' },
+      ],
+    },
+    {
+      section: 'Laboratory',
+      items: [
+        { text: 'Lab Tests', icon: <ScienceIcon />, path: '/lab-tests' },
+        { text: 'Lab Results', icon: <BiotechIcon />, path: '/lab-results' },
+      ],
+    },
+    {
+      section: 'Reminders',
+      items: [
+        { text: 'Reminders', icon: <NotificationsIcon />, path: '/reminders' },
+        { text: 'Templates', icon: <EmailIcon />, path: '/notification-templates' },
       ],
     },
     {

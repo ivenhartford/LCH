@@ -25,6 +25,12 @@ import InventoryDashboard from './components/InventoryDashboard';
 import Products from './components/Products';
 import Vendors from './components/Vendors';
 import PurchaseOrders from './components/PurchaseOrders';
+import Staff from './components/Staff';
+import StaffSchedule from './components/StaffSchedule';
+import LabTests from './components/LabTests';
+import LabResults from './components/LabResults';
+import Reminders from './components/Reminders';
+import NotificationTemplates from './components/NotificationTemplates';
 import Settings from './components/Settings';
 import logger from './utils/logger';
 import './App.css';
@@ -194,17 +200,12 @@ function App() {
                       <Route path="/products" element={<Products />} />
                       <Route path="/vendors" element={<Vendors />} />
                       <Route path="/purchase-orders" element={<PurchaseOrders />} />
-                      <Route
-                        path="/staff"
-                        element={
-                          <Box>
-                            <Typography variant="h4">Staff</Typography>
-                            <Typography color="text.secondary">
-                              Staff management coming soon (Phase 3)
-                            </Typography>
-                          </Box>
-                        }
-                      />
+                      <Route path="/staff" element={<Staff />} />
+                      <Route path="/staff-schedule" element={<StaffSchedule />} />
+                      <Route path="/lab-tests" element={<LabTests />} />
+                      <Route path="/lab-results" element={<LabResults />} />
+                      <Route path="/reminders" element={<Reminders />} />
+                      <Route path="/notification-templates" element={<NotificationTemplates />} />
                       <Route
                         path="/reports"
                         element={

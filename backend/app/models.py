@@ -1435,3 +1435,606 @@ class InventoryTransaction(db.Model):
             "performed_by_id": self.performed_by_id,
             "performed_by_name": self.performed_by.username if self.performed_by else None,
         }
+
+
+class Staff(db.Model):
+    """
+    Staff Model
+
+    Extended staff information beyond basic User model.
+    Includes employment details, contact info, certifications, and scheduling.
+    """
+
+    __tablename__ = "staff"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Link to User account
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True, unique=True)
+
+    # Personal Information
+    first_name = db.Column(db.String(100), nullable=False)
+    last_name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    phone = db.Column(db.String(20), nullable=True)
+    emergency_contact_name = db.Column(db.String(100), nullable=True)
+    emergency_contact_phone = db.Column(db.String(20), nullable=True)
+
+    # Employment Details
+    position = db.Column(db.String(100), nullable=False)  # Veterinarian, Vet Tech, Receptionist, etc.
+    department = db.Column(db.String(100), nullable=True)  # Surgery, Front Desk, Pharmacy, etc.
+    employment_type = db.Column(db.String(50), nullable=False, default="full-time")  # full-time, part-time, contract
+    hire_date = db.Column(db.Date, nullable=False)
+    termination_date = db.Column(db.Date, nullable=True)
+
+    # Credentials & Certifications
+    license_number = db.Column(db.String(100), nullable=True)
+    license_state = db.Column(db.String(50), nullable=True)
+    license_expiry = db.Column(db.Date, nullable=True)
+    certifications = db.Column(db.Text, nullable=True)  # JSON or comma-separated list
+    education = db.Column(db.Text, nullable=True)
+
+    # Work Schedule
+    default_schedule = db.Column(db.String(200), nullable=True)  # e.g., "Mon-Fri 9-5"
+    hourly_rate = db.Column(db.Numeric(10, 2), nullable=True)
+
+    # Permissions & Access
+    can_prescribe = db.Column(db.Boolean, default=False)
+    can_perform_surgery = db.Column(db.Boolean, default=False)
+    can_access_billing = db.Column(db.Boolean, default=False)
+
+    # Notes
+    notes = db.Column(db.Text, nullable=True)
+
+    # Metadata
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships
+    user = db.relationship("User", backref="staff_profile", uselist=False)
+    schedules = db.relationship("Schedule", back_populates="staff_member", lazy=True, cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<Staff {self.first_name} {self.last_name} - {self.position}>"
+
+    def to_dict(self):
+        """Convert staff to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "first_name": self.first_name,
+            "last_name": self.last_name,
+            "full_name": f"{self.first_name} {self.last_name}",
+            "email": self.email,
+            "phone": self.phone,
+            "emergency_contact_name": self.emergency_contact_name,
+            "emergency_contact_phone": self.emergency_contact_phone,
+            "position": self.position,
+            "department": self.department,
+            "employment_type": self.employment_type,
+            "hire_date": self.hire_date.isoformat() if self.hire_date else None,
+            "termination_date": self.termination_date.isoformat() if self.termination_date else None,
+            "license_number": self.license_number,
+            "license_state": self.license_state,
+            "license_expiry": self.license_expiry.isoformat() if self.license_expiry else None,
+            "certifications": self.certifications,
+            "education": self.education,
+            "default_schedule": self.default_schedule,
+            "hourly_rate": float(self.hourly_rate) if self.hourly_rate else None,
+            "can_prescribe": self.can_prescribe,
+            "can_perform_surgery": self.can_perform_surgery,
+            "can_access_billing": self.can_access_billing,
+            "notes": self.notes,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class Schedule(db.Model):
+    """
+    Schedule/Shift Model
+
+    Tracks staff work schedules and shifts.
+    Supports recurring schedules and one-off shifts.
+    """
+
+    __tablename__ = "schedule"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Staff Assignment
+    staff_id = db.Column(db.Integer, db.ForeignKey("staff.id"), nullable=False)
+
+    # Schedule Details
+    shift_date = db.Column(db.Date, nullable=False)
+    start_time = db.Column(db.Time, nullable=False)
+    end_time = db.Column(db.Time, nullable=False)
+
+    # Shift Type & Status
+    shift_type = db.Column(db.String(50), nullable=False, default="regular")  # regular, on-call, overtime
+    status = db.Column(db.String(50), nullable=False, default="scheduled")  # scheduled, completed, cancelled, no-show
+
+    # Break Information
+    break_minutes = db.Column(db.Integer, default=30)  # Total break time in minutes
+
+    # Location & Role
+    location = db.Column(db.String(100), nullable=True)  # Clinic location if multiple sites
+    role = db.Column(db.String(100), nullable=True)  # Role for this shift if different from default
+
+    # Time Off / Leave
+    is_time_off = db.Column(db.Boolean, default=False)
+    time_off_type = db.Column(db.String(50), nullable=True)  # vacation, sick, personal, unpaid
+    time_off_approved = db.Column(db.Boolean, default=False)
+    approved_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+
+    # Notes
+    notes = db.Column(db.Text, nullable=True)
+
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships
+    staff_member = db.relationship("Staff", back_populates="schedules")
+    approved_by = db.relationship("User", foreign_keys=[approved_by_id])
+
+    def __repr__(self):
+        staff_name = f"{self.staff_member.first_name} {self.staff_member.last_name}" if self.staff_member else "N/A"
+        return f"<Schedule {staff_name} on {self.shift_date}>"
+
+    def to_dict(self):
+        """Convert schedule to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "staff_id": self.staff_id,
+            "staff_name": f"{self.staff_member.first_name} {self.staff_member.last_name}" if self.staff_member else None,
+            "staff_position": self.staff_member.position if self.staff_member else None,
+            "shift_date": self.shift_date.isoformat() if self.shift_date else None,
+            "start_time": self.start_time.isoformat() if self.start_time else None,
+            "end_time": self.end_time.isoformat() if self.end_time else None,
+            "shift_type": self.shift_type,
+            "status": self.status,
+            "break_minutes": self.break_minutes,
+            "location": self.location,
+            "role": self.role,
+            "is_time_off": self.is_time_off,
+            "time_off_type": self.time_off_type,
+            "time_off_approved": self.time_off_approved,
+            "approved_by_id": self.approved_by_id,
+            "approved_by_name": self.approved_by.username if self.approved_by else None,
+            "notes": self.notes,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class LabTest(db.Model):
+    """
+    Laboratory Test Model
+
+    Catalog of available laboratory tests that can be ordered.
+    Includes test details, normal ranges, and pricing.
+    """
+
+    __tablename__ = "lab_test"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Test Information
+    test_code = db.Column(db.String(50), unique=True, nullable=False)  # e.g., CBC, CHEM, T4
+    test_name = db.Column(db.String(200), nullable=False)
+    category = db.Column(db.String(100), nullable=False)  # Hematology, Chemistry, Serology, etc.
+    description = db.Column(db.Text, nullable=True)
+
+    # Specimen Requirements
+    specimen_type = db.Column(db.String(100), nullable=True)  # Blood, Urine, Fecal, etc.
+    specimen_volume = db.Column(db.String(50), nullable=True)  # e.g., "2-5 ml"
+    collection_instructions = db.Column(db.Text, nullable=True)
+
+    # Reference Range (stored as JSON string for flexibility)
+    reference_range = db.Column(db.Text, nullable=True)  # JSON: {"cat": {"min": 0, "max": 10, "unit": "mg/dL"}}
+
+    # Turnaround Time
+    turnaround_time = db.Column(db.String(100), nullable=True)  # e.g., "24 hours", "2-3 days"
+
+    # External Lab Information
+    external_lab = db.Column(db.Boolean, default=False)
+    external_lab_name = db.Column(db.String(200), nullable=True)
+    external_lab_code = db.Column(db.String(100), nullable=True)
+
+    # Pricing
+    cost = db.Column(db.Numeric(10, 2), nullable=True)
+    price = db.Column(db.Numeric(10, 2), nullable=True)
+
+    # Metadata
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships
+    results = db.relationship("LabResult", back_populates="test", lazy=True, cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<LabTest {self.test_code} - {self.test_name}>"
+
+    def to_dict(self):
+        """Convert lab test to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "test_code": self.test_code,
+            "test_name": self.test_name,
+            "category": self.category,
+            "description": self.description,
+            "specimen_type": self.specimen_type,
+            "specimen_volume": self.specimen_volume,
+            "collection_instructions": self.collection_instructions,
+            "reference_range": self.reference_range,
+            "turnaround_time": self.turnaround_time,
+            "external_lab": self.external_lab,
+            "external_lab_name": self.external_lab_name,
+            "external_lab_code": self.external_lab_code,
+            "cost": float(self.cost) if self.cost else None,
+            "price": float(self.price) if self.price else None,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class LabResult(db.Model):
+    """
+    Laboratory Result Model
+
+    Individual test results for patients.
+    Links to visits and tracks result status, values, and abnormal flags.
+    """
+
+    __tablename__ = "lab_result"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Associations
+    patient_id = db.Column(db.Integer, db.ForeignKey("patient.id"), nullable=False)
+    visit_id = db.Column(db.Integer, db.ForeignKey("visit.id"), nullable=True)
+    test_id = db.Column(db.Integer, db.ForeignKey("lab_test.id"), nullable=False)
+
+    # Order Information
+    order_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    ordered_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+
+    # Status Tracking
+    status = db.Column(db.String(50), nullable=False, default="pending")  # pending, in_progress, completed, cancelled
+
+    # Result Information
+    result_date = db.Column(db.DateTime, nullable=True)
+    result_value = db.Column(db.Text, nullable=True)  # Can be numeric, text, or JSON for complex results
+    result_unit = db.Column(db.String(50), nullable=True)
+
+    # Interpretation
+    is_abnormal = db.Column(db.Boolean, default=False)
+    abnormal_flag = db.Column(db.String(10), nullable=True)  # H (High), L (Low), A (Abnormal)
+    interpretation = db.Column(db.Text, nullable=True)
+
+    # External Lab Tracking
+    external_reference_number = db.Column(db.String(100), nullable=True)
+
+    # Reviewed Status
+    reviewed = db.Column(db.Boolean, default=False)
+    reviewed_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    reviewed_date = db.Column(db.DateTime, nullable=True)
+
+    # Notes
+    notes = db.Column(db.Text, nullable=True)
+
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships
+    patient = db.relationship("Patient", backref="lab_results")
+    visit = db.relationship("Visit", backref="lab_results")
+    test = db.relationship("LabTest", back_populates="results")
+    ordered_by = db.relationship("User", foreign_keys=[ordered_by_id], backref="ordered_lab_tests")
+    reviewed_by = db.relationship("User", foreign_keys=[reviewed_by_id], backref="reviewed_lab_tests")
+
+    def __repr__(self):
+        return f"<LabResult {self.id} - {self.test.test_name if self.test else 'N/A'} - {self.status}>"
+
+    def to_dict(self):
+        """Convert lab result to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "patient_id": self.patient_id,
+            "patient_name": f"{self.patient.name}" if self.patient else None,
+            "visit_id": self.visit_id,
+            "test_id": self.test_id,
+            "test_code": self.test.test_code if self.test else None,
+            "test_name": self.test.test_name if self.test else None,
+            "test_category": self.test.category if self.test else None,
+            "order_date": self.order_date.isoformat() if self.order_date else None,
+            "ordered_by_id": self.ordered_by_id,
+            "ordered_by_name": self.ordered_by.username if self.ordered_by else None,
+            "status": self.status,
+            "result_date": self.result_date.isoformat() if self.result_date else None,
+            "result_value": self.result_value,
+            "result_unit": self.result_unit,
+            "is_abnormal": self.is_abnormal,
+            "abnormal_flag": self.abnormal_flag,
+            "interpretation": self.interpretation,
+            "external_reference_number": self.external_reference_number,
+            "reviewed": self.reviewed,
+            "reviewed_by_id": self.reviewed_by_id,
+            "reviewed_by_name": self.reviewed_by.username if self.reviewed_by else None,
+            "reviewed_date": self.reviewed_date.isoformat() if self.reviewed_date else None,
+            "notes": self.notes,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+# ============================================================================
+# NOTIFICATION & REMINDER MODELS
+# ============================================================================
+
+
+class NotificationTemplate(db.Model):
+    """Notification Template Model - Email and SMS templates"""
+
+    __tablename__ = "notification_template"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True)
+    description = db.Column(db.Text, nullable=True)
+
+    # Template Type
+    template_type = db.Column(
+        db.String(50), nullable=False
+    )  # appointment_reminder, vaccination_reminder, etc.
+    channel = db.Column(
+        db.String(20), nullable=False
+    )  # email, sms, both
+
+    # Template Content
+    subject = db.Column(db.String(200), nullable=True)  # For email
+    body = db.Column(db.Text, nullable=False)
+
+    # Template Variables (JSON format - list of available variables)
+    # Example: ["client_name", "pet_name", "appointment_date", "appointment_time"]
+    variables = db.Column(db.Text, nullable=True)
+
+    # Settings
+    is_active = db.Column(db.Boolean, default=True)
+    is_default = db.Column(
+        db.Boolean, default=False
+    )  # Default template for this type
+
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.now, onupdate=datetime.now
+    )
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+
+    # Relationships
+    created_by = db.relationship("User", backref="notification_templates")
+
+    def to_dict(self):
+        """Convert to dictionary"""
+        import json
+
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "template_type": self.template_type,
+            "channel": self.channel,
+            "subject": self.subject,
+            "body": self.body,
+            "variables": (
+                json.loads(self.variables) if self.variables else []
+            ),
+            "is_active": self.is_active,
+            "is_default": self.is_default,
+            "created_at": (
+                self.created_at.isoformat() if self.created_at else None
+            ),
+            "updated_at": (
+                self.updated_at.isoformat() if self.updated_at else None
+            ),
+            "created_by": (
+                self.created_by.username if self.created_by else None
+            ),
+        }
+
+
+class ClientCommunicationPreference(db.Model):
+    """Client Communication Preference Model - How clients want to be contacted"""
+
+    __tablename__ = "client_communication_preference"
+
+    id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(
+        db.Integer, db.ForeignKey("client.id"), nullable=False, unique=True
+    )
+
+    # Communication Channels
+    email_enabled = db.Column(db.Boolean, default=True)
+    sms_enabled = db.Column(db.Boolean, default=False)
+    phone_enabled = db.Column(db.Boolean, default=True)
+
+    # Notification Types
+    appointment_reminders = db.Column(db.Boolean, default=True)
+    vaccination_reminders = db.Column(db.Boolean, default=True)
+    medication_reminders = db.Column(db.Boolean, default=True)
+    marketing = db.Column(db.Boolean, default=False)
+    newsletters = db.Column(db.Boolean, default=False)
+
+    # Preferred Times
+    preferred_contact_time = db.Column(
+        db.String(50), nullable=True
+    )  # morning, afternoon, evening
+    do_not_contact_before = db.Column(db.Time, nullable=True)
+    do_not_contact_after = db.Column(db.Time, nullable=True)
+
+    # Reminder Timing
+    appointment_reminder_days = db.Column(
+        db.Integer, default=1
+    )  # Days before appointment
+    vaccination_reminder_days = db.Column(
+        db.Integer, default=7
+    )  # Days before due
+
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.now, onupdate=datetime.now
+    )
+
+    # Relationships
+    client = db.relationship("Client", backref="communication_preference")
+
+    def to_dict(self):
+        """Convert to dictionary"""
+        return {
+            "id": self.id,
+            "client_id": self.client_id,
+            "email_enabled": self.email_enabled,
+            "sms_enabled": self.sms_enabled,
+            "phone_enabled": self.phone_enabled,
+            "appointment_reminders": self.appointment_reminders,
+            "vaccination_reminders": self.vaccination_reminders,
+            "medication_reminders": self.medication_reminders,
+            "marketing": self.marketing,
+            "newsletters": self.newsletters,
+            "preferred_contact_time": self.preferred_contact_time,
+            "do_not_contact_before": (
+                self.do_not_contact_before.isoformat()
+                if self.do_not_contact_before
+                else None
+            ),
+            "do_not_contact_after": (
+                self.do_not_contact_after.isoformat()
+                if self.do_not_contact_after
+                else None
+            ),
+            "appointment_reminder_days": self.appointment_reminder_days,
+            "vaccination_reminder_days": self.vaccination_reminder_days,
+            "created_at": (
+                self.created_at.isoformat() if self.created_at else None
+            ),
+            "updated_at": (
+                self.updated_at.isoformat() if self.updated_at else None
+            ),
+        }
+
+
+class Reminder(db.Model):
+    """Reminder Model - Tracks reminders to be sent"""
+
+    __tablename__ = "reminder"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Related Records
+    client_id = db.Column(db.Integer, db.ForeignKey("client.id"), nullable=False)
+    patient_id = db.Column(
+        db.Integer, db.ForeignKey("patient.id"), nullable=True
+    )  # Optional
+    appointment_id = db.Column(
+        db.Integer, db.ForeignKey("appointment.id"), nullable=True
+    )  # For appointment reminders
+
+    # Reminder Type
+    reminder_type = db.Column(
+        db.String(50), nullable=False
+    )  # appointment, vaccination, medication, checkup, etc.
+
+    # Scheduling
+    scheduled_date = db.Column(db.Date, nullable=False)
+    scheduled_time = db.Column(db.Time, nullable=True)
+    send_at = db.Column(
+        db.DateTime, nullable=False
+    )  # Exact datetime to send
+
+    # Delivery
+    delivery_method = db.Column(
+        db.String(20), nullable=False
+    )  # email, sms, both
+    status = db.Column(
+        db.String(20), nullable=False, default="pending"
+    )  # pending, sent, failed, cancelled
+
+    # Template
+    template_id = db.Column(
+        db.Integer, db.ForeignKey("notification_template.id"), nullable=True
+    )
+
+    # Message Content (can override template)
+    subject = db.Column(db.String(200), nullable=True)
+    message = db.Column(db.Text, nullable=False)
+
+    # Delivery Tracking
+    sent_at = db.Column(db.DateTime, nullable=True)
+    failed_at = db.Column(db.DateTime, nullable=True)
+    failure_reason = db.Column(db.Text, nullable=True)
+
+    # Retry Logic
+    retry_count = db.Column(db.Integer, default=0)
+    max_retries = db.Column(db.Integer, default=3)
+
+    # Metadata
+    notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.now, onupdate=datetime.now
+    )
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+
+    # Relationships
+    client = db.relationship("Client", backref="reminders")
+    patient = db.relationship("Patient", backref="reminders")
+    appointment = db.relationship("Appointment", backref="reminders")
+    template = db.relationship("NotificationTemplate", backref="reminders")
+    created_by = db.relationship("User", backref="reminders_created")
+
+    def to_dict(self):
+        """Convert to dictionary"""
+        return {
+            "id": self.id,
+            "client_id": self.client_id,
+            "client_name": self.client.name if self.client else None,
+            "patient_id": self.patient_id,
+            "patient_name": self.patient.name if self.patient else None,
+            "appointment_id": self.appointment_id,
+            "reminder_type": self.reminder_type,
+            "scheduled_date": (
+                self.scheduled_date.isoformat() if self.scheduled_date else None
+            ),
+            "scheduled_time": (
+                self.scheduled_time.isoformat() if self.scheduled_time else None
+            ),
+            "send_at": self.send_at.isoformat() if self.send_at else None,
+            "delivery_method": self.delivery_method,
+            "status": self.status,
+            "template_id": self.template_id,
+            "template_name": self.template.name if self.template else None,
+            "subject": self.subject,
+            "message": self.message,
+            "sent_at": self.sent_at.isoformat() if self.sent_at else None,
+            "failed_at": self.failed_at.isoformat() if self.failed_at else None,
+            "failure_reason": self.failure_reason,
+            "retry_count": self.retry_count,
+            "max_retries": self.max_retries,
+            "notes": self.notes,
+            "created_at": (
+                self.created_at.isoformat() if self.created_at else None
+            ),
+            "updated_at": (
+                self.updated_at.isoformat() if self.updated_at else None
+            ),
+            "created_by": (
+                self.created_by.username if self.created_by else None
+            ),
+        }

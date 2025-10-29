@@ -3418,6 +3418,1169 @@ def get_inventory_transaction(transaction_id):
     return jsonify(transaction.to_dict()), 200
 
 
+# ============================================================================
+# STAFF MANAGEMENT API ENDPOINTS
+# ============================================================================
+
+
+@bp.route("/api/staff", methods=["GET"])
+@login_required
+def get_all_staff():
+    """Get all staff members with optional filtering"""
+    from .models import Staff
+
+    # Get query parameters
+    is_active = request.args.get("is_active")
+    position = request.args.get("position")
+    department = request.args.get("department")
+    search = request.args.get("search")
+
+    # Build query
+    query = Staff.query
+
+    # Apply filters
+    if is_active is not None:
+        is_active_bool = is_active.lower() == "true"
+        query = query.filter(Staff.is_active == is_active_bool)
+
+    if position:
+        query = query.filter(Staff.position.ilike(f"%{position}%"))
+
+    if department:
+        query = query.filter(Staff.department.ilike(f"%{department}%"))
+
+    if search:
+        search_filter = db.or_(
+            Staff.first_name.ilike(f"%{search}%"),
+            Staff.last_name.ilike(f"%{search}%"),
+            Staff.email.ilike(f"%{search}%")
+        )
+        query = query.filter(search_filter)
+
+    # Order by name
+    staff_members = query.order_by(Staff.last_name, Staff.first_name).all()
+
+    return jsonify({"staff": [s.to_dict() for s in staff_members]}), 200
+
+
+@bp.route("/api/staff/<int:staff_id>", methods=["GET"])
+@login_required
+def get_staff(staff_id):
+    """Get single staff member by ID"""
+    from .models import Staff
+
+    staff = Staff.query.get(staff_id)
+    if not staff:
+        return jsonify({"error": "Staff member not found"}), 404
+
+    return jsonify(staff.to_dict()), 200
+
+
+@bp.route("/api/staff", methods=["POST"])
+@login_required
+@admin_required
+def create_staff():
+    """Create new staff member (admin only)"""
+    from .models import Staff
+    from .schemas import staff_schema
+
+    try:
+        # Validate request data
+        data = staff_schema.load(request.json)
+
+        # Check for duplicate email
+        existing_staff = Staff.query.filter_by(email=data["email"]).first()
+        if existing_staff:
+            return jsonify({"error": "Staff member with this email already exists"}), 400
+
+        # Create new staff member
+        staff = Staff(**data)
+        db.session.add(staff)
+        db.session.commit()
+
+        app.logger.info(f"Created staff member: {staff.first_name} {staff.last_name}")
+        return jsonify(staff.to_dict()), 201
+
+    except MarshmallowValidationError as err:
+        return jsonify({"error": err.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating staff member: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/staff/<int:staff_id>", methods=["PUT"])
+@login_required
+@admin_required
+def update_staff(staff_id):
+    """Update existing staff member (admin only)"""
+    from .models import Staff
+    from .schemas import staff_schema
+
+    staff = Staff.query.get(staff_id)
+    if not staff:
+        return jsonify({"error": "Staff member not found"}), 404
+
+    try:
+        # Validate request data
+        data = staff_schema.load(request.json, partial=True)
+
+        # Check for duplicate email (if email is being changed)
+        if "email" in data and data["email"] != staff.email:
+            existing_staff = Staff.query.filter_by(email=data["email"]).first()
+            if existing_staff:
+                return jsonify({"error": "Staff member with this email already exists"}), 400
+
+        # Update staff member fields
+        for key, value in data.items():
+            setattr(staff, key, value)
+
+        db.session.commit()
+
+        app.logger.info(f"Updated staff member: {staff.first_name} {staff.last_name}")
+        return jsonify(staff.to_dict()), 200
+
+    except MarshmallowValidationError as err:
+        return jsonify({"error": err.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating staff member: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/staff/<int:staff_id>", methods=["DELETE"])
+@login_required
+@admin_required
+def delete_staff(staff_id):
+    """Delete staff member (admin only) - soft delete by default"""
+    from .models import Staff
+
+    staff = Staff.query.get(staff_id)
+    if not staff:
+        return jsonify({"error": "Staff member not found"}), 404
+
+    try:
+        # Check if hard delete is requested
+        hard_delete = request.args.get("hard", "false").lower() == "true"
+
+        if hard_delete:
+            # Hard delete - remove from database
+            db.session.delete(staff)
+            db.session.commit()
+            app.logger.info(f"Hard deleted staff member: {staff.first_name} {staff.last_name}")
+            return jsonify({"message": "Staff member permanently deleted"}), 200
+        else:
+            # Soft delete - mark as inactive
+            staff.is_active = False
+            db.session.commit()
+            app.logger.info(f"Soft deleted staff member: {staff.first_name} {staff.last_name}")
+            return jsonify({"message": "Staff member deactivated"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting staff member: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+# ============================================================================
+# SCHEDULE MANAGEMENT API ENDPOINTS
+# ============================================================================
+
+
+@bp.route("/api/schedules", methods=["GET"])
+@login_required
+def get_all_schedules():
+    """Get all schedules with optional filtering"""
+    from .models import Schedule
+
+    # Get query parameters
+    staff_id = request.args.get("staff_id", type=int)
+    start_date = request.args.get("start_date")
+    end_date = request.args.get("end_date")
+    shift_type = request.args.get("shift_type")
+    status = request.args.get("status")
+    is_time_off = request.args.get("is_time_off")
+
+    # Build query
+    query = Schedule.query
+
+    # Apply filters
+    if staff_id:
+        query = query.filter(Schedule.staff_id == staff_id)
+
+    if start_date:
+        try:
+            start = datetime.strptime(start_date, "%Y-%m-%d").date()
+            query = query.filter(Schedule.shift_date >= start)
+        except ValueError:
+            return jsonify({"error": "Invalid start_date format. Use YYYY-MM-DD"}), 400
+
+    if end_date:
+        try:
+            end = datetime.strptime(end_date, "%Y-%m-%d").date()
+            query = query.filter(Schedule.shift_date <= end)
+        except ValueError:
+            return jsonify({"error": "Invalid end_date format. Use YYYY-MM-DD"}), 400
+
+    if shift_type:
+        query = query.filter(Schedule.shift_type == shift_type)
+
+    if status:
+        query = query.filter(Schedule.status == status)
+
+    if is_time_off is not None:
+        is_time_off_bool = is_time_off.lower() == "true"
+        query = query.filter(Schedule.is_time_off == is_time_off_bool)
+
+    # Order by date and start time
+    schedules = query.order_by(Schedule.shift_date, Schedule.start_time).all()
+
+    return jsonify({"schedules": [s.to_dict() for s in schedules]}), 200
+
+
+@bp.route("/api/schedules/<int:schedule_id>", methods=["GET"])
+@login_required
+def get_schedule(schedule_id):
+    """Get single schedule by ID"""
+    from .models import Schedule
+
+    schedule = Schedule.query.get(schedule_id)
+    if not schedule:
+        return jsonify({"error": "Schedule not found"}), 404
+
+    return jsonify(schedule.to_dict()), 200
+
+
+@bp.route("/api/schedules", methods=["POST"])
+@login_required
+@admin_required
+def create_schedule():
+    """Create new schedule/shift (admin only)"""
+    from .models import Schedule, Staff
+    from .schemas import schedule_schema
+
+    try:
+        # Validate request data
+        data = schedule_schema.load(request.json)
+
+        # Verify staff member exists
+        staff = Staff.query.get(data["staff_id"])
+        if not staff:
+            return jsonify({"error": "Staff member not found"}), 404
+
+        # Validate end time is after start time
+        if data["end_time"] <= data["start_time"]:
+            return jsonify({"error": "End time must be after start time"}), 400
+
+        # Create new schedule
+        schedule = Schedule(**data)
+        db.session.add(schedule)
+        db.session.commit()
+
+        app.logger.info(f"Created schedule for {staff.first_name} {staff.last_name} on {schedule.shift_date}")
+        return jsonify(schedule.to_dict()), 201
+
+    except MarshmallowValidationError as err:
+        return jsonify({"error": err.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating schedule: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/schedules/<int:schedule_id>", methods=["PUT"])
+@login_required
+@admin_required
+def update_schedule(schedule_id):
+    """Update existing schedule (admin only)"""
+    from .models import Schedule
+    from .schemas import schedule_schema
+
+    schedule = Schedule.query.get(schedule_id)
+    if not schedule:
+        return jsonify({"error": "Schedule not found"}), 404
+
+    try:
+        # Validate request data
+        data = schedule_schema.load(request.json, partial=True)
+
+        # If updating times, validate end time is after start time
+        start_time = data.get("start_time", schedule.start_time)
+        end_time = data.get("end_time", schedule.end_time)
+        if end_time <= start_time:
+            return jsonify({"error": "End time must be after start time"}), 400
+
+        # Update schedule fields
+        for key, value in data.items():
+            setattr(schedule, key, value)
+
+        db.session.commit()
+
+        app.logger.info(f"Updated schedule ID {schedule_id}")
+        return jsonify(schedule.to_dict()), 200
+
+    except MarshmallowValidationError as err:
+        return jsonify({"error": err.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating schedule: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/schedules/<int:schedule_id>", methods=["DELETE"])
+@login_required
+@admin_required
+def delete_schedule(schedule_id):
+    """Delete schedule (admin only)"""
+    from .models import Schedule
+
+    schedule = Schedule.query.get(schedule_id)
+    if not schedule:
+        return jsonify({"error": "Schedule not found"}), 404
+
+    try:
+        db.session.delete(schedule)
+        db.session.commit()
+
+        app.logger.info(f"Deleted schedule ID {schedule_id}")
+        return jsonify({"message": "Schedule deleted successfully"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting schedule: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/schedules/<int:schedule_id>/approve", methods=["POST"])
+@login_required
+@admin_required
+def approve_time_off(schedule_id):
+    """Approve time-off request (admin only)"""
+    from .models import Schedule
+
+    schedule = Schedule.query.get(schedule_id)
+    if not schedule:
+        return jsonify({"error": "Schedule not found"}), 404
+
+    if not schedule.is_time_off:
+        return jsonify({"error": "This is not a time-off request"}), 400
+
+    try:
+        schedule.time_off_approved = True
+        schedule.approved_by_id = current_user.id
+        db.session.commit()
+
+        app.logger.info(f"Approved time-off request ID {schedule_id}")
+        return jsonify(schedule.to_dict()), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error approving time-off: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+# ============================================================================
+# LABORATORY MANAGEMENT API ENDPOINTS
+# ============================================================================
+
+@bp.route("/api/lab-tests", methods=["GET"])
+@login_required
+def get_all_lab_tests():
+    """Get all lab tests with optional filtering"""
+    from .models import LabTest
+
+    # Get query parameters
+    is_active = request.args.get("is_active")
+    category = request.args.get("category")
+    external_lab = request.args.get("external_lab")
+    search = request.args.get("search")
+
+    # Build query with filters
+    query = LabTest.query
+
+    if is_active is not None:
+        is_active_bool = is_active.lower() == "true"
+        query = query.filter(LabTest.is_active == is_active_bool)
+
+    if category:
+        query = query.filter(LabTest.category == category)
+
+    if external_lab is not None:
+        external_lab_bool = external_lab.lower() == "true"
+        query = query.filter(LabTest.external_lab == external_lab_bool)
+
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            db.or_(
+                LabTest.test_name.ilike(search_term),
+                LabTest.test_code.ilike(search_term),
+                LabTest.description.ilike(search_term)
+            )
+        )
+
+    lab_tests = query.order_by(LabTest.category, LabTest.test_name).all()
+
+    return jsonify({"lab_tests": [test.to_dict() for test in lab_tests]}), 200
+
+
+@bp.route("/api/lab-tests/<int:test_id>", methods=["GET"])
+@login_required
+def get_lab_test(test_id):
+    """Get a specific lab test by ID"""
+    from .models import LabTest
+
+    lab_test = LabTest.query.get(test_id)
+    if not lab_test:
+        return jsonify({"error": "Lab test not found"}), 404
+
+    return jsonify(lab_test.to_dict()), 200
+
+
+@bp.route("/api/lab-tests", methods=["POST"])
+@admin_required
+def create_lab_test():
+    """Create a new lab test (Admin only)"""
+    from .models import LabTest
+    from .schemas import LabTestSchema
+
+    schema = LabTestSchema()
+    try:
+        data = schema.load(request.json)
+
+        # Check for duplicate test code
+        existing = LabTest.query.filter_by(test_code=data["test_code"]).first()
+        if existing:
+            return jsonify({"error": "Test code already exists"}), 400
+
+        lab_test = LabTest(**data)
+        db.session.add(lab_test)
+        db.session.commit()
+
+        app.logger.info(f"Lab test created: {lab_test.test_code} by user {current_user.username}")
+        return jsonify(lab_test.to_dict()), 201
+
+    except ValidationError as e:
+        return jsonify({"error": e.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating lab test: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/lab-tests/<int:test_id>", methods=["PUT"])
+@admin_required
+def update_lab_test(test_id):
+    """Update a lab test (Admin only)"""
+    from .models import LabTest
+    from .schemas import LabTestSchema
+
+    lab_test = LabTest.query.get(test_id)
+    if not lab_test:
+        return jsonify({"error": "Lab test not found"}), 404
+
+    schema = LabTestSchema(partial=True)
+    try:
+        data = schema.load(request.json)
+
+        # Check for duplicate test code if updating
+        if "test_code" in data and data["test_code"] != lab_test.test_code:
+            existing = LabTest.query.filter_by(test_code=data["test_code"]).first()
+            if existing:
+                return jsonify({"error": "Test code already exists"}), 400
+
+        for key, value in data.items():
+            setattr(lab_test, key, value)
+
+        db.session.commit()
+
+        app.logger.info(f"Lab test updated: {lab_test.test_code} by user {current_user.username}")
+        return jsonify(lab_test.to_dict()), 200
+
+    except ValidationError as e:
+        return jsonify({"error": e.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating lab test: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/lab-tests/<int:test_id>", methods=["DELETE"])
+@admin_required
+def delete_lab_test(test_id):
+    """Soft delete a lab test (Admin only)"""
+    from .models import LabTest
+
+    lab_test = LabTest.query.get(test_id)
+    if not lab_test:
+        return jsonify({"error": "Lab test not found"}), 404
+
+    try:
+        lab_test.is_active = False
+        db.session.commit()
+
+        app.logger.info(f"Lab test deleted: {lab_test.test_code} by user {current_user.username}")
+        return jsonify({"message": "Lab test deleted successfully"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting lab test: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+# ============================================================================
+# LAB RESULTS API ENDPOINTS
+# ============================================================================
+
+@bp.route("/api/lab-results", methods=["GET"])
+@login_required
+def get_all_lab_results():
+    """Get all lab results with optional filtering"""
+    from .models import LabResult
+
+    # Get query parameters
+    patient_id = request.args.get("patient_id", type=int)
+    visit_id = request.args.get("visit_id", type=int)
+    test_id = request.args.get("test_id", type=int)
+    status = request.args.get("status")
+    is_abnormal = request.args.get("is_abnormal")
+    reviewed = request.args.get("reviewed")
+
+    # Build query with filters
+    query = LabResult.query
+
+    if patient_id:
+        query = query.filter(LabResult.patient_id == patient_id)
+
+    if visit_id:
+        query = query.filter(LabResult.visit_id == visit_id)
+
+    if test_id:
+        query = query.filter(LabResult.test_id == test_id)
+
+    if status:
+        query = query.filter(LabResult.status == status)
+
+    if is_abnormal is not None:
+        is_abnormal_bool = is_abnormal.lower() == "true"
+        query = query.filter(LabResult.is_abnormal == is_abnormal_bool)
+
+    if reviewed is not None:
+        reviewed_bool = reviewed.lower() == "true"
+        query = query.filter(LabResult.reviewed == reviewed_bool)
+
+    lab_results = query.order_by(LabResult.collection_date.desc()).all()
+
+    return jsonify({"lab_results": [result.to_dict() for result in lab_results]}), 200
+
+
+@bp.route("/api/lab-results/pending", methods=["GET"])
+@login_required
+def get_pending_lab_results():
+    """Get all pending lab results"""
+    from .models import LabResult
+
+    pending_results = LabResult.query.filter_by(status="pending").order_by(LabResult.collection_date).all()
+
+    return jsonify({"lab_results": [result.to_dict() for result in pending_results]}), 200
+
+
+@bp.route("/api/lab-results/abnormal", methods=["GET"])
+@login_required
+def get_abnormal_lab_results():
+    """Get all abnormal/flagged lab results"""
+    from .models import LabResult
+
+    # Get query parameters for filtering
+    reviewed = request.args.get("reviewed")
+
+    query = LabResult.query.filter(LabResult.is_abnormal == True)
+
+    if reviewed is not None:
+        reviewed_bool = reviewed.lower() == "true"
+        query = query.filter(LabResult.reviewed == reviewed_bool)
+
+    abnormal_results = query.order_by(LabResult.result_date.desc()).all()
+
+    return jsonify({"lab_results": [result.to_dict() for result in abnormal_results]}), 200
+
+
+@bp.route("/api/lab-results/<int:result_id>", methods=["GET"])
+@login_required
+def get_lab_result(result_id):
+    """Get a specific lab result by ID"""
+    from .models import LabResult
+
+    lab_result = LabResult.query.get(result_id)
+    if not lab_result:
+        return jsonify({"error": "Lab result not found"}), 404
+
+    return jsonify(lab_result.to_dict()), 200
+
+
+@bp.route("/api/lab-results", methods=["POST"])
+@login_required
+def create_lab_result():
+    """Create a new lab result"""
+    from .models import LabResult, Patient, LabTest
+    from .schemas import LabResultSchema
+
+    schema = LabResultSchema()
+    try:
+        data = schema.load(request.json)
+
+        # Verify patient exists
+        patient = Patient.query.get(data["patient_id"])
+        if not patient:
+            return jsonify({"error": "Patient not found"}), 404
+
+        # Verify lab test exists
+        lab_test = LabTest.query.get(data["test_id"])
+        if not lab_test:
+            return jsonify({"error": "Lab test not found"}), 404
+
+        lab_result = LabResult(**data)
+        lab_result.ordered_by_id = current_user.id
+
+        db.session.add(lab_result)
+        db.session.commit()
+
+        app.logger.info(f"Lab result created for patient {patient.name} by user {current_user.username}")
+        return jsonify(lab_result.to_dict()), 201
+
+    except ValidationError as e:
+        return jsonify({"error": e.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating lab result: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/lab-results/<int:result_id>", methods=["PUT"])
+@login_required
+def update_lab_result(result_id):
+    """Update a lab result"""
+    from .models import LabResult
+    from .schemas import LabResultSchema
+
+    lab_result = LabResult.query.get(result_id)
+    if not lab_result:
+        return jsonify({"error": "Lab result not found"}), 404
+
+    schema = LabResultSchema(partial=True)
+    try:
+        data = schema.load(request.json)
+
+        for key, value in data.items():
+            setattr(lab_result, key, value)
+
+        db.session.commit()
+
+        app.logger.info(f"Lab result {result_id} updated by user {current_user.username}")
+        return jsonify(lab_result.to_dict()), 200
+
+    except ValidationError as e:
+        return jsonify({"error": e.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating lab result: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/lab-results/<int:result_id>/review", methods=["POST"])
+@login_required
+def review_lab_result(result_id):
+    """Mark a lab result as reviewed"""
+    from .models import LabResult
+
+    lab_result = LabResult.query.get(result_id)
+    if not lab_result:
+        return jsonify({"error": "Lab result not found"}), 404
+
+    try:
+        lab_result.reviewed = True
+        lab_result.reviewed_by_id = current_user.id
+        lab_result.reviewed_date = datetime.now()
+
+        db.session.commit()
+
+        app.logger.info(f"Lab result {result_id} reviewed by user {current_user.username}")
+        return jsonify(lab_result.to_dict()), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error reviewing lab result: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/lab-results/<int:result_id>", methods=["DELETE"])
+@admin_required
+def delete_lab_result(result_id):
+    """Delete a lab result (Admin only)"""
+    from .models import LabResult
+
+    lab_result = LabResult.query.get(result_id)
+    if not lab_result:
+        return jsonify({"error": "Lab result not found"}), 404
+
+    try:
+        db.session.delete(lab_result)
+        db.session.commit()
+
+        app.logger.info(f"Lab result {result_id} deleted by user {current_user.username}")
+        return jsonify({"message": "Lab result deleted successfully"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting lab result: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+# ============================================================================
+# NOTIFICATION TEMPLATE API ENDPOINTS
+# ============================================================================
+
+@bp.route("/api/notification-templates", methods=["GET"])
+@login_required
+def get_all_notification_templates():
+    """Get all notification templates with optional filtering"""
+    from .models import NotificationTemplate
+
+    # Get query parameters
+    template_type = request.args.get("template_type")
+    channel = request.args.get("channel")
+    is_active = request.args.get("is_active")
+
+    # Build query with filters
+    query = NotificationTemplate.query
+
+    if template_type:
+        query = query.filter(NotificationTemplate.template_type == template_type)
+
+    if channel:
+        query = query.filter(NotificationTemplate.channel == channel)
+
+    if is_active is not None:
+        is_active_bool = is_active.lower() == "true"
+        query = query.filter(NotificationTemplate.is_active == is_active_bool)
+
+    templates = query.order_by(NotificationTemplate.template_type, NotificationTemplate.name).all()
+
+    return jsonify({"templates": [t.to_dict() for t in templates]}), 200
+
+
+@bp.route("/api/notification-templates/<int:template_id>", methods=["GET"])
+@login_required
+def get_notification_template(template_id):
+    """Get a specific notification template by ID"""
+    from .models import NotificationTemplate
+
+    template = NotificationTemplate.query.get(template_id)
+    if not template:
+        return jsonify({"error": "Notification template not found"}), 404
+
+    return jsonify(template.to_dict()), 200
+
+
+@bp.route("/api/notification-templates", methods=["POST"])
+@admin_required
+def create_notification_template():
+    """Create a new notification template (Admin only)"""
+    from .models import NotificationTemplate
+    from .schemas import NotificationTemplateSchema
+    import json
+
+    schema = NotificationTemplateSchema()
+    try:
+        data = schema.load(request.json)
+
+        # Check for duplicate name
+        existing = NotificationTemplate.query.filter_by(name=data["name"]).first()
+        if existing:
+            return jsonify({"error": "Template name already exists"}), 400
+
+        # Convert variables list to JSON string for storage
+        if "variables" in data and data["variables"]:
+            data["variables"] = json.dumps(data["variables"])
+
+        template = NotificationTemplate(**data)
+        template.created_by_id = current_user.id
+
+        db.session.add(template)
+        db.session.commit()
+
+        app.logger.info(f"Notification template created: {template.name} by user {current_user.username}")
+        return jsonify(template.to_dict()), 201
+
+    except ValidationError as e:
+        return jsonify({"error": e.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating notification template: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/notification-templates/<int:template_id>", methods=["PUT"])
+@admin_required
+def update_notification_template(template_id):
+    """Update a notification template (Admin only)"""
+    from .models import NotificationTemplate
+    from .schemas import NotificationTemplateSchema
+    import json
+
+    template = NotificationTemplate.query.get(template_id)
+    if not template:
+        return jsonify({"error": "Notification template not found"}), 404
+
+    schema = NotificationTemplateSchema(partial=True)
+    try:
+        data = schema.load(request.json)
+
+        # Check for duplicate name if updating
+        if "name" in data and data["name"] != template.name:
+            existing = NotificationTemplate.query.filter_by(name=data["name"]).first()
+            if existing:
+                return jsonify({"error": "Template name already exists"}), 400
+
+        # Convert variables list to JSON string for storage
+        if "variables" in data and data["variables"]:
+            data["variables"] = json.dumps(data["variables"])
+
+        for key, value in data.items():
+            setattr(template, key, value)
+
+        db.session.commit()
+
+        app.logger.info(f"Notification template updated: {template.name} by user {current_user.username}")
+        return jsonify(template.to_dict()), 200
+
+    except ValidationError as e:
+        return jsonify({"error": e.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating notification template: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/notification-templates/<int:template_id>", methods=["DELETE"])
+@admin_required
+def delete_notification_template(template_id):
+    """Delete a notification template (Admin only)"""
+    from .models import NotificationTemplate
+
+    template = NotificationTemplate.query.get(template_id)
+    if not template:
+        return jsonify({"error": "Notification template not found"}), 404
+
+    try:
+        # Soft delete by marking as inactive
+        template.is_active = False
+        db.session.commit()
+
+        app.logger.info(f"Notification template deleted: {template.name} by user {current_user.username}")
+        return jsonify({"message": "Notification template deleted successfully"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting notification template: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+# ============================================================================
+# CLIENT COMMUNICATION PREFERENCE API ENDPOINTS
+# ============================================================================
+
+@bp.route("/api/client-preferences", methods=["GET"])
+@login_required
+def get_all_client_preferences():
+    """Get all client communication preferences"""
+    from .models import ClientCommunicationPreference
+
+    preferences = ClientCommunicationPreference.query.all()
+
+    return jsonify({"preferences": [p.to_dict() for p in preferences]}), 200
+
+
+@bp.route("/api/clients/<int:client_id>/preferences", methods=["GET"])
+@login_required
+def get_client_preferences(client_id):
+    """Get or create communication preferences for a specific client"""
+    from .models import ClientCommunicationPreference, Client
+
+    # Verify client exists
+    client = Client.query.get(client_id)
+    if not client:
+        return jsonify({"error": "Client not found"}), 404
+
+    # Get or create preferences
+    preferences = ClientCommunicationPreference.query.filter_by(client_id=client_id).first()
+
+    if not preferences:
+        # Create default preferences
+        preferences = ClientCommunicationPreference(client_id=client_id)
+        db.session.add(preferences)
+        db.session.commit()
+        app.logger.info(f"Default communication preferences created for client {client_id}")
+
+    return jsonify(preferences.to_dict()), 200
+
+
+@bp.route("/api/clients/<int:client_id>/preferences", methods=["PUT"])
+@login_required
+def update_client_preferences(client_id):
+    """Update communication preferences for a specific client"""
+    from .models import ClientCommunicationPreference, Client
+    from .schemas import ClientCommunicationPreferenceSchema
+
+    # Verify client exists
+    client = Client.query.get(client_id)
+    if not client:
+        return jsonify({"error": "Client not found"}), 404
+
+    # Get or create preferences
+    preferences = ClientCommunicationPreference.query.filter_by(client_id=client_id).first()
+
+    schema = ClientCommunicationPreferenceSchema(partial=True)
+    try:
+        data = schema.load(request.json)
+
+        if not preferences:
+            # Create new preferences
+            data["client_id"] = client_id
+            preferences = ClientCommunicationPreference(**data)
+            db.session.add(preferences)
+        else:
+            # Update existing preferences
+            for key, value in data.items():
+                if key != "client_id":  # Don't update client_id
+                    setattr(preferences, key, value)
+
+        db.session.commit()
+
+        app.logger.info(f"Communication preferences updated for client {client_id}")
+        return jsonify(preferences.to_dict()), 200
+
+    except ValidationError as e:
+        return jsonify({"error": e.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating client preferences: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+# ============================================================================
+# REMINDER API ENDPOINTS
+# ============================================================================
+
+@bp.route("/api/reminders", methods=["GET"])
+@login_required
+def get_all_reminders():
+    """Get all reminders with optional filtering"""
+    from .models import Reminder
+
+    # Get query parameters
+    client_id = request.args.get("client_id", type=int)
+    patient_id = request.args.get("patient_id", type=int)
+    reminder_type = request.args.get("reminder_type")
+    status = request.args.get("status")
+    from_date = request.args.get("from_date")
+    to_date = request.args.get("to_date")
+
+    # Build query with filters
+    query = Reminder.query
+
+    if client_id:
+        query = query.filter(Reminder.client_id == client_id)
+
+    if patient_id:
+        query = query.filter(Reminder.patient_id == patient_id)
+
+    if reminder_type:
+        query = query.filter(Reminder.reminder_type == reminder_type)
+
+    if status:
+        query = query.filter(Reminder.status == status)
+
+    if from_date:
+        query = query.filter(Reminder.scheduled_date >= from_date)
+
+    if to_date:
+        query = query.filter(Reminder.scheduled_date <= to_date)
+
+    reminders = query.order_by(Reminder.send_at.desc()).all()
+
+    return jsonify({"reminders": [r.to_dict() for r in reminders]}), 200
+
+
+@bp.route("/api/reminders/pending", methods=["GET"])
+@login_required
+def get_pending_reminders():
+    """Get all pending reminders"""
+    from .models import Reminder
+
+    pending_reminders = Reminder.query.filter_by(status="pending").order_by(Reminder.send_at).all()
+
+    return jsonify({"reminders": [r.to_dict() for r in pending_reminders]}), 200
+
+
+@bp.route("/api/reminders/upcoming", methods=["GET"])
+@login_required
+def get_upcoming_reminders():
+    """Get upcoming reminders (pending, within next 7 days)"""
+    from .models import Reminder
+    from datetime import datetime, timedelta
+
+    # Get reminders that are pending and scheduled within the next 7 days
+    end_date = datetime.now() + timedelta(days=7)
+
+    upcoming_reminders = (
+        Reminder.query.filter_by(status="pending")
+        .filter(Reminder.send_at <= end_date)
+        .filter(Reminder.send_at >= datetime.now())
+        .order_by(Reminder.send_at)
+        .all()
+    )
+
+    return jsonify({"reminders": [r.to_dict() for r in upcoming_reminders]}), 200
+
+
+@bp.route("/api/reminders/<int:reminder_id>", methods=["GET"])
+@login_required
+def get_reminder(reminder_id):
+    """Get a specific reminder by ID"""
+    from .models import Reminder
+
+    reminder = Reminder.query.get(reminder_id)
+    if not reminder:
+        return jsonify({"error": "Reminder not found"}), 404
+
+    return jsonify(reminder.to_dict()), 200
+
+
+@bp.route("/api/reminders", methods=["POST"])
+@login_required
+def create_reminder():
+    """Create a new reminder"""
+    from .models import Reminder, Client, Patient, NotificationTemplate
+    from .schemas import ReminderSchema
+
+    schema = ReminderSchema()
+    try:
+        data = schema.load(request.json)
+
+        # Verify client exists
+        client = Client.query.get(data["client_id"])
+        if not client:
+            return jsonify({"error": "Client not found"}), 404
+
+        # Verify patient exists if provided
+        if data.get("patient_id"):
+            patient = Patient.query.get(data["patient_id"])
+            if not patient:
+                return jsonify({"error": "Patient not found"}), 404
+
+        # Verify template exists if provided
+        if data.get("template_id"):
+            template = NotificationTemplate.query.get(data["template_id"])
+            if not template:
+                return jsonify({"error": "Notification template not found"}), 404
+
+        reminder = Reminder(**data)
+        reminder.created_by_id = current_user.id
+
+        db.session.add(reminder)
+        db.session.commit()
+
+        app.logger.info(f"Reminder created for client {client.name} by user {current_user.username}")
+        return jsonify(reminder.to_dict()), 201
+
+    except ValidationError as e:
+        return jsonify({"error": e.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating reminder: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/reminders/<int:reminder_id>", methods=["PUT"])
+@login_required
+def update_reminder(reminder_id):
+    """Update a reminder"""
+    from .models import Reminder
+    from .schemas import ReminderSchema
+
+    reminder = Reminder.query.get(reminder_id)
+    if not reminder:
+        return jsonify({"error": "Reminder not found"}), 404
+
+    schema = ReminderSchema(partial=True)
+    try:
+        data = schema.load(request.json)
+
+        for key, value in data.items():
+            setattr(reminder, key, value)
+
+        db.session.commit()
+
+        app.logger.info(f"Reminder {reminder_id} updated by user {current_user.username}")
+        return jsonify(reminder.to_dict()), 200
+
+    except ValidationError as e:
+        return jsonify({"error": e.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating reminder: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/reminders/<int:reminder_id>/cancel", methods=["POST"])
+@login_required
+def cancel_reminder(reminder_id):
+    """Cancel a pending reminder"""
+    from .models import Reminder
+
+    reminder = Reminder.query.get(reminder_id)
+    if not reminder:
+        return jsonify({"error": "Reminder not found"}), 404
+
+    try:
+        if reminder.status != "pending":
+            return jsonify({"error": "Can only cancel pending reminders"}), 400
+
+        reminder.status = "cancelled"
+        db.session.commit()
+
+        app.logger.info(f"Reminder {reminder_id} cancelled by user {current_user.username}")
+        return jsonify(reminder.to_dict()), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error cancelling reminder: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/reminders/<int:reminder_id>", methods=["DELETE"])
+@admin_required
+def delete_reminder(reminder_id):
+    """Delete a reminder (Admin only)"""
+    from .models import Reminder
+
+    reminder = Reminder.query.get(reminder_id)
+    if not reminder:
+        return jsonify({"error": "Reminder not found"}), 404
+
+    try:
+        db.session.delete(reminder)
+        db.session.commit()
+
+        app.logger.info(f"Reminder {reminder_id} deleted by user {current_user.username}")
+        return jsonify({"message": "Reminder deleted successfully"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting reminder: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
 
 # ============================================================================
 
