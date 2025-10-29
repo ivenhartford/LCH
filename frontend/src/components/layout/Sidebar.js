@@ -98,9 +98,10 @@ const Sidebar = ({ open, onClose }) => {
       ],
     },
     {
-      section: 'Operations',
+      section: 'Staff',
       items: [
-        { text: 'Staff', icon: <GroupIcon />, path: '/staff' },
+        { text: 'Staff Directory', icon: <GroupIcon />, path: '/staff' },
+        { text: 'Schedule', icon: <CalendarIcon />, path: '/staff-schedule' },
       ],
     },
     {
