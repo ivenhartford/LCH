@@ -1435,3 +1435,176 @@ class InventoryTransaction(db.Model):
             "performed_by_id": self.performed_by_id,
             "performed_by_name": self.performed_by.username if self.performed_by else None,
         }
+
+
+class Staff(db.Model):
+    """
+    Staff Model
+
+    Extended staff information beyond basic User model.
+    Includes employment details, contact info, certifications, and scheduling.
+    """
+
+    __tablename__ = "staff"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Link to User account
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True, unique=True)
+
+    # Personal Information
+    first_name = db.Column(db.String(100), nullable=False)
+    last_name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    phone = db.Column(db.String(20), nullable=True)
+    emergency_contact_name = db.Column(db.String(100), nullable=True)
+    emergency_contact_phone = db.Column(db.String(20), nullable=True)
+
+    # Employment Details
+    position = db.Column(db.String(100), nullable=False)  # Veterinarian, Vet Tech, Receptionist, etc.
+    department = db.Column(db.String(100), nullable=True)  # Surgery, Front Desk, Pharmacy, etc.
+    employment_type = db.Column(db.String(50), nullable=False, default="full-time")  # full-time, part-time, contract
+    hire_date = db.Column(db.Date, nullable=False)
+    termination_date = db.Column(db.Date, nullable=True)
+
+    # Credentials & Certifications
+    license_number = db.Column(db.String(100), nullable=True)
+    license_state = db.Column(db.String(50), nullable=True)
+    license_expiry = db.Column(db.Date, nullable=True)
+    certifications = db.Column(db.Text, nullable=True)  # JSON or comma-separated list
+    education = db.Column(db.Text, nullable=True)
+
+    # Work Schedule
+    default_schedule = db.Column(db.String(200), nullable=True)  # e.g., "Mon-Fri 9-5"
+    hourly_rate = db.Column(db.Numeric(10, 2), nullable=True)
+
+    # Permissions & Access
+    can_prescribe = db.Column(db.Boolean, default=False)
+    can_perform_surgery = db.Column(db.Boolean, default=False)
+    can_access_billing = db.Column(db.Boolean, default=False)
+
+    # Notes
+    notes = db.Column(db.Text, nullable=True)
+
+    # Metadata
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships
+    user = db.relationship("User", backref="staff_profile", uselist=False)
+    schedules = db.relationship("Schedule", back_populates="staff_member", lazy=True, cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<Staff {self.first_name} {self.last_name} - {self.position}>"
+
+    def to_dict(self):
+        """Convert staff to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "first_name": self.first_name,
+            "last_name": self.last_name,
+            "full_name": f"{self.first_name} {self.last_name}",
+            "email": self.email,
+            "phone": self.phone,
+            "emergency_contact_name": self.emergency_contact_name,
+            "emergency_contact_phone": self.emergency_contact_phone,
+            "position": self.position,
+            "department": self.department,
+            "employment_type": self.employment_type,
+            "hire_date": self.hire_date.isoformat() if self.hire_date else None,
+            "termination_date": self.termination_date.isoformat() if self.termination_date else None,
+            "license_number": self.license_number,
+            "license_state": self.license_state,
+            "license_expiry": self.license_expiry.isoformat() if self.license_expiry else None,
+            "certifications": self.certifications,
+            "education": self.education,
+            "default_schedule": self.default_schedule,
+            "hourly_rate": float(self.hourly_rate) if self.hourly_rate else None,
+            "can_prescribe": self.can_prescribe,
+            "can_perform_surgery": self.can_perform_surgery,
+            "can_access_billing": self.can_access_billing,
+            "notes": self.notes,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class Schedule(db.Model):
+    """
+    Schedule/Shift Model
+
+    Tracks staff work schedules and shifts.
+    Supports recurring schedules and one-off shifts.
+    """
+
+    __tablename__ = "schedule"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Staff Assignment
+    staff_id = db.Column(db.Integer, db.ForeignKey("staff.id"), nullable=False)
+
+    # Schedule Details
+    shift_date = db.Column(db.Date, nullable=False)
+    start_time = db.Column(db.Time, nullable=False)
+    end_time = db.Column(db.Time, nullable=False)
+
+    # Shift Type & Status
+    shift_type = db.Column(db.String(50), nullable=False, default="regular")  # regular, on-call, overtime
+    status = db.Column(db.String(50), nullable=False, default="scheduled")  # scheduled, completed, cancelled, no-show
+
+    # Break Information
+    break_minutes = db.Column(db.Integer, default=30)  # Total break time in minutes
+
+    # Location & Role
+    location = db.Column(db.String(100), nullable=True)  # Clinic location if multiple sites
+    role = db.Column(db.String(100), nullable=True)  # Role for this shift if different from default
+
+    # Time Off / Leave
+    is_time_off = db.Column(db.Boolean, default=False)
+    time_off_type = db.Column(db.String(50), nullable=True)  # vacation, sick, personal, unpaid
+    time_off_approved = db.Column(db.Boolean, default=False)
+    approved_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+
+    # Notes
+    notes = db.Column(db.Text, nullable=True)
+
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships
+    staff_member = db.relationship("Staff", back_populates="schedules")
+    approved_by = db.relationship("User", foreign_keys=[approved_by_id])
+
+    def __repr__(self):
+        staff_name = f"{self.staff_member.first_name} {self.staff_member.last_name}" if self.staff_member else "N/A"
+        return f"<Schedule {staff_name} on {self.shift_date}>"
+
+    def to_dict(self):
+        """Convert schedule to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "staff_id": self.staff_id,
+            "staff_name": f"{self.staff_member.first_name} {self.staff_member.last_name}" if self.staff_member else None,
+            "staff_position": self.staff_member.position if self.staff_member else None,
+            "shift_date": self.shift_date.isoformat() if self.shift_date else None,
+            "start_time": self.start_time.isoformat() if self.start_time else None,
+            "end_time": self.end_time.isoformat() if self.end_time else None,
+            "shift_type": self.shift_type,
+            "status": self.status,
+            "break_minutes": self.break_minutes,
+            "location": self.location,
+            "role": self.role,
+            "is_time_off": self.is_time_off,
+            "time_off_type": self.time_off_type,
+            "time_off_approved": self.time_off_approved,
+            "approved_by_id": self.approved_by_id,
+            "approved_by_name": self.approved_by.username if self.approved_by else None,
+            "notes": self.notes,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }

@@ -866,3 +866,119 @@ purchase_order_items_schema = PurchaseOrderItemSchema(many=True)
 
 inventory_transaction_schema = InventoryTransactionSchema()
 inventory_transactions_schema = InventoryTransactionSchema(many=True)
+
+
+# ============================================================================
+# STAFF & SCHEDULING SCHEMAS
+# ============================================================================
+
+
+class StaffSchema(Schema):
+    """Schema for Staff model validation"""
+
+    # IDs
+    id = fields.Int(dump_only=True)
+    user_id = fields.Int(allow_none=True)
+
+    # Personal Information
+    first_name = fields.Str(required=True, validate=validate.Length(min=1, max=100))
+    last_name = fields.Str(required=True, validate=validate.Length(min=1, max=100))
+    full_name = fields.Str(dump_only=True)
+    email = fields.Email(required=True)
+    phone = fields.Str(allow_none=True, validate=validate.Length(max=20))
+    emergency_contact_name = fields.Str(allow_none=True, validate=validate.Length(max=100))
+    emergency_contact_phone = fields.Str(allow_none=True, validate=validate.Length(max=20))
+
+    # Employment Details
+    position = fields.Str(required=True, validate=validate.Length(min=1, max=100))
+    department = fields.Str(allow_none=True, validate=validate.Length(max=100))
+    employment_type = fields.Str(
+        required=True,
+        validate=validate.OneOf(["full-time", "part-time", "contract", "intern"]),
+    )
+    hire_date = fields.Date(required=True)
+    termination_date = fields.Date(allow_none=True)
+
+    # Credentials & Certifications
+    license_number = fields.Str(allow_none=True, validate=validate.Length(max=100))
+    license_state = fields.Str(allow_none=True, validate=validate.Length(max=50))
+    license_expiry = fields.Date(allow_none=True)
+    certifications = fields.Str(allow_none=True)
+    education = fields.Str(allow_none=True)
+
+    # Work Schedule
+    default_schedule = fields.Str(allow_none=True, validate=validate.Length(max=200))
+    hourly_rate = fields.Decimal(allow_none=True, as_string=True, places=2)
+
+    # Permissions & Access
+    can_prescribe = fields.Bool(load_default=False)
+    can_perform_surgery = fields.Bool(load_default=False)
+    can_access_billing = fields.Bool(load_default=False)
+
+    # Notes
+    notes = fields.Str(allow_none=True)
+
+    # Metadata
+    is_active = fields.Bool(load_default=True)
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+
+
+class ScheduleSchema(Schema):
+    """Schema for Schedule/Shift model validation"""
+
+    # IDs
+    id = fields.Int(dump_only=True)
+    staff_id = fields.Int(required=True)
+    staff_name = fields.Str(dump_only=True)
+    staff_position = fields.Str(dump_only=True)
+
+    # Schedule Details
+    shift_date = fields.Date(required=True)
+    start_time = fields.Time(required=True)
+    end_time = fields.Time(required=True)
+
+    # Shift Type & Status
+    shift_type = fields.Str(
+        required=True,
+        validate=validate.OneOf(["regular", "on-call", "overtime", "training"]),
+    )
+    status = fields.Str(
+        required=True,
+        validate=validate.OneOf(["scheduled", "completed", "cancelled", "no-show"]),
+    )
+
+    # Break Information
+    break_minutes = fields.Int(load_default=30, validate=validate.Range(min=0, max=480))
+
+    # Location & Role
+    location = fields.Str(allow_none=True, validate=validate.Length(max=100))
+    role = fields.Str(allow_none=True, validate=validate.Length(max=100))
+
+    # Time Off / Leave
+    is_time_off = fields.Bool(load_default=False)
+    time_off_type = fields.Str(
+        allow_none=True,
+        validate=validate.OneOf(["vacation", "sick", "personal", "unpaid", "bereavement"]),
+    )
+    time_off_approved = fields.Bool(load_default=False)
+    approved_by_id = fields.Int(allow_none=True)
+    approved_by_name = fields.Str(dump_only=True)
+
+    # Notes
+    notes = fields.Str(allow_none=True)
+
+    # Metadata
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+
+    # Note: End time validation is handled in the API endpoint to ensure
+    # both start_time and end_time are available for comparison
+
+
+# Initialize staff schema instances
+staff_schema = StaffSchema()
+staffs_schema = StaffSchema(many=True)
+
+schedule_schema = ScheduleSchema()
+schedules_schema = ScheduleSchema(many=True)

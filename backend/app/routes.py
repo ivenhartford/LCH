@@ -3418,6 +3418,366 @@ def get_inventory_transaction(transaction_id):
     return jsonify(transaction.to_dict()), 200
 
 
+# ============================================================================
+# STAFF MANAGEMENT API ENDPOINTS
+# ============================================================================
+
+
+@bp.route("/api/staff", methods=["GET"])
+@login_required
+def get_all_staff():
+    """Get all staff members with optional filtering"""
+    from .models import Staff
+
+    # Get query parameters
+    is_active = request.args.get("is_active")
+    position = request.args.get("position")
+    department = request.args.get("department")
+    search = request.args.get("search")
+
+    # Build query
+    query = Staff.query
+
+    # Apply filters
+    if is_active is not None:
+        is_active_bool = is_active.lower() == "true"
+        query = query.filter(Staff.is_active == is_active_bool)
+
+    if position:
+        query = query.filter(Staff.position.ilike(f"%{position}%"))
+
+    if department:
+        query = query.filter(Staff.department.ilike(f"%{department}%"))
+
+    if search:
+        search_filter = db.or_(
+            Staff.first_name.ilike(f"%{search}%"),
+            Staff.last_name.ilike(f"%{search}%"),
+            Staff.email.ilike(f"%{search}%")
+        )
+        query = query.filter(search_filter)
+
+    # Order by name
+    staff_members = query.order_by(Staff.last_name, Staff.first_name).all()
+
+    return jsonify({"staff": [s.to_dict() for s in staff_members]}), 200
+
+
+@bp.route("/api/staff/<int:staff_id>", methods=["GET"])
+@login_required
+def get_staff(staff_id):
+    """Get single staff member by ID"""
+    from .models import Staff
+
+    staff = Staff.query.get(staff_id)
+    if not staff:
+        return jsonify({"error": "Staff member not found"}), 404
+
+    return jsonify(staff.to_dict()), 200
+
+
+@bp.route("/api/staff", methods=["POST"])
+@login_required
+@admin_required
+def create_staff():
+    """Create new staff member (admin only)"""
+    from .models import Staff
+    from .schemas import staff_schema
+
+    try:
+        # Validate request data
+        data = staff_schema.load(request.json)
+
+        # Check for duplicate email
+        existing_staff = Staff.query.filter_by(email=data["email"]).first()
+        if existing_staff:
+            return jsonify({"error": "Staff member with this email already exists"}), 400
+
+        # Create new staff member
+        staff = Staff(**data)
+        db.session.add(staff)
+        db.session.commit()
+
+        app.logger.info(f"Created staff member: {staff.first_name} {staff.last_name}")
+        return jsonify(staff.to_dict()), 201
+
+    except MarshmallowValidationError as err:
+        return jsonify({"error": err.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating staff member: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/staff/<int:staff_id>", methods=["PUT"])
+@login_required
+@admin_required
+def update_staff(staff_id):
+    """Update existing staff member (admin only)"""
+    from .models import Staff
+    from .schemas import staff_schema
+
+    staff = Staff.query.get(staff_id)
+    if not staff:
+        return jsonify({"error": "Staff member not found"}), 404
+
+    try:
+        # Validate request data
+        data = staff_schema.load(request.json, partial=True)
+
+        # Check for duplicate email (if email is being changed)
+        if "email" in data and data["email"] != staff.email:
+            existing_staff = Staff.query.filter_by(email=data["email"]).first()
+            if existing_staff:
+                return jsonify({"error": "Staff member with this email already exists"}), 400
+
+        # Update staff member fields
+        for key, value in data.items():
+            setattr(staff, key, value)
+
+        db.session.commit()
+
+        app.logger.info(f"Updated staff member: {staff.first_name} {staff.last_name}")
+        return jsonify(staff.to_dict()), 200
+
+    except MarshmallowValidationError as err:
+        return jsonify({"error": err.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating staff member: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/staff/<int:staff_id>", methods=["DELETE"])
+@login_required
+@admin_required
+def delete_staff(staff_id):
+    """Delete staff member (admin only) - soft delete by default"""
+    from .models import Staff
+
+    staff = Staff.query.get(staff_id)
+    if not staff:
+        return jsonify({"error": "Staff member not found"}), 404
+
+    try:
+        # Check if hard delete is requested
+        hard_delete = request.args.get("hard", "false").lower() == "true"
+
+        if hard_delete:
+            # Hard delete - remove from database
+            db.session.delete(staff)
+            db.session.commit()
+            app.logger.info(f"Hard deleted staff member: {staff.first_name} {staff.last_name}")
+            return jsonify({"message": "Staff member permanently deleted"}), 200
+        else:
+            # Soft delete - mark as inactive
+            staff.is_active = False
+            db.session.commit()
+            app.logger.info(f"Soft deleted staff member: {staff.first_name} {staff.last_name}")
+            return jsonify({"message": "Staff member deactivated"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting staff member: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+# ============================================================================
+# SCHEDULE MANAGEMENT API ENDPOINTS
+# ============================================================================
+
+
+@bp.route("/api/schedules", methods=["GET"])
+@login_required
+def get_all_schedules():
+    """Get all schedules with optional filtering"""
+    from .models import Schedule
+
+    # Get query parameters
+    staff_id = request.args.get("staff_id", type=int)
+    start_date = request.args.get("start_date")
+    end_date = request.args.get("end_date")
+    shift_type = request.args.get("shift_type")
+    status = request.args.get("status")
+    is_time_off = request.args.get("is_time_off")
+
+    # Build query
+    query = Schedule.query
+
+    # Apply filters
+    if staff_id:
+        query = query.filter(Schedule.staff_id == staff_id)
+
+    if start_date:
+        try:
+            start = datetime.strptime(start_date, "%Y-%m-%d").date()
+            query = query.filter(Schedule.shift_date >= start)
+        except ValueError:
+            return jsonify({"error": "Invalid start_date format. Use YYYY-MM-DD"}), 400
+
+    if end_date:
+        try:
+            end = datetime.strptime(end_date, "%Y-%m-%d").date()
+            query = query.filter(Schedule.shift_date <= end)
+        except ValueError:
+            return jsonify({"error": "Invalid end_date format. Use YYYY-MM-DD"}), 400
+
+    if shift_type:
+        query = query.filter(Schedule.shift_type == shift_type)
+
+    if status:
+        query = query.filter(Schedule.status == status)
+
+    if is_time_off is not None:
+        is_time_off_bool = is_time_off.lower() == "true"
+        query = query.filter(Schedule.is_time_off == is_time_off_bool)
+
+    # Order by date and start time
+    schedules = query.order_by(Schedule.shift_date, Schedule.start_time).all()
+
+    return jsonify({"schedules": [s.to_dict() for s in schedules]}), 200
+
+
+@bp.route("/api/schedules/<int:schedule_id>", methods=["GET"])
+@login_required
+def get_schedule(schedule_id):
+    """Get single schedule by ID"""
+    from .models import Schedule
+
+    schedule = Schedule.query.get(schedule_id)
+    if not schedule:
+        return jsonify({"error": "Schedule not found"}), 404
+
+    return jsonify(schedule.to_dict()), 200
+
+
+@bp.route("/api/schedules", methods=["POST"])
+@login_required
+@admin_required
+def create_schedule():
+    """Create new schedule/shift (admin only)"""
+    from .models import Schedule, Staff
+    from .schemas import schedule_schema
+
+    try:
+        # Validate request data
+        data = schedule_schema.load(request.json)
+
+        # Verify staff member exists
+        staff = Staff.query.get(data["staff_id"])
+        if not staff:
+            return jsonify({"error": "Staff member not found"}), 404
+
+        # Validate end time is after start time
+        if data["end_time"] <= data["start_time"]:
+            return jsonify({"error": "End time must be after start time"}), 400
+
+        # Create new schedule
+        schedule = Schedule(**data)
+        db.session.add(schedule)
+        db.session.commit()
+
+        app.logger.info(f"Created schedule for {staff.first_name} {staff.last_name} on {schedule.shift_date}")
+        return jsonify(schedule.to_dict()), 201
+
+    except MarshmallowValidationError as err:
+        return jsonify({"error": err.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating schedule: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/schedules/<int:schedule_id>", methods=["PUT"])
+@login_required
+@admin_required
+def update_schedule(schedule_id):
+    """Update existing schedule (admin only)"""
+    from .models import Schedule
+    from .schemas import schedule_schema
+
+    schedule = Schedule.query.get(schedule_id)
+    if not schedule:
+        return jsonify({"error": "Schedule not found"}), 404
+
+    try:
+        # Validate request data
+        data = schedule_schema.load(request.json, partial=True)
+
+        # If updating times, validate end time is after start time
+        start_time = data.get("start_time", schedule.start_time)
+        end_time = data.get("end_time", schedule.end_time)
+        if end_time <= start_time:
+            return jsonify({"error": "End time must be after start time"}), 400
+
+        # Update schedule fields
+        for key, value in data.items():
+            setattr(schedule, key, value)
+
+        db.session.commit()
+
+        app.logger.info(f"Updated schedule ID {schedule_id}")
+        return jsonify(schedule.to_dict()), 200
+
+    except MarshmallowValidationError as err:
+        return jsonify({"error": err.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating schedule: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/schedules/<int:schedule_id>", methods=["DELETE"])
+@login_required
+@admin_required
+def delete_schedule(schedule_id):
+    """Delete schedule (admin only)"""
+    from .models import Schedule
+
+    schedule = Schedule.query.get(schedule_id)
+    if not schedule:
+        return jsonify({"error": "Schedule not found"}), 404
+
+    try:
+        db.session.delete(schedule)
+        db.session.commit()
+
+        app.logger.info(f"Deleted schedule ID {schedule_id}")
+        return jsonify({"message": "Schedule deleted successfully"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting schedule: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/schedules/<int:schedule_id>/approve", methods=["POST"])
+@login_required
+@admin_required
+def approve_time_off(schedule_id):
+    """Approve time-off request (admin only)"""
+    from .models import Schedule
+
+    schedule = Schedule.query.get(schedule_id)
+    if not schedule:
+        return jsonify({"error": "Schedule not found"}), 404
+
+    if not schedule.is_time_off:
+        return jsonify({"error": "This is not a time-off request"}), 400
+
+    try:
+        schedule.time_off_approved = True
+        schedule.approved_by_id = current_user.id
+        db.session.commit()
+
+        app.logger.info(f"Approved time-off request ID {schedule_id}")
+        return jsonify(schedule.to_dict()), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error approving time-off: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
 
 # ============================================================================
 
