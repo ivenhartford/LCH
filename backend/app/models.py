@@ -1608,3 +1608,167 @@ class Schedule(db.Model):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
+
+
+class LabTest(db.Model):
+    """
+    Laboratory Test Model
+
+    Catalog of available laboratory tests that can be ordered.
+    Includes test details, normal ranges, and pricing.
+    """
+
+    __tablename__ = "lab_test"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Test Information
+    test_code = db.Column(db.String(50), unique=True, nullable=False)  # e.g., CBC, CHEM, T4
+    test_name = db.Column(db.String(200), nullable=False)
+    category = db.Column(db.String(100), nullable=False)  # Hematology, Chemistry, Serology, etc.
+    description = db.Column(db.Text, nullable=True)
+
+    # Specimen Requirements
+    specimen_type = db.Column(db.String(100), nullable=True)  # Blood, Urine, Fecal, etc.
+    specimen_volume = db.Column(db.String(50), nullable=True)  # e.g., "2-5 ml"
+    collection_instructions = db.Column(db.Text, nullable=True)
+
+    # Reference Range (stored as JSON string for flexibility)
+    reference_range = db.Column(db.Text, nullable=True)  # JSON: {"cat": {"min": 0, "max": 10, "unit": "mg/dL"}}
+
+    # Turnaround Time
+    turnaround_time = db.Column(db.String(100), nullable=True)  # e.g., "24 hours", "2-3 days"
+
+    # External Lab Information
+    external_lab = db.Column(db.Boolean, default=False)
+    external_lab_name = db.Column(db.String(200), nullable=True)
+    external_lab_code = db.Column(db.String(100), nullable=True)
+
+    # Pricing
+    cost = db.Column(db.Numeric(10, 2), nullable=True)
+    price = db.Column(db.Numeric(10, 2), nullable=True)
+
+    # Metadata
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships
+    results = db.relationship("LabResult", back_populates="test", lazy=True, cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<LabTest {self.test_code} - {self.test_name}>"
+
+    def to_dict(self):
+        """Convert lab test to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "test_code": self.test_code,
+            "test_name": self.test_name,
+            "category": self.category,
+            "description": self.description,
+            "specimen_type": self.specimen_type,
+            "specimen_volume": self.specimen_volume,
+            "collection_instructions": self.collection_instructions,
+            "reference_range": self.reference_range,
+            "turnaround_time": self.turnaround_time,
+            "external_lab": self.external_lab,
+            "external_lab_name": self.external_lab_name,
+            "external_lab_code": self.external_lab_code,
+            "cost": float(self.cost) if self.cost else None,
+            "price": float(self.price) if self.price else None,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class LabResult(db.Model):
+    """
+    Laboratory Result Model
+
+    Individual test results for patients.
+    Links to visits and tracks result status, values, and abnormal flags.
+    """
+
+    __tablename__ = "lab_result"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Associations
+    patient_id = db.Column(db.Integer, db.ForeignKey("patient.id"), nullable=False)
+    visit_id = db.Column(db.Integer, db.ForeignKey("visit.id"), nullable=True)
+    test_id = db.Column(db.Integer, db.ForeignKey("lab_test.id"), nullable=False)
+
+    # Order Information
+    order_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    ordered_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+
+    # Status Tracking
+    status = db.Column(db.String(50), nullable=False, default="pending")  # pending, in_progress, completed, cancelled
+
+    # Result Information
+    result_date = db.Column(db.DateTime, nullable=True)
+    result_value = db.Column(db.Text, nullable=True)  # Can be numeric, text, or JSON for complex results
+    result_unit = db.Column(db.String(50), nullable=True)
+
+    # Interpretation
+    is_abnormal = db.Column(db.Boolean, default=False)
+    abnormal_flag = db.Column(db.String(10), nullable=True)  # H (High), L (Low), A (Abnormal)
+    interpretation = db.Column(db.Text, nullable=True)
+
+    # External Lab Tracking
+    external_reference_number = db.Column(db.String(100), nullable=True)
+
+    # Reviewed Status
+    reviewed = db.Column(db.Boolean, default=False)
+    reviewed_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    reviewed_date = db.Column(db.DateTime, nullable=True)
+
+    # Notes
+    notes = db.Column(db.Text, nullable=True)
+
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships
+    patient = db.relationship("Patient", backref="lab_results")
+    visit = db.relationship("Visit", backref="lab_results")
+    test = db.relationship("LabTest", back_populates="results")
+    ordered_by = db.relationship("User", foreign_keys=[ordered_by_id], backref="ordered_lab_tests")
+    reviewed_by = db.relationship("User", foreign_keys=[reviewed_by_id], backref="reviewed_lab_tests")
+
+    def __repr__(self):
+        return f"<LabResult {self.id} - {self.test.test_name if self.test else 'N/A'} - {self.status}>"
+
+    def to_dict(self):
+        """Convert lab result to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "patient_id": self.patient_id,
+            "patient_name": f"{self.patient.name}" if self.patient else None,
+            "visit_id": self.visit_id,
+            "test_id": self.test_id,
+            "test_code": self.test.test_code if self.test else None,
+            "test_name": self.test.test_name if self.test else None,
+            "test_category": self.test.category if self.test else None,
+            "order_date": self.order_date.isoformat() if self.order_date else None,
+            "ordered_by_id": self.ordered_by_id,
+            "ordered_by_name": self.ordered_by.username if self.ordered_by else None,
+            "status": self.status,
+            "result_date": self.result_date.isoformat() if self.result_date else None,
+            "result_value": self.result_value,
+            "result_unit": self.result_unit,
+            "is_abnormal": self.is_abnormal,
+            "abnormal_flag": self.abnormal_flag,
+            "interpretation": self.interpretation,
+            "external_reference_number": self.external_reference_number,
+            "reviewed": self.reviewed,
+            "reviewed_by_id": self.reviewed_by_id,
+            "reviewed_by_name": self.reviewed_by.username if self.reviewed_by else None,
+            "reviewed_date": self.reviewed_date.isoformat() if self.reviewed_date else None,
+            "notes": self.notes,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }

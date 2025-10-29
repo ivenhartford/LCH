@@ -982,3 +982,109 @@ staffs_schema = StaffSchema(many=True)
 
 schedule_schema = ScheduleSchema()
 schedules_schema = ScheduleSchema(many=True)
+
+
+# ============================================================================
+# LABORATORY SCHEMAS
+# ============================================================================
+
+
+class LabTestSchema(Schema):
+    """Schema for LabTest model validation"""
+
+    # IDs
+    id = fields.Int(dump_only=True)
+
+    # Test Information
+    test_code = fields.Str(required=True, validate=validate.Length(min=1, max=50))
+    test_name = fields.Str(required=True, validate=validate.Length(min=1, max=200))
+    category = fields.Str(required=True, validate=validate.Length(min=1, max=100))
+    description = fields.Str(allow_none=True)
+
+    # Specimen Requirements
+    specimen_type = fields.Str(allow_none=True, validate=validate.Length(max=100))
+    specimen_volume = fields.Str(allow_none=True, validate=validate.Length(max=50))
+    collection_instructions = fields.Str(allow_none=True)
+
+    # Reference Range
+    reference_range = fields.Str(allow_none=True)
+
+    # Turnaround Time
+    turnaround_time = fields.Str(allow_none=True, validate=validate.Length(max=100))
+
+    # External Lab Information
+    external_lab = fields.Bool(load_default=False)
+    external_lab_name = fields.Str(allow_none=True, validate=validate.Length(max=200))
+    external_lab_code = fields.Str(allow_none=True, validate=validate.Length(max=100))
+
+    # Pricing
+    cost = fields.Decimal(allow_none=True, as_string=True, places=2)
+    price = fields.Decimal(allow_none=True, as_string=True, places=2)
+
+    # Metadata
+    is_active = fields.Bool(load_default=True)
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+
+
+class LabResultSchema(Schema):
+    """Schema for LabResult model validation"""
+
+    # IDs
+    id = fields.Int(dump_only=True)
+
+    # Associations
+    patient_id = fields.Int(required=True)
+    patient_name = fields.Str(dump_only=True)
+    visit_id = fields.Int(allow_none=True)
+    test_id = fields.Int(required=True)
+    test_code = fields.Str(dump_only=True)
+    test_name = fields.Str(dump_only=True)
+    test_category = fields.Str(dump_only=True)
+
+    # Order Information
+    order_date = fields.DateTime(required=True)
+    ordered_by_id = fields.Int(dump_only=True)
+    ordered_by_name = fields.Str(dump_only=True)
+
+    # Status Tracking
+    status = fields.Str(
+        required=True,
+        validate=validate.OneOf(["pending", "in_progress", "completed", "cancelled"]),
+    )
+
+    # Result Information
+    result_date = fields.DateTime(allow_none=True)
+    result_value = fields.Str(allow_none=True)
+    result_unit = fields.Str(allow_none=True, validate=validate.Length(max=50))
+
+    # Interpretation
+    is_abnormal = fields.Bool(load_default=False)
+    abnormal_flag = fields.Str(
+        allow_none=True, validate=validate.OneOf(["H", "L", "A", ""])
+    )
+    interpretation = fields.Str(allow_none=True)
+
+    # External Lab Tracking
+    external_reference_number = fields.Str(allow_none=True, validate=validate.Length(max=100))
+
+    # Reviewed Status
+    reviewed = fields.Bool(load_default=False)
+    reviewed_by_id = fields.Int(allow_none=True, dump_only=True)
+    reviewed_by_name = fields.Str(dump_only=True)
+    reviewed_date = fields.DateTime(allow_none=True, dump_only=True)
+
+    # Notes
+    notes = fields.Str(allow_none=True)
+
+    # Metadata
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+
+
+# Initialize lab schema instances
+lab_test_schema = LabTestSchema()
+lab_tests_schema = LabTestSchema(many=True)
+
+lab_result_schema = LabResultSchema()
+lab_results_schema = LabResultSchema(many=True)
