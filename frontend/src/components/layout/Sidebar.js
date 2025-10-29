@@ -25,6 +25,8 @@ import {
   Group as GroupIcon,
   Science as ScienceIcon,
   Biotech as BiotechIcon,
+  Notifications as NotificationsIcon,
+  Email as EmailIcon,
   Assessment as AssessmentIcon,
   Settings as SettingsIcon,
 } from '@mui/icons-material';
@@ -111,6 +113,13 @@ const Sidebar = ({ open, onClose }) => {
       items: [
         { text: 'Lab Tests', icon: <ScienceIcon />, path: '/lab-tests' },
         { text: 'Lab Results', icon: <BiotechIcon />, path: '/lab-results' },
+      ],
+    },
+    {
+      section: 'Reminders',
+      items: [
+        { text: 'Reminders', icon: <NotificationsIcon />, path: '/reminders' },
+        { text: 'Templates', icon: <EmailIcon />, path: '/notification-templates' },
       ],
     },
     {

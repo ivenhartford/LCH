@@ -29,6 +29,8 @@ import Staff from './components/Staff';
 import StaffSchedule from './components/StaffSchedule';
 import LabTests from './components/LabTests';
 import LabResults from './components/LabResults';
+import Reminders from './components/Reminders';
+import NotificationTemplates from './components/NotificationTemplates';
 import Settings from './components/Settings';
 import logger from './utils/logger';
 import './App.css';
@@ -202,6 +204,8 @@ function App() {
                       <Route path="/staff-schedule" element={<StaffSchedule />} />
                       <Route path="/lab-tests" element={<LabTests />} />
                       <Route path="/lab-results" element={<LabResults />} />
+                      <Route path="/reminders" element={<Reminders />} />
+                      <Route path="/notification-templates" element={<NotificationTemplates />} />
                       <Route
                         path="/reports"
                         element={
