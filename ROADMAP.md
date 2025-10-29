@@ -3,20 +3,21 @@
 ## Overview
 This roadmap outlines the phased development approach for building a comprehensive veterinary practice management system. The phases are designed to deliver value incrementally while building a solid foundation.
 
-## Current Status: Phase 3.1 - COMPLETE ✅ | Phase 3.2 Ready to Start 🚀
+## Current Status: Phase 3.2 - COMPLETE ✅ | Phase 3.3 Ready to Start 🚀
 
-**Latest Update (2025-10-28 - Night - Final):**
-- ✅ **Phase 3.1 FULLY COMPLETE!** Backend API + Frontend UI
-- ✅ 20 RESTful inventory API endpoints with comprehensive features
-- ✅ 4 complete inventory UI components with full CRUD operations
-- ✅ Purchase order receive workflow with automatic stock updates
-- ✅ Low stock alert system with dashboard notifications
-- ✅ Inventory dashboard with metrics, alerts, and recent activity
-- ✅ Products, Vendors, PurchaseOrders, InventoryDashboard components
-- ✅ Full navigation integration in sidebar
-- 🎯 **Test Status:** 267 passing / 275 total (97.1% pass rate!)
-- 📈 **Added:** 49 backend tests (41 passing), 4 UI components (~1,500 lines)
-- 🚀 **Next:** Phase 3.2 Staff Management System
+**Latest Update (2025-10-28 - Night - Complete):**
+- ✅ **Phase 3.2 FULLY COMPLETE!** Staff Management System
+- ✅ 11 RESTful staff/schedule API endpoints (5 staff + 6 schedule)
+- ✅ 2 complete staff management UI components
+- ✅ Staff directory with credentials, licenses, permissions
+- ✅ Schedule management with shifts and time-off workflow
+- ✅ Time-off request approval system (admin only)
+- ✅ Staff and Schedule navigation integrated
+- 🎯 **Backend:** 2 models (Staff, Schedule) + schemas + 11 endpoints
+- 📈 **Frontend:** 2 components (~1,200 lines), routing, navigation
+- 🚀 **Next:** Phase 3.3 Laboratory Management System
+
+**Phase 3.1 Complete:** Inventory Management (20 endpoints, 4 UI components)
 
 ### Phase 0 (COMPLETE)
 - ✅ Basic authentication system
@@ -357,14 +358,17 @@ Add inventory management, staff scheduling, and begin building client-facing fea
 - [ ] Link inventory to invoicing (auto-deduct on service delivery) - DEFERRED to Phase 4
 - [ ] Create inventory reports UI - DEFERRED (basic reporting in dashboard)
 
-### 3.2 Staff Management (Week 4-5)
-- [ ] Create Staff model (beyond User)
-- [ ] Create Schedule/Shift model
-- [ ] Build staff directory
-- [ ] Build staff schedule calendar
-- [ ] Add role-based permissions
-- [ ] Build time-off request system
-- [ ] Add audit logging for access
+### 3.2 Staff Management (Week 4-5) ✅ COMPLETE
+- [x] Create Staff model (beyond User) ✅
+- [x] Create Schedule/Shift model ✅
+- [x] Build Staff API (5 endpoints) ✅
+- [x] Build Schedule API (6 endpoints including time-off approval) ✅
+- [x] Build staff directory (Staff.js component) ✅
+- [x] Build staff schedule management (StaffSchedule.js component) ✅
+- [x] Add role-based permissions (can_prescribe, can_perform_surgery, can_access_billing) ✅
+- [x] Build time-off request system with approval workflow ✅
+- [x] Add navigation and routing ✅
+- [ ] Add audit logging for access - DEFERRED to Phase 4
 
 ### 3.3 Laboratory Management (Week 6)
 - [ ] Create LabTest model
