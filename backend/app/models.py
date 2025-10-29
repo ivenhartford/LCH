@@ -1772,3 +1772,269 @@ class LabResult(db.Model):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
+
+
+# ============================================================================
+# NOTIFICATION & REMINDER MODELS
+# ============================================================================
+
+
+class NotificationTemplate(db.Model):
+    """Notification Template Model - Email and SMS templates"""
+
+    __tablename__ = "notification_template"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True)
+    description = db.Column(db.Text, nullable=True)
+
+    # Template Type
+    template_type = db.Column(
+        db.String(50), nullable=False
+    )  # appointment_reminder, vaccination_reminder, etc.
+    channel = db.Column(
+        db.String(20), nullable=False
+    )  # email, sms, both
+
+    # Template Content
+    subject = db.Column(db.String(200), nullable=True)  # For email
+    body = db.Column(db.Text, nullable=False)
+
+    # Template Variables (JSON format - list of available variables)
+    # Example: ["client_name", "pet_name", "appointment_date", "appointment_time"]
+    variables = db.Column(db.Text, nullable=True)
+
+    # Settings
+    is_active = db.Column(db.Boolean, default=True)
+    is_default = db.Column(
+        db.Boolean, default=False
+    )  # Default template for this type
+
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.now, onupdate=datetime.now
+    )
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+
+    # Relationships
+    created_by = db.relationship("User", backref="notification_templates")
+
+    def to_dict(self):
+        """Convert to dictionary"""
+        import json
+
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "template_type": self.template_type,
+            "channel": self.channel,
+            "subject": self.subject,
+            "body": self.body,
+            "variables": (
+                json.loads(self.variables) if self.variables else []
+            ),
+            "is_active": self.is_active,
+            "is_default": self.is_default,
+            "created_at": (
+                self.created_at.isoformat() if self.created_at else None
+            ),
+            "updated_at": (
+                self.updated_at.isoformat() if self.updated_at else None
+            ),
+            "created_by": (
+                self.created_by.username if self.created_by else None
+            ),
+        }
+
+
+class ClientCommunicationPreference(db.Model):
+    """Client Communication Preference Model - How clients want to be contacted"""
+
+    __tablename__ = "client_communication_preference"
+
+    id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(
+        db.Integer, db.ForeignKey("client.id"), nullable=False, unique=True
+    )
+
+    # Communication Channels
+    email_enabled = db.Column(db.Boolean, default=True)
+    sms_enabled = db.Column(db.Boolean, default=False)
+    phone_enabled = db.Column(db.Boolean, default=True)
+
+    # Notification Types
+    appointment_reminders = db.Column(db.Boolean, default=True)
+    vaccination_reminders = db.Column(db.Boolean, default=True)
+    medication_reminders = db.Column(db.Boolean, default=True)
+    marketing = db.Column(db.Boolean, default=False)
+    newsletters = db.Column(db.Boolean, default=False)
+
+    # Preferred Times
+    preferred_contact_time = db.Column(
+        db.String(50), nullable=True
+    )  # morning, afternoon, evening
+    do_not_contact_before = db.Column(db.Time, nullable=True)
+    do_not_contact_after = db.Column(db.Time, nullable=True)
+
+    # Reminder Timing
+    appointment_reminder_days = db.Column(
+        db.Integer, default=1
+    )  # Days before appointment
+    vaccination_reminder_days = db.Column(
+        db.Integer, default=7
+    )  # Days before due
+
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.now, onupdate=datetime.now
+    )
+
+    # Relationships
+    client = db.relationship("Client", backref="communication_preference")
+
+    def to_dict(self):
+        """Convert to dictionary"""
+        return {
+            "id": self.id,
+            "client_id": self.client_id,
+            "email_enabled": self.email_enabled,
+            "sms_enabled": self.sms_enabled,
+            "phone_enabled": self.phone_enabled,
+            "appointment_reminders": self.appointment_reminders,
+            "vaccination_reminders": self.vaccination_reminders,
+            "medication_reminders": self.medication_reminders,
+            "marketing": self.marketing,
+            "newsletters": self.newsletters,
+            "preferred_contact_time": self.preferred_contact_time,
+            "do_not_contact_before": (
+                self.do_not_contact_before.isoformat()
+                if self.do_not_contact_before
+                else None
+            ),
+            "do_not_contact_after": (
+                self.do_not_contact_after.isoformat()
+                if self.do_not_contact_after
+                else None
+            ),
+            "appointment_reminder_days": self.appointment_reminder_days,
+            "vaccination_reminder_days": self.vaccination_reminder_days,
+            "created_at": (
+                self.created_at.isoformat() if self.created_at else None
+            ),
+            "updated_at": (
+                self.updated_at.isoformat() if self.updated_at else None
+            ),
+        }
+
+
+class Reminder(db.Model):
+    """Reminder Model - Tracks reminders to be sent"""
+
+    __tablename__ = "reminder"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Related Records
+    client_id = db.Column(db.Integer, db.ForeignKey("client.id"), nullable=False)
+    patient_id = db.Column(
+        db.Integer, db.ForeignKey("patient.id"), nullable=True
+    )  # Optional
+    appointment_id = db.Column(
+        db.Integer, db.ForeignKey("appointment.id"), nullable=True
+    )  # For appointment reminders
+
+    # Reminder Type
+    reminder_type = db.Column(
+        db.String(50), nullable=False
+    )  # appointment, vaccination, medication, checkup, etc.
+
+    # Scheduling
+    scheduled_date = db.Column(db.Date, nullable=False)
+    scheduled_time = db.Column(db.Time, nullable=True)
+    send_at = db.Column(
+        db.DateTime, nullable=False
+    )  # Exact datetime to send
+
+    # Delivery
+    delivery_method = db.Column(
+        db.String(20), nullable=False
+    )  # email, sms, both
+    status = db.Column(
+        db.String(20), nullable=False, default="pending"
+    )  # pending, sent, failed, cancelled
+
+    # Template
+    template_id = db.Column(
+        db.Integer, db.ForeignKey("notification_template.id"), nullable=True
+    )
+
+    # Message Content (can override template)
+    subject = db.Column(db.String(200), nullable=True)
+    message = db.Column(db.Text, nullable=False)
+
+    # Delivery Tracking
+    sent_at = db.Column(db.DateTime, nullable=True)
+    failed_at = db.Column(db.DateTime, nullable=True)
+    failure_reason = db.Column(db.Text, nullable=True)
+
+    # Retry Logic
+    retry_count = db.Column(db.Integer, default=0)
+    max_retries = db.Column(db.Integer, default=3)
+
+    # Metadata
+    notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.now, onupdate=datetime.now
+    )
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+
+    # Relationships
+    client = db.relationship("Client", backref="reminders")
+    patient = db.relationship("Patient", backref="reminders")
+    appointment = db.relationship("Appointment", backref="reminders")
+    template = db.relationship("NotificationTemplate", backref="reminders")
+    created_by = db.relationship("User", backref="reminders_created")
+
+    def to_dict(self):
+        """Convert to dictionary"""
+        return {
+            "id": self.id,
+            "client_id": self.client_id,
+            "client_name": self.client.name if self.client else None,
+            "patient_id": self.patient_id,
+            "patient_name": self.patient.name if self.patient else None,
+            "appointment_id": self.appointment_id,
+            "reminder_type": self.reminder_type,
+            "scheduled_date": (
+                self.scheduled_date.isoformat() if self.scheduled_date else None
+            ),
+            "scheduled_time": (
+                self.scheduled_time.isoformat() if self.scheduled_time else None
+            ),
+            "send_at": self.send_at.isoformat() if self.send_at else None,
+            "delivery_method": self.delivery_method,
+            "status": self.status,
+            "template_id": self.template_id,
+            "template_name": self.template.name if self.template else None,
+            "subject": self.subject,
+            "message": self.message,
+            "sent_at": self.sent_at.isoformat() if self.sent_at else None,
+            "failed_at": self.failed_at.isoformat() if self.failed_at else None,
+            "failure_reason": self.failure_reason,
+            "retry_count": self.retry_count,
+            "max_retries": self.max_retries,
+            "notes": self.notes,
+            "created_at": (
+                self.created_at.isoformat() if self.created_at else None
+            ),
+            "updated_at": (
+                self.updated_at.isoformat() if self.updated_at else None
+            ),
+            "created_by": (
+                self.created_by.username if self.created_by else None
+            ),
+        }

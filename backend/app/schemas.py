@@ -1088,3 +1088,129 @@ lab_tests_schema = LabTestSchema(many=True)
 
 lab_result_schema = LabResultSchema()
 lab_results_schema = LabResultSchema(many=True)
+
+
+# ============================================================================
+# NOTIFICATION & REMINDER SCHEMAS
+# ============================================================================
+
+
+class NotificationTemplateSchema(Schema):
+    """Schema for NotificationTemplate model"""
+
+    id = fields.Int(dump_only=True)
+    name = fields.Str(required=True)
+    description = fields.Str(allow_none=True)
+
+    # Template Type
+    template_type = fields.Str(required=True)
+    channel = fields.Str(required=True)
+
+    # Template Content
+    subject = fields.Str(allow_none=True)
+    body = fields.Str(required=True)
+
+    # Template Variables (stored as JSON string, returned as list)
+    variables = fields.List(fields.Str(), allow_none=True)
+
+    # Settings
+    is_active = fields.Bool(load_default=True)
+    is_default = fields.Bool(load_default=False)
+
+    # Metadata
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+    created_by_id = fields.Int(allow_none=True, dump_only=True)
+    created_by = fields.Str(dump_only=True)
+
+
+class ClientCommunicationPreferenceSchema(Schema):
+    """Schema for ClientCommunicationPreference model"""
+
+    id = fields.Int(dump_only=True)
+    client_id = fields.Int(required=True)
+
+    # Communication Channels
+    email_enabled = fields.Bool(load_default=True)
+    sms_enabled = fields.Bool(load_default=False)
+    phone_enabled = fields.Bool(load_default=True)
+
+    # Notification Types
+    appointment_reminders = fields.Bool(load_default=True)
+    vaccination_reminders = fields.Bool(load_default=True)
+    medication_reminders = fields.Bool(load_default=True)
+    marketing = fields.Bool(load_default=False)
+    newsletters = fields.Bool(load_default=False)
+
+    # Preferred Times
+    preferred_contact_time = fields.Str(allow_none=True)
+    do_not_contact_before = fields.Time(allow_none=True)
+    do_not_contact_after = fields.Time(allow_none=True)
+
+    # Reminder Timing
+    appointment_reminder_days = fields.Int(load_default=1)
+    vaccination_reminder_days = fields.Int(load_default=7)
+
+    # Metadata
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+
+
+class ReminderSchema(Schema):
+    """Schema for Reminder model"""
+
+    id = fields.Int(dump_only=True)
+
+    # Related Records
+    client_id = fields.Int(required=True)
+    client_name = fields.Str(dump_only=True)
+    patient_id = fields.Int(allow_none=True)
+    patient_name = fields.Str(dump_only=True)
+    appointment_id = fields.Int(allow_none=True)
+
+    # Reminder Type
+    reminder_type = fields.Str(required=True)
+
+    # Scheduling
+    scheduled_date = fields.Date(required=True)
+    scheduled_time = fields.Time(allow_none=True)
+    send_at = fields.DateTime(required=True)
+
+    # Delivery
+    delivery_method = fields.Str(required=True)
+    status = fields.Str(load_default="pending")
+
+    # Template
+    template_id = fields.Int(allow_none=True)
+    template_name = fields.Str(dump_only=True)
+
+    # Message Content
+    subject = fields.Str(allow_none=True)
+    message = fields.Str(required=True)
+
+    # Delivery Tracking
+    sent_at = fields.DateTime(allow_none=True, dump_only=True)
+    failed_at = fields.DateTime(allow_none=True, dump_only=True)
+    failure_reason = fields.Str(allow_none=True, dump_only=True)
+
+    # Retry Logic
+    retry_count = fields.Int(load_default=0, dump_only=True)
+    max_retries = fields.Int(load_default=3)
+
+    # Metadata
+    notes = fields.Str(allow_none=True)
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+    created_by_id = fields.Int(allow_none=True, dump_only=True)
+    created_by = fields.Str(dump_only=True)
+
+
+# Initialize reminder schema instances
+notification_template_schema = NotificationTemplateSchema()
+notification_templates_schema = NotificationTemplateSchema(many=True)
+
+client_preference_schema = ClientCommunicationPreferenceSchema()
+client_preferences_schema = ClientCommunicationPreferenceSchema(many=True)
+
+reminder_schema = ReminderSchema()
+reminders_schema = ReminderSchema(many=True)

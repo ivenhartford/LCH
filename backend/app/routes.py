@@ -4137,6 +4137,452 @@ def delete_lab_result(result_id):
 
 
 # ============================================================================
+# NOTIFICATION TEMPLATE API ENDPOINTS
+# ============================================================================
+
+@bp.route("/api/notification-templates", methods=["GET"])
+@login_required
+def get_all_notification_templates():
+    """Get all notification templates with optional filtering"""
+    from .models import NotificationTemplate
+
+    # Get query parameters
+    template_type = request.args.get("template_type")
+    channel = request.args.get("channel")
+    is_active = request.args.get("is_active")
+
+    # Build query with filters
+    query = NotificationTemplate.query
+
+    if template_type:
+        query = query.filter(NotificationTemplate.template_type == template_type)
+
+    if channel:
+        query = query.filter(NotificationTemplate.channel == channel)
+
+    if is_active is not None:
+        is_active_bool = is_active.lower() == "true"
+        query = query.filter(NotificationTemplate.is_active == is_active_bool)
+
+    templates = query.order_by(NotificationTemplate.template_type, NotificationTemplate.name).all()
+
+    return jsonify({"templates": [t.to_dict() for t in templates]}), 200
+
+
+@bp.route("/api/notification-templates/<int:template_id>", methods=["GET"])
+@login_required
+def get_notification_template(template_id):
+    """Get a specific notification template by ID"""
+    from .models import NotificationTemplate
+
+    template = NotificationTemplate.query.get(template_id)
+    if not template:
+        return jsonify({"error": "Notification template not found"}), 404
+
+    return jsonify(template.to_dict()), 200
+
+
+@bp.route("/api/notification-templates", methods=["POST"])
+@admin_required
+def create_notification_template():
+    """Create a new notification template (Admin only)"""
+    from .models import NotificationTemplate
+    from .schemas import NotificationTemplateSchema
+    import json
+
+    schema = NotificationTemplateSchema()
+    try:
+        data = schema.load(request.json)
+
+        # Check for duplicate name
+        existing = NotificationTemplate.query.filter_by(name=data["name"]).first()
+        if existing:
+            return jsonify({"error": "Template name already exists"}), 400
+
+        # Convert variables list to JSON string for storage
+        if "variables" in data and data["variables"]:
+            data["variables"] = json.dumps(data["variables"])
+
+        template = NotificationTemplate(**data)
+        template.created_by_id = current_user.id
+
+        db.session.add(template)
+        db.session.commit()
+
+        app.logger.info(f"Notification template created: {template.name} by user {current_user.username}")
+        return jsonify(template.to_dict()), 201
+
+    except ValidationError as e:
+        return jsonify({"error": e.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating notification template: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/notification-templates/<int:template_id>", methods=["PUT"])
+@admin_required
+def update_notification_template(template_id):
+    """Update a notification template (Admin only)"""
+    from .models import NotificationTemplate
+    from .schemas import NotificationTemplateSchema
+    import json
+
+    template = NotificationTemplate.query.get(template_id)
+    if not template:
+        return jsonify({"error": "Notification template not found"}), 404
+
+    schema = NotificationTemplateSchema(partial=True)
+    try:
+        data = schema.load(request.json)
+
+        # Check for duplicate name if updating
+        if "name" in data and data["name"] != template.name:
+            existing = NotificationTemplate.query.filter_by(name=data["name"]).first()
+            if existing:
+                return jsonify({"error": "Template name already exists"}), 400
+
+        # Convert variables list to JSON string for storage
+        if "variables" in data and data["variables"]:
+            data["variables"] = json.dumps(data["variables"])
+
+        for key, value in data.items():
+            setattr(template, key, value)
+
+        db.session.commit()
+
+        app.logger.info(f"Notification template updated: {template.name} by user {current_user.username}")
+        return jsonify(template.to_dict()), 200
+
+    except ValidationError as e:
+        return jsonify({"error": e.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating notification template: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/notification-templates/<int:template_id>", methods=["DELETE"])
+@admin_required
+def delete_notification_template(template_id):
+    """Delete a notification template (Admin only)"""
+    from .models import NotificationTemplate
+
+    template = NotificationTemplate.query.get(template_id)
+    if not template:
+        return jsonify({"error": "Notification template not found"}), 404
+
+    try:
+        # Soft delete by marking as inactive
+        template.is_active = False
+        db.session.commit()
+
+        app.logger.info(f"Notification template deleted: {template.name} by user {current_user.username}")
+        return jsonify({"message": "Notification template deleted successfully"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting notification template: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+# ============================================================================
+# CLIENT COMMUNICATION PREFERENCE API ENDPOINTS
+# ============================================================================
+
+@bp.route("/api/client-preferences", methods=["GET"])
+@login_required
+def get_all_client_preferences():
+    """Get all client communication preferences"""
+    from .models import ClientCommunicationPreference
+
+    preferences = ClientCommunicationPreference.query.all()
+
+    return jsonify({"preferences": [p.to_dict() for p in preferences]}), 200
+
+
+@bp.route("/api/clients/<int:client_id>/preferences", methods=["GET"])
+@login_required
+def get_client_preferences(client_id):
+    """Get or create communication preferences for a specific client"""
+    from .models import ClientCommunicationPreference, Client
+
+    # Verify client exists
+    client = Client.query.get(client_id)
+    if not client:
+        return jsonify({"error": "Client not found"}), 404
+
+    # Get or create preferences
+    preferences = ClientCommunicationPreference.query.filter_by(client_id=client_id).first()
+
+    if not preferences:
+        # Create default preferences
+        preferences = ClientCommunicationPreference(client_id=client_id)
+        db.session.add(preferences)
+        db.session.commit()
+        app.logger.info(f"Default communication preferences created for client {client_id}")
+
+    return jsonify(preferences.to_dict()), 200
+
+
+@bp.route("/api/clients/<int:client_id>/preferences", methods=["PUT"])
+@login_required
+def update_client_preferences(client_id):
+    """Update communication preferences for a specific client"""
+    from .models import ClientCommunicationPreference, Client
+    from .schemas import ClientCommunicationPreferenceSchema
+
+    # Verify client exists
+    client = Client.query.get(client_id)
+    if not client:
+        return jsonify({"error": "Client not found"}), 404
+
+    # Get or create preferences
+    preferences = ClientCommunicationPreference.query.filter_by(client_id=client_id).first()
+
+    schema = ClientCommunicationPreferenceSchema(partial=True)
+    try:
+        data = schema.load(request.json)
+
+        if not preferences:
+            # Create new preferences
+            data["client_id"] = client_id
+            preferences = ClientCommunicationPreference(**data)
+            db.session.add(preferences)
+        else:
+            # Update existing preferences
+            for key, value in data.items():
+                if key != "client_id":  # Don't update client_id
+                    setattr(preferences, key, value)
+
+        db.session.commit()
+
+        app.logger.info(f"Communication preferences updated for client {client_id}")
+        return jsonify(preferences.to_dict()), 200
+
+    except ValidationError as e:
+        return jsonify({"error": e.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating client preferences: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+# ============================================================================
+# REMINDER API ENDPOINTS
+# ============================================================================
+
+@bp.route("/api/reminders", methods=["GET"])
+@login_required
+def get_all_reminders():
+    """Get all reminders with optional filtering"""
+    from .models import Reminder
+
+    # Get query parameters
+    client_id = request.args.get("client_id", type=int)
+    patient_id = request.args.get("patient_id", type=int)
+    reminder_type = request.args.get("reminder_type")
+    status = request.args.get("status")
+    from_date = request.args.get("from_date")
+    to_date = request.args.get("to_date")
+
+    # Build query with filters
+    query = Reminder.query
+
+    if client_id:
+        query = query.filter(Reminder.client_id == client_id)
+
+    if patient_id:
+        query = query.filter(Reminder.patient_id == patient_id)
+
+    if reminder_type:
+        query = query.filter(Reminder.reminder_type == reminder_type)
+
+    if status:
+        query = query.filter(Reminder.status == status)
+
+    if from_date:
+        query = query.filter(Reminder.scheduled_date >= from_date)
+
+    if to_date:
+        query = query.filter(Reminder.scheduled_date <= to_date)
+
+    reminders = query.order_by(Reminder.send_at.desc()).all()
+
+    return jsonify({"reminders": [r.to_dict() for r in reminders]}), 200
+
+
+@bp.route("/api/reminders/pending", methods=["GET"])
+@login_required
+def get_pending_reminders():
+    """Get all pending reminders"""
+    from .models import Reminder
+
+    pending_reminders = Reminder.query.filter_by(status="pending").order_by(Reminder.send_at).all()
+
+    return jsonify({"reminders": [r.to_dict() for r in pending_reminders]}), 200
+
+
+@bp.route("/api/reminders/upcoming", methods=["GET"])
+@login_required
+def get_upcoming_reminders():
+    """Get upcoming reminders (pending, within next 7 days)"""
+    from .models import Reminder
+    from datetime import datetime, timedelta
+
+    # Get reminders that are pending and scheduled within the next 7 days
+    end_date = datetime.now() + timedelta(days=7)
+
+    upcoming_reminders = (
+        Reminder.query.filter_by(status="pending")
+        .filter(Reminder.send_at <= end_date)
+        .filter(Reminder.send_at >= datetime.now())
+        .order_by(Reminder.send_at)
+        .all()
+    )
+
+    return jsonify({"reminders": [r.to_dict() for r in upcoming_reminders]}), 200
+
+
+@bp.route("/api/reminders/<int:reminder_id>", methods=["GET"])
+@login_required
+def get_reminder(reminder_id):
+    """Get a specific reminder by ID"""
+    from .models import Reminder
+
+    reminder = Reminder.query.get(reminder_id)
+    if not reminder:
+        return jsonify({"error": "Reminder not found"}), 404
+
+    return jsonify(reminder.to_dict()), 200
+
+
+@bp.route("/api/reminders", methods=["POST"])
+@login_required
+def create_reminder():
+    """Create a new reminder"""
+    from .models import Reminder, Client, Patient, NotificationTemplate
+    from .schemas import ReminderSchema
+
+    schema = ReminderSchema()
+    try:
+        data = schema.load(request.json)
+
+        # Verify client exists
+        client = Client.query.get(data["client_id"])
+        if not client:
+            return jsonify({"error": "Client not found"}), 404
+
+        # Verify patient exists if provided
+        if data.get("patient_id"):
+            patient = Patient.query.get(data["patient_id"])
+            if not patient:
+                return jsonify({"error": "Patient not found"}), 404
+
+        # Verify template exists if provided
+        if data.get("template_id"):
+            template = NotificationTemplate.query.get(data["template_id"])
+            if not template:
+                return jsonify({"error": "Notification template not found"}), 404
+
+        reminder = Reminder(**data)
+        reminder.created_by_id = current_user.id
+
+        db.session.add(reminder)
+        db.session.commit()
+
+        app.logger.info(f"Reminder created for client {client.name} by user {current_user.username}")
+        return jsonify(reminder.to_dict()), 201
+
+    except ValidationError as e:
+        return jsonify({"error": e.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating reminder: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/reminders/<int:reminder_id>", methods=["PUT"])
+@login_required
+def update_reminder(reminder_id):
+    """Update a reminder"""
+    from .models import Reminder
+    from .schemas import ReminderSchema
+
+    reminder = Reminder.query.get(reminder_id)
+    if not reminder:
+        return jsonify({"error": "Reminder not found"}), 404
+
+    schema = ReminderSchema(partial=True)
+    try:
+        data = schema.load(request.json)
+
+        for key, value in data.items():
+            setattr(reminder, key, value)
+
+        db.session.commit()
+
+        app.logger.info(f"Reminder {reminder_id} updated by user {current_user.username}")
+        return jsonify(reminder.to_dict()), 200
+
+    except ValidationError as e:
+        return jsonify({"error": e.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating reminder: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/reminders/<int:reminder_id>/cancel", methods=["POST"])
+@login_required
+def cancel_reminder(reminder_id):
+    """Cancel a pending reminder"""
+    from .models import Reminder
+
+    reminder = Reminder.query.get(reminder_id)
+    if not reminder:
+        return jsonify({"error": "Reminder not found"}), 404
+
+    try:
+        if reminder.status != "pending":
+            return jsonify({"error": "Can only cancel pending reminders"}), 400
+
+        reminder.status = "cancelled"
+        db.session.commit()
+
+        app.logger.info(f"Reminder {reminder_id} cancelled by user {current_user.username}")
+        return jsonify(reminder.to_dict()), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error cancelling reminder: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/reminders/<int:reminder_id>", methods=["DELETE"])
+@admin_required
+def delete_reminder(reminder_id):
+    """Delete a reminder (Admin only)"""
+    from .models import Reminder
+
+    reminder = Reminder.query.get(reminder_id)
+    if not reminder:
+        return jsonify({"error": "Reminder not found"}), 404
+
+    try:
+        db.session.delete(reminder)
+        db.session.commit()
+
+        app.logger.info(f"Reminder {reminder_id} deleted by user {current_user.username}")
+        return jsonify({"message": "Reminder deleted successfully"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting reminder: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+# ============================================================================
 
 
 @bp.route("/", defaults={"path": ""})
