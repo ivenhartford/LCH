@@ -3780,6 +3780,363 @@ def approve_time_off(schedule_id):
 
 
 # ============================================================================
+# LABORATORY MANAGEMENT API ENDPOINTS
+# ============================================================================
+
+@bp.route("/api/lab-tests", methods=["GET"])
+@login_required
+def get_all_lab_tests():
+    """Get all lab tests with optional filtering"""
+    from .models import LabTest
+
+    # Get query parameters
+    is_active = request.args.get("is_active")
+    category = request.args.get("category")
+    external_lab = request.args.get("external_lab")
+    search = request.args.get("search")
+
+    # Build query with filters
+    query = LabTest.query
+
+    if is_active is not None:
+        is_active_bool = is_active.lower() == "true"
+        query = query.filter(LabTest.is_active == is_active_bool)
+
+    if category:
+        query = query.filter(LabTest.category == category)
+
+    if external_lab is not None:
+        external_lab_bool = external_lab.lower() == "true"
+        query = query.filter(LabTest.external_lab == external_lab_bool)
+
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            db.or_(
+                LabTest.test_name.ilike(search_term),
+                LabTest.test_code.ilike(search_term),
+                LabTest.description.ilike(search_term)
+            )
+        )
+
+    lab_tests = query.order_by(LabTest.category, LabTest.test_name).all()
+
+    return jsonify({"lab_tests": [test.to_dict() for test in lab_tests]}), 200
+
+
+@bp.route("/api/lab-tests/<int:test_id>", methods=["GET"])
+@login_required
+def get_lab_test(test_id):
+    """Get a specific lab test by ID"""
+    from .models import LabTest
+
+    lab_test = LabTest.query.get(test_id)
+    if not lab_test:
+        return jsonify({"error": "Lab test not found"}), 404
+
+    return jsonify(lab_test.to_dict()), 200
+
+
+@bp.route("/api/lab-tests", methods=["POST"])
+@admin_required
+def create_lab_test():
+    """Create a new lab test (Admin only)"""
+    from .models import LabTest
+    from .schemas import LabTestSchema
+
+    schema = LabTestSchema()
+    try:
+        data = schema.load(request.json)
+
+        # Check for duplicate test code
+        existing = LabTest.query.filter_by(test_code=data["test_code"]).first()
+        if existing:
+            return jsonify({"error": "Test code already exists"}), 400
+
+        lab_test = LabTest(**data)
+        db.session.add(lab_test)
+        db.session.commit()
+
+        app.logger.info(f"Lab test created: {lab_test.test_code} by user {current_user.username}")
+        return jsonify(lab_test.to_dict()), 201
+
+    except ValidationError as e:
+        return jsonify({"error": e.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating lab test: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/lab-tests/<int:test_id>", methods=["PUT"])
+@admin_required
+def update_lab_test(test_id):
+    """Update a lab test (Admin only)"""
+    from .models import LabTest
+    from .schemas import LabTestSchema
+
+    lab_test = LabTest.query.get(test_id)
+    if not lab_test:
+        return jsonify({"error": "Lab test not found"}), 404
+
+    schema = LabTestSchema(partial=True)
+    try:
+        data = schema.load(request.json)
+
+        # Check for duplicate test code if updating
+        if "test_code" in data and data["test_code"] != lab_test.test_code:
+            existing = LabTest.query.filter_by(test_code=data["test_code"]).first()
+            if existing:
+                return jsonify({"error": "Test code already exists"}), 400
+
+        for key, value in data.items():
+            setattr(lab_test, key, value)
+
+        db.session.commit()
+
+        app.logger.info(f"Lab test updated: {lab_test.test_code} by user {current_user.username}")
+        return jsonify(lab_test.to_dict()), 200
+
+    except ValidationError as e:
+        return jsonify({"error": e.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating lab test: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/lab-tests/<int:test_id>", methods=["DELETE"])
+@admin_required
+def delete_lab_test(test_id):
+    """Soft delete a lab test (Admin only)"""
+    from .models import LabTest
+
+    lab_test = LabTest.query.get(test_id)
+    if not lab_test:
+        return jsonify({"error": "Lab test not found"}), 404
+
+    try:
+        lab_test.is_active = False
+        db.session.commit()
+
+        app.logger.info(f"Lab test deleted: {lab_test.test_code} by user {current_user.username}")
+        return jsonify({"message": "Lab test deleted successfully"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting lab test: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+# ============================================================================
+# LAB RESULTS API ENDPOINTS
+# ============================================================================
+
+@bp.route("/api/lab-results", methods=["GET"])
+@login_required
+def get_all_lab_results():
+    """Get all lab results with optional filtering"""
+    from .models import LabResult
+
+    # Get query parameters
+    patient_id = request.args.get("patient_id", type=int)
+    visit_id = request.args.get("visit_id", type=int)
+    test_id = request.args.get("test_id", type=int)
+    status = request.args.get("status")
+    is_abnormal = request.args.get("is_abnormal")
+    reviewed = request.args.get("reviewed")
+
+    # Build query with filters
+    query = LabResult.query
+
+    if patient_id:
+        query = query.filter(LabResult.patient_id == patient_id)
+
+    if visit_id:
+        query = query.filter(LabResult.visit_id == visit_id)
+
+    if test_id:
+        query = query.filter(LabResult.test_id == test_id)
+
+    if status:
+        query = query.filter(LabResult.status == status)
+
+    if is_abnormal is not None:
+        is_abnormal_bool = is_abnormal.lower() == "true"
+        query = query.filter(LabResult.is_abnormal == is_abnormal_bool)
+
+    if reviewed is not None:
+        reviewed_bool = reviewed.lower() == "true"
+        query = query.filter(LabResult.reviewed == reviewed_bool)
+
+    lab_results = query.order_by(LabResult.collection_date.desc()).all()
+
+    return jsonify({"lab_results": [result.to_dict() for result in lab_results]}), 200
+
+
+@bp.route("/api/lab-results/pending", methods=["GET"])
+@login_required
+def get_pending_lab_results():
+    """Get all pending lab results"""
+    from .models import LabResult
+
+    pending_results = LabResult.query.filter_by(status="pending").order_by(LabResult.collection_date).all()
+
+    return jsonify({"lab_results": [result.to_dict() for result in pending_results]}), 200
+
+
+@bp.route("/api/lab-results/abnormal", methods=["GET"])
+@login_required
+def get_abnormal_lab_results():
+    """Get all abnormal/flagged lab results"""
+    from .models import LabResult
+
+    # Get query parameters for filtering
+    reviewed = request.args.get("reviewed")
+
+    query = LabResult.query.filter(LabResult.is_abnormal == True)
+
+    if reviewed is not None:
+        reviewed_bool = reviewed.lower() == "true"
+        query = query.filter(LabResult.reviewed == reviewed_bool)
+
+    abnormal_results = query.order_by(LabResult.result_date.desc()).all()
+
+    return jsonify({"lab_results": [result.to_dict() for result in abnormal_results]}), 200
+
+
+@bp.route("/api/lab-results/<int:result_id>", methods=["GET"])
+@login_required
+def get_lab_result(result_id):
+    """Get a specific lab result by ID"""
+    from .models import LabResult
+
+    lab_result = LabResult.query.get(result_id)
+    if not lab_result:
+        return jsonify({"error": "Lab result not found"}), 404
+
+    return jsonify(lab_result.to_dict()), 200
+
+
+@bp.route("/api/lab-results", methods=["POST"])
+@login_required
+def create_lab_result():
+    """Create a new lab result"""
+    from .models import LabResult, Patient, LabTest
+    from .schemas import LabResultSchema
+
+    schema = LabResultSchema()
+    try:
+        data = schema.load(request.json)
+
+        # Verify patient exists
+        patient = Patient.query.get(data["patient_id"])
+        if not patient:
+            return jsonify({"error": "Patient not found"}), 404
+
+        # Verify lab test exists
+        lab_test = LabTest.query.get(data["test_id"])
+        if not lab_test:
+            return jsonify({"error": "Lab test not found"}), 404
+
+        lab_result = LabResult(**data)
+        lab_result.ordered_by_id = current_user.id
+
+        db.session.add(lab_result)
+        db.session.commit()
+
+        app.logger.info(f"Lab result created for patient {patient.name} by user {current_user.username}")
+        return jsonify(lab_result.to_dict()), 201
+
+    except ValidationError as e:
+        return jsonify({"error": e.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating lab result: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/lab-results/<int:result_id>", methods=["PUT"])
+@login_required
+def update_lab_result(result_id):
+    """Update a lab result"""
+    from .models import LabResult
+    from .schemas import LabResultSchema
+
+    lab_result = LabResult.query.get(result_id)
+    if not lab_result:
+        return jsonify({"error": "Lab result not found"}), 404
+
+    schema = LabResultSchema(partial=True)
+    try:
+        data = schema.load(request.json)
+
+        for key, value in data.items():
+            setattr(lab_result, key, value)
+
+        db.session.commit()
+
+        app.logger.info(f"Lab result {result_id} updated by user {current_user.username}")
+        return jsonify(lab_result.to_dict()), 200
+
+    except ValidationError as e:
+        return jsonify({"error": e.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating lab result: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/lab-results/<int:result_id>/review", methods=["POST"])
+@login_required
+def review_lab_result(result_id):
+    """Mark a lab result as reviewed"""
+    from .models import LabResult
+
+    lab_result = LabResult.query.get(result_id)
+    if not lab_result:
+        return jsonify({"error": "Lab result not found"}), 404
+
+    try:
+        lab_result.reviewed = True
+        lab_result.reviewed_by_id = current_user.id
+        lab_result.reviewed_date = datetime.now()
+
+        db.session.commit()
+
+        app.logger.info(f"Lab result {result_id} reviewed by user {current_user.username}")
+        return jsonify(lab_result.to_dict()), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error reviewing lab result: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/lab-results/<int:result_id>", methods=["DELETE"])
+@admin_required
+def delete_lab_result(result_id):
+    """Delete a lab result (Admin only)"""
+    from .models import LabResult
+
+    lab_result = LabResult.query.get(result_id)
+    if not lab_result:
+        return jsonify({"error": "Lab result not found"}), 404
+
+    try:
+        db.session.delete(lab_result)
+        db.session.commit()
+
+        app.logger.info(f"Lab result {result_id} deleted by user {current_user.username}")
+        return jsonify({"message": "Lab result deleted successfully"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting lab result: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+# ============================================================================
 
 
 @bp.route("/", defaults={"path": ""})

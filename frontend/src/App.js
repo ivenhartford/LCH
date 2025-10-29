@@ -27,6 +27,8 @@ import Vendors from './components/Vendors';
 import PurchaseOrders from './components/PurchaseOrders';
 import Staff from './components/Staff';
 import StaffSchedule from './components/StaffSchedule';
+import LabTests from './components/LabTests';
+import LabResults from './components/LabResults';
 import Settings from './components/Settings';
 import logger from './utils/logger';
 import './App.css';
@@ -198,6 +200,8 @@ function App() {
                       <Route path="/purchase-orders" element={<PurchaseOrders />} />
                       <Route path="/staff" element={<Staff />} />
                       <Route path="/staff-schedule" element={<StaffSchedule />} />
+                      <Route path="/lab-tests" element={<LabTests />} />
+                      <Route path="/lab-results" element={<LabResults />} />
                       <Route
                         path="/reports"
                         element={
