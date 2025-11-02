@@ -5,7 +5,8 @@ from .models import (
     db, User, Patient, Pet, Appointment, AppointmentType, Client,
     Visit, VitalSigns, SOAPNote, Diagnosis, Vaccination,
     Medication, Prescription, Service, Invoice, InvoiceItem, Payment,
-    Vendor, Product, PurchaseOrder, PurchaseOrderItem, InventoryTransaction
+    Vendor, Product, PurchaseOrder, PurchaseOrderItem, InventoryTransaction,
+    ClientPortalUser, AppointmentRequest
 )
 from .schemas import (
     client_schema,
@@ -26,6 +27,15 @@ from .schemas import (
     purchase_orders_schema,
     inventory_transaction_schema,
     inventory_transactions_schema,
+    client_portal_user_schema,
+    client_portal_users_schema,
+    client_portal_user_registration_schema,
+    client_portal_user_login_schema,
+    client_portal_user_update_schema,
+    appointment_request_schema,
+    appointment_requests_schema,
+    appointment_request_create_schema,
+    appointment_request_review_schema,
 )
 from flask_login import login_user, logout_user, login_required, current_user
 from datetime import datetime
@@ -4579,6 +4589,542 @@ def delete_reminder(reminder_id):
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error deleting reminder: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+# ============================================================================
+# Phase 3.5 - Client Portal Routes
+# ============================================================================
+
+# Client Portal Authentication
+@bp.route("/api/portal/register", methods=["POST"])
+def portal_register():
+    """Register a new client portal user"""
+    try:
+        data = client_portal_user_registration_schema.load(request.json)
+
+        # Verify passwords match
+        if data["password"] != data["password_confirm"]:
+            return jsonify({"error": "Passwords do not match"}), 400
+
+        # Verify client exists
+        client = Client.query.get(data["client_id"])
+        if not client:
+            return jsonify({"error": "Client not found"}), 404
+
+        # Check if client already has a portal account
+        existing = ClientPortalUser.query.filter_by(client_id=data["client_id"]).first()
+        if existing:
+            return jsonify({"error": "Portal account already exists for this client"}), 400
+
+        # Check if username/email already taken
+        if ClientPortalUser.query.filter_by(username=data["username"]).first():
+            return jsonify({"error": "Username already taken"}), 400
+        if ClientPortalUser.query.filter_by(email=data["email"]).first():
+            return jsonify({"error": "Email already registered"}), 400
+
+        # Create portal user
+        portal_user = ClientPortalUser(
+            client_id=data["client_id"],
+            username=data["username"],
+            email=data["email"]
+        )
+        portal_user.set_password(data["password"])
+
+        db.session.add(portal_user)
+        db.session.commit()
+
+        app.logger.info(f"Client portal user registered: {portal_user.username}")
+        return jsonify({"message": "Registration successful", "user": {"id": portal_user.id, "username": portal_user.username}}), 201
+
+    except MarshmallowValidationError as e:
+        return jsonify({"error": e.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error registering portal user: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/portal/login", methods=["POST"])
+def portal_login():
+    """Login to client portal"""
+    try:
+        data = client_portal_user_login_schema.load(request.json)
+
+        # Find user by username or email
+        portal_user = ClientPortalUser.query.filter(
+            (ClientPortalUser.username == data["username"]) |
+            (ClientPortalUser.email == data["username"])
+        ).first()
+
+        if not portal_user or not portal_user.check_password(data["password"]):
+            return jsonify({"error": "Invalid username/email or password"}), 401
+
+        # Check if account is active
+        if not portal_user.is_active:
+            return jsonify({"error": "Account is inactive"}), 403
+
+        # Check if account is locked
+        if portal_user.account_locked_until and portal_user.account_locked_until > datetime.utcnow():
+            return jsonify({"error": "Account is locked. Please try again later"}), 403
+
+        # Update login tracking
+        portal_user.last_login = datetime.utcnow()
+        portal_user.failed_login_attempts = 0
+        portal_user.account_locked_until = None
+        db.session.commit()
+
+        # Get client info
+        client = Client.query.get(portal_user.client_id)
+
+        app.logger.info(f"Client portal login: {portal_user.username}")
+        return jsonify({
+            "message": "Login successful",
+            "user": {
+                "id": portal_user.id,
+                "username": portal_user.username,
+                "email": portal_user.email,
+                "client_id": portal_user.client_id,
+                "client_name": f"{client.first_name} {client.last_name}" if client else None
+            }
+        }), 200
+
+    except MarshmallowValidationError as e:
+        return jsonify({"error": e.messages}), 400
+    except Exception as e:
+        app.logger.error(f"Error during portal login: {str(e)}", exc_info=True)
+        return jsonify({"error": "Login failed"}), 400
+
+
+@bp.route("/api/portal/dashboard/<int:client_id>", methods=["GET"])
+def portal_dashboard(client_id):
+    """Get client portal dashboard data"""
+    try:
+        client = Client.query.get(client_id)
+        if not client:
+            return jsonify({"error": "Client not found"}), 404
+
+        # Get client's patients
+        patients = Patient.query.filter_by(owner_id=client_id, is_active=True).all()
+
+        # Get upcoming appointments (next 30 days)
+        from datetime import timedelta
+        upcoming_appointments = Appointment.query.filter(
+            Appointment.client_id == client_id,
+            Appointment.start_time >= datetime.utcnow(),
+            Appointment.start_time <= datetime.utcnow() + timedelta(days=30),
+            Appointment.status.in_(["scheduled", "confirmed"])
+        ).order_by(Appointment.start_time).limit(5).all()
+
+        # Get recent invoices
+        recent_invoices = Invoice.query.filter_by(client_id=client_id).order_by(Invoice.invoice_date.desc()).limit(5).all()
+
+        # Get pending appointment requests
+        pending_requests = AppointmentRequest.query.filter_by(
+            client_id=client_id,
+            status="pending"
+        ).order_by(AppointmentRequest.created_at.desc()).all()
+
+        return jsonify({
+            "client": clients_schema.dump(client),
+            "patients": patients_schema.dump(patients),
+            "upcoming_appointments": [
+                {
+                    "id": apt.id,
+                    "title": apt.title,
+                    "start_time": apt.start_time.isoformat() if apt.start_time else None,
+                    "end_time": apt.end_time.isoformat() if apt.end_time else None,
+                    "status": apt.status,
+                    "patient_id": apt.patient_id
+                }
+                for apt in upcoming_appointments
+            ],
+            "recent_invoices": [
+                {
+                    "id": inv.id,
+                    "invoice_number": inv.invoice_number,
+                    "invoice_date": inv.invoice_date.isoformat() if inv.invoice_date else None,
+                    "total_amount": str(inv.total_amount),
+                    "balance_due": str(inv.balance_due),
+                    "status": inv.status
+                }
+                for inv in recent_invoices
+            ],
+            "pending_requests": appointment_requests_schema.dump(pending_requests),
+            "account_balance": str(client.account_balance) if client.account_balance else "0.00"
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching dashboard data: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/portal/patients/<int:client_id>", methods=["GET"])
+def portal_patients(client_id):
+    """Get all patients for a client"""
+    try:
+        patients = Patient.query.filter_by(owner_id=client_id, is_active=True).all()
+        return jsonify(patients_schema.dump(patients)), 200
+    except Exception as e:
+        app.logger.error(f"Error fetching patients: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/portal/patients/<int:client_id>/<int:patient_id>", methods=["GET"])
+def portal_patient_detail(client_id, patient_id):
+    """Get patient details (read-only for portal)"""
+    try:
+        patient = Patient.query.filter_by(id=patient_id, owner_id=client_id).first()
+        if not patient:
+            return jsonify({"error": "Patient not found"}), 404
+
+        return jsonify(patient_schema.dump(patient)), 200
+    except Exception as e:
+        app.logger.error(f"Error fetching patient details: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/portal/appointments/<int:client_id>", methods=["GET"])
+def portal_appointments(client_id):
+    """Get appointment history for client"""
+    try:
+        # Get all appointments for client's patients
+        appointments = Appointment.query.filter_by(client_id=client_id).order_by(Appointment.start_time.desc()).all()
+
+        result = []
+        for apt in appointments:
+            apt_data = {
+                "id": apt.id,
+                "title": apt.title,
+                "start_time": apt.start_time.isoformat() if apt.start_time else None,
+                "end_time": apt.end_time.isoformat() if apt.end_time else None,
+                "status": apt.status,
+                "patient_id": apt.patient_id,
+                "description": apt.description
+            }
+            result.append(apt_data)
+
+        return jsonify(result), 200
+    except Exception as e:
+        app.logger.error(f"Error fetching appointments: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/portal/invoices/<int:client_id>", methods=["GET"])
+def portal_invoices(client_id):
+    """Get invoice history for client"""
+    try:
+        invoices = Invoice.query.filter_by(client_id=client_id).order_by(Invoice.invoice_date.desc()).all()
+
+        result = []
+        for inv in invoices:
+            inv_data = {
+                "id": inv.id,
+                "invoice_number": inv.invoice_number,
+                "invoice_date": inv.invoice_date.isoformat() if inv.invoice_date else None,
+                "due_date": inv.due_date.isoformat() if inv.due_date else None,
+                "total_amount": str(inv.total_amount),
+                "amount_paid": str(inv.amount_paid),
+                "balance_due": str(inv.balance_due),
+                "status": inv.status,
+                "patient_id": inv.patient_id
+            }
+            result.append(inv_data)
+
+        return jsonify(result), 200
+    except Exception as e:
+        app.logger.error(f"Error fetching invoices: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/portal/invoices/<int:client_id>/<int:invoice_id>", methods=["GET"])
+def portal_invoice_detail(client_id, invoice_id):
+    """Get specific invoice details"""
+    try:
+        invoice = Invoice.query.filter_by(id=invoice_id, client_id=client_id).first()
+        if not invoice:
+            return jsonify({"error": "Invoice not found"}), 404
+
+        # Get invoice items
+        items = InvoiceItem.query.filter_by(invoice_id=invoice_id).all()
+
+        return jsonify({
+            "invoice": {
+                "id": invoice.id,
+                "invoice_number": invoice.invoice_number,
+                "invoice_date": invoice.invoice_date.isoformat() if invoice.invoice_date else None,
+                "due_date": invoice.due_date.isoformat() if invoice.due_date else None,
+                "subtotal": str(invoice.subtotal),
+                "tax_amount": str(invoice.tax_amount),
+                "discount_amount": str(invoice.discount_amount),
+                "total_amount": str(invoice.total_amount),
+                "amount_paid": str(invoice.amount_paid),
+                "balance_due": str(invoice.balance_due),
+                "status": invoice.status,
+                "notes": invoice.notes
+            },
+            "items": [
+                {
+                    "description": item.description,
+                    "quantity": str(item.quantity),
+                    "unit_price": str(item.unit_price),
+                    "total_price": str(item.total_price)
+                }
+                for item in items
+            ]
+        }), 200
+    except Exception as e:
+        app.logger.error(f"Error fetching invoice details: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+# Appointment Requests
+@bp.route("/api/portal/appointment-requests", methods=["POST"])
+def create_appointment_request():
+    """Create a new appointment request from client portal"""
+    try:
+        data = appointment_request_create_schema.load(request.json)
+
+        # Verify client and patient exist and are linked
+        client = Client.query.get(data["client_id"])
+        if not client:
+            return jsonify({"error": "Client not found"}), 404
+
+        patient = Patient.query.filter_by(id=data["patient_id"], owner_id=data["client_id"]).first()
+        if not patient:
+            return jsonify({"error": "Patient not found or does not belong to this client"}), 404
+
+        # Create appointment request
+        apt_request = AppointmentRequest(
+            client_id=data["client_id"],
+            patient_id=data["patient_id"],
+            appointment_type_id=data.get("appointment_type_id"),
+            requested_date=data["requested_date"],
+            requested_time=data.get("requested_time"),
+            alternate_date_1=data.get("alternate_date_1"),
+            alternate_date_2=data.get("alternate_date_2"),
+            reason=data["reason"],
+            is_urgent=data.get("is_urgent", False),
+            notes=data.get("notes"),
+            status="pending",
+            priority="urgent" if data.get("is_urgent") else "normal"
+        )
+
+        db.session.add(apt_request)
+        db.session.commit()
+
+        app.logger.info(f"Appointment request created by client {data['client_id']}")
+
+        # Return full data with related info
+        result = apt_request.to_dict()
+        result["client_name"] = f"{client.first_name} {client.last_name}"
+        result["patient_name"] = patient.name
+
+        return jsonify(result), 201
+
+    except MarshmallowValidationError as e:
+        return jsonify({"error": e.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating appointment request: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/portal/appointment-requests/<int:client_id>", methods=["GET"])
+def get_client_appointment_requests(client_id):
+    """Get all appointment requests for a client"""
+    try:
+        requests = AppointmentRequest.query.filter_by(client_id=client_id).order_by(AppointmentRequest.created_at.desc()).all()
+
+        result = []
+        for req in requests:
+            req_data = req.to_dict()
+
+            # Add related names
+            client = Client.query.get(req.client_id)
+            req_data["client_name"] = f"{client.first_name} {client.last_name}" if client else None
+
+            patient = Patient.query.get(req.patient_id)
+            req_data["patient_name"] = patient.name if patient else None
+
+            if req.appointment_type_id:
+                apt_type = AppointmentType.query.get(req.appointment_type_id)
+                req_data["appointment_type_name"] = apt_type.name if apt_type else None
+
+            result.append(req_data)
+
+        return jsonify(result), 200
+    except Exception as e:
+        app.logger.error(f"Error fetching appointment requests: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/portal/appointment-requests/<int:client_id>/<int:request_id>", methods=["GET"])
+def get_appointment_request_detail(client_id, request_id):
+    """Get specific appointment request details"""
+    try:
+        req = AppointmentRequest.query.filter_by(id=request_id, client_id=client_id).first()
+        if not req:
+            return jsonify({"error": "Appointment request not found"}), 404
+
+        req_data = req.to_dict()
+
+        # Add related names
+        client = Client.query.get(req.client_id)
+        req_data["client_name"] = f"{client.first_name} {client.last_name}" if client else None
+
+        patient = Patient.query.get(req.patient_id)
+        req_data["patient_name"] = patient.name if patient else None
+
+        if req.appointment_type_id:
+            apt_type = AppointmentType.query.get(req.appointment_type_id)
+            req_data["appointment_type_name"] = apt_type.name if apt_type else None
+
+        return jsonify(req_data), 200
+    except Exception as e:
+        app.logger.error(f"Error fetching appointment request: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/portal/appointment-requests/<int:client_id>/<int:request_id>/cancel", methods=["POST"])
+def cancel_appointment_request(client_id, request_id):
+    """Cancel a pending appointment request"""
+    try:
+        req = AppointmentRequest.query.filter_by(id=request_id, client_id=client_id).first()
+        if not req:
+            return jsonify({"error": "Appointment request not found"}), 404
+
+        if req.status != "pending":
+            return jsonify({"error": "Can only cancel pending requests"}), 400
+
+        req.status = "cancelled"
+        db.session.commit()
+
+        app.logger.info(f"Appointment request {request_id} cancelled by client {client_id}")
+        return jsonify(req.to_dict()), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error cancelling appointment request: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+# Staff-side Appointment Request Management
+@bp.route("/api/appointment-requests", methods=["GET"])
+@login_required
+def get_all_appointment_requests():
+    """Get all appointment requests (staff view)"""
+    try:
+        # Get filter parameters
+        status = request.args.get("status")
+        priority = request.args.get("priority")
+
+        query = AppointmentRequest.query
+
+        if status:
+            query = query.filter_by(status=status)
+        if priority:
+            query = query.filter_by(priority=priority)
+
+        requests = query.order_by(
+            AppointmentRequest.priority.desc(),
+            AppointmentRequest.created_at
+        ).all()
+
+        result = []
+        for req in requests:
+            req_data = req.to_dict()
+
+            # Add related names
+            client = Client.query.get(req.client_id)
+            req_data["client_name"] = f"{client.first_name} {client.last_name}" if client else None
+
+            patient = Patient.query.get(req.patient_id)
+            req_data["patient_name"] = patient.name if patient else None
+
+            if req.appointment_type_id:
+                apt_type = AppointmentType.query.get(req.appointment_type_id)
+                req_data["appointment_type_name"] = apt_type.name if apt_type else None
+
+            if req.reviewed_by_id:
+                reviewer = User.query.get(req.reviewed_by_id)
+                req_data["reviewed_by_name"] = reviewer.username if reviewer else None
+
+            result.append(req_data)
+
+        return jsonify(result), 200
+    except Exception as e:
+        app.logger.error(f"Error fetching appointment requests: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/appointment-requests/<int:request_id>", methods=["GET"])
+@login_required
+def get_appointment_request(request_id):
+    """Get specific appointment request (staff view)"""
+    try:
+        req = AppointmentRequest.query.get(request_id)
+        if not req:
+            return jsonify({"error": "Appointment request not found"}), 404
+
+        req_data = req.to_dict()
+
+        # Add related names
+        client = Client.query.get(req.client_id)
+        req_data["client_name"] = f"{client.first_name} {client.last_name}" if client else None
+
+        patient = Patient.query.get(req.patient_id)
+        req_data["patient_name"] = patient.name if patient else None
+
+        if req.appointment_type_id:
+            apt_type = AppointmentType.query.get(req.appointment_type_id)
+            req_data["appointment_type_name"] = apt_type.name if apt_type else None
+
+        if req.reviewed_by_id:
+            reviewer = User.query.get(req.reviewed_by_id)
+            req_data["reviewed_by_name"] = reviewer.username if reviewer else None
+
+        return jsonify(req_data), 200
+    except Exception as e:
+        app.logger.error(f"Error fetching appointment request: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/appointment-requests/<int:request_id>/review", methods=["PUT"])
+@login_required
+def review_appointment_request(request_id):
+    """Review/approve/reject an appointment request (staff only)"""
+    try:
+        req = AppointmentRequest.query.get(request_id)
+        if not req:
+            return jsonify({"error": "Appointment request not found"}), 404
+
+        data = appointment_request_review_schema.load(request.json)
+
+        # Update request
+        req.status = data["status"]
+        if "priority" in data:
+            req.priority = data["priority"]
+        if "staff_notes" in data:
+            req.staff_notes = data["staff_notes"]
+        if "rejection_reason" in data:
+            req.rejection_reason = data["rejection_reason"]
+        if "appointment_id" in data:
+            req.appointment_id = data["appointment_id"]
+
+        req.reviewed_by_id = current_user.id
+        req.reviewed_at = datetime.utcnow()
+
+        db.session.commit()
+
+        app.logger.info(f"Appointment request {request_id} reviewed by {current_user.username}: {data['status']}")
+        return jsonify(req.to_dict()), 200
+
+    except MarshmallowValidationError as e:
+        return jsonify({"error": e.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error reviewing appointment request: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 400
 
 
