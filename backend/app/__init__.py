@@ -52,8 +52,8 @@ def create_app(config_name=None, config_overrides=None):
 
     from . import models
 
-    with app.app_context():
-        db.create_all()
+    # Database tables are managed via Flask-Migrate
+    # Use: flask db migrate -m "message" && flask db upgrade
 
     login_manager.init_app(app)
 

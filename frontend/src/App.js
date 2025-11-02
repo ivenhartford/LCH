@@ -206,17 +206,6 @@ function App() {
                       <Route path="/lab-results" element={<LabResults />} />
                       <Route path="/reminders" element={<Reminders />} />
                       <Route path="/notification-templates" element={<NotificationTemplates />} />
-                      <Route
-                        path="/reports"
-                        element={
-                          <Box>
-                            <Typography variant="h4">Reports</Typography>
-                            <Typography color="text.secondary">
-                              Reports coming soon (Phase 4)
-                            </Typography>
-                          </Box>
-                        }
-                      />
                       <Route path="/settings" element={<Settings user={user} />} />
                       <Route
                         path="/profile"
