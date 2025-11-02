@@ -2038,3 +2038,192 @@ class Reminder(db.Model):
                 self.created_by.username if self.created_by else None
             ),
         }
+
+
+# ============================================================================
+# CLIENT PORTAL MODELS
+# ============================================================================
+
+
+class ClientPortalUser(db.Model):
+    """Client Portal User Model - Separate authentication for client portal"""
+
+    __tablename__ = "client_portal_user"
+
+    id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(
+        db.Integer, db.ForeignKey("client.id"), nullable=False, unique=True
+    )
+
+    # Authentication
+    username = db.Column(db.String(50), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+
+    # Security
+    is_active = db.Column(db.Boolean, default=True)
+    is_verified = db.Column(
+        db.Boolean, default=False
+    )  # Email verification status
+    verification_token = db.Column(db.String(100), nullable=True)
+    reset_token = db.Column(db.String(100), nullable=True)
+    reset_token_expiry = db.Column(db.DateTime, nullable=True)
+
+    # Login tracking
+    last_login = db.Column(db.DateTime, nullable=True)
+    failed_login_attempts = db.Column(db.Integer, default=0)
+    account_locked_until = db.Column(db.DateTime, nullable=True)
+
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.now, onupdate=datetime.now
+    )
+
+    # Relationships
+    client = db.relationship("Client", backref="portal_user")
+
+    def set_password(self, password):
+        """Set password hash"""
+        from werkzeug.security import generate_password_hash
+
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        """Check password against hash"""
+        from werkzeug.security import check_password_hash
+
+        return check_password_hash(self.password_hash, password)
+
+    def to_dict(self):
+        """Convert to dictionary"""
+        return {
+            "id": self.id,
+            "client_id": self.client_id,
+            "username": self.username,
+            "email": self.email,
+            "is_active": self.is_active,
+            "is_verified": self.is_verified,
+            "last_login": (
+                self.last_login.isoformat() if self.last_login else None
+            ),
+            "created_at": (
+                self.created_at.isoformat() if self.created_at else None
+            ),
+            "updated_at": (
+                self.updated_at.isoformat() if self.updated_at else None
+            ),
+        }
+
+
+class AppointmentRequest(db.Model):
+    """Appointment Request Model - Online appointment requests from client portal"""
+
+    __tablename__ = "appointment_request"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Related Records
+    client_id = db.Column(db.Integer, db.ForeignKey("client.id"), nullable=False)
+    patient_id = db.Column(
+        db.Integer, db.ForeignKey("patient.id"), nullable=False
+    )
+    appointment_type_id = db.Column(
+        db.Integer, db.ForeignKey("appointment_type.id"), nullable=True
+    )
+
+    # Request Details
+    requested_date = db.Column(db.Date, nullable=False)
+    requested_time = db.Column(
+        db.String(20), nullable=True
+    )  # "morning", "afternoon", "evening", or specific time
+    alternate_date_1 = db.Column(db.Date, nullable=True)
+    alternate_date_2 = db.Column(db.Date, nullable=True)
+
+    # Reason
+    reason = db.Column(db.Text, nullable=False)
+    is_urgent = db.Column(db.Boolean, default=False)
+
+    # Status
+    status = db.Column(
+        db.String(20), nullable=False, default="pending"
+    )  # pending, approved, rejected, scheduled
+    priority = db.Column(
+        db.String(20), nullable=False, default="normal"
+    )  # low, normal, high, urgent
+
+    # Staff Response
+    reviewed_by_id = db.Column(
+        db.Integer, db.ForeignKey("user.id"), nullable=True
+    )
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+    staff_notes = db.Column(db.Text, nullable=True)
+    rejection_reason = db.Column(db.Text, nullable=True)
+
+    # Scheduled Appointment (if approved)
+    appointment_id = db.Column(
+        db.Integer, db.ForeignKey("appointment.id"), nullable=True
+    )
+
+    # Metadata
+    notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.now, onupdate=datetime.now
+    )
+
+    # Relationships
+    client = db.relationship("Client", backref="appointment_requests")
+    patient = db.relationship("Patient", backref="appointment_requests")
+    appointment_type = db.relationship("AppointmentType", backref="requests")
+    reviewed_by = db.relationship("User", backref="appointment_requests_reviewed")
+    appointment = db.relationship("Appointment", backref="request")
+
+    def to_dict(self):
+        """Convert to dictionary"""
+        return {
+            "id": self.id,
+            "client_id": self.client_id,
+            "client_name": f"{self.client.first_name} {self.client.last_name}" if self.client else None,
+            "patient_id": self.patient_id,
+            "patient_name": self.patient.name if self.patient else None,
+            "appointment_type_id": self.appointment_type_id,
+            "appointment_type_name": (
+                self.appointment_type.name if self.appointment_type else None
+            ),
+            "requested_date": (
+                self.requested_date.isoformat() if self.requested_date else None
+            ),
+            "requested_time": self.requested_time,
+            "alternate_date_1": (
+                self.alternate_date_1.isoformat()
+                if self.alternate_date_1
+                else None
+            ),
+            "alternate_date_2": (
+                self.alternate_date_2.isoformat()
+                if self.alternate_date_2
+                else None
+            ),
+            "reason": self.reason,
+            "is_urgent": self.is_urgent,
+            "status": self.status,
+            "priority": self.priority,
+            "reviewed_by_id": self.reviewed_by_id,
+            "reviewed_by_name": (
+                self.reviewed_by.username if self.reviewed_by else None
+            ),
+            "reviewed_at": (
+                self.reviewed_at.isoformat() if self.reviewed_at else None
+            ),
+            "staff_notes": self.staff_notes,
+            "rejection_reason": self.rejection_reason,
+            "appointment_id": self.appointment_id,
+            "notes": self.notes,
+            "created_at": (
+                self.created_at.isoformat() if self.created_at else None
+            ),
+            "updated_at": (
+                self.updated_at.isoformat() if self.updated_at else None
+            ),
+        }

@@ -1,7 +1,7 @@
 """enhance appointment model with type, status, staff, and workflow fields
 
 Revision ID: ff82e83bae8e
-Revises: ef07ccabb369
+Revises: None
 Create Date: 2025-10-26 19:07:19.615512
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'ff82e83bae8e'
-down_revision = 'ef07ccabb369'
+down_revision = None
 branch_labels = None
 depends_on = None
 

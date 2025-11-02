@@ -1205,6 +1205,156 @@ class ReminderSchema(Schema):
     created_by = fields.Str(dump_only=True)
 
 
+# =============================================================================
+# Phase 3.5 - Client Portal Schemas
+# =============================================================================
+
+class ClientPortalUserSchema(Schema):
+    """Schema for Client Portal User model"""
+
+    id = fields.Int(dump_only=True)
+
+    # Related Client
+    client_id = fields.Int(required=True)
+    client_name = fields.Str(dump_only=True)
+
+    # Authentication
+    username = fields.Str(required=True, validate=validate.Length(min=3, max=50))
+    email = fields.Email(required=True, validate=validate.Length(max=120))
+    password = fields.Str(load_only=True, required=True, validate=validate.Length(min=8, max=100))
+
+    # Security
+    is_active = fields.Bool(load_default=True)
+    is_verified = fields.Bool(dump_only=True)
+
+    # Login Tracking
+    last_login = fields.DateTime(dump_only=True)
+    failed_login_attempts = fields.Int(dump_only=True)
+    account_locked_until = fields.DateTime(dump_only=True)
+
+    # Metadata
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+
+
+class ClientPortalUserRegistrationSchema(Schema):
+    """Schema for new client portal user registration"""
+
+    # Client Info
+    client_id = fields.Int(required=True)
+
+    # Authentication
+    username = fields.Str(required=True, validate=validate.Length(min=3, max=50))
+    email = fields.Email(required=True, validate=validate.Length(max=120))
+    password = fields.Str(required=True, validate=validate.Length(min=8, max=100))
+    password_confirm = fields.Str(required=True, validate=validate.Length(min=8, max=100))
+
+
+class ClientPortalUserLoginSchema(Schema):
+    """Schema for client portal user login"""
+
+    username = fields.Str(required=True)
+    password = fields.Str(required=True)
+
+
+class ClientPortalUserUpdateSchema(Schema):
+    """Schema for updating client portal user (all fields optional)"""
+
+    email = fields.Email(validate=validate.Length(max=120))
+    password = fields.Str(validate=validate.Length(min=8, max=100))
+    password_confirm = fields.Str(validate=validate.Length(min=8, max=100))
+    is_active = fields.Bool()
+
+
+class AppointmentRequestSchema(Schema):
+    """Schema for Appointment Request model"""
+
+    id = fields.Int(dump_only=True)
+
+    # Related Records
+    client_id = fields.Int(required=True)
+    client_name = fields.Str(dump_only=True)
+    patient_id = fields.Int(required=True)
+    patient_name = fields.Str(dump_only=True)
+    appointment_type_id = fields.Int(allow_none=True)
+    appointment_type_name = fields.Str(dump_only=True)
+
+    # Request Details
+    requested_date = fields.Date(required=True)
+    requested_time = fields.Str(allow_none=True, validate=validate.Length(max=20))
+    alternate_date_1 = fields.Date(allow_none=True)
+    alternate_date_2 = fields.Date(allow_none=True)
+
+    # Reason
+    reason = fields.Str(required=True, validate=validate.Length(min=1))
+    is_urgent = fields.Bool(load_default=False)
+
+    # Status
+    status = fields.Str(
+        load_default="pending",
+        validate=validate.OneOf(["pending", "approved", "rejected", "scheduled", "cancelled"])
+    )
+    priority = fields.Str(
+        load_default="normal",
+        validate=validate.OneOf(["low", "normal", "high", "urgent"])
+    )
+
+    # Staff Response
+    reviewed_by_id = fields.Int(allow_none=True, dump_only=True)
+    reviewed_by_name = fields.Str(dump_only=True)
+    reviewed_at = fields.DateTime(allow_none=True, dump_only=True)
+    staff_notes = fields.Str(allow_none=True)
+    rejection_reason = fields.Str(allow_none=True)
+
+    # Scheduled Appointment (if approved)
+    appointment_id = fields.Int(allow_none=True, dump_only=True)
+
+    # Notes
+    notes = fields.Str(allow_none=True)
+
+    # Metadata
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+
+
+class AppointmentRequestCreateSchema(Schema):
+    """Schema for creating new appointment request (simplified)"""
+
+    # Related Records
+    client_id = fields.Int(required=True)
+    patient_id = fields.Int(required=True)
+    appointment_type_id = fields.Int(allow_none=True)
+
+    # Request Details
+    requested_date = fields.Date(required=True)
+    requested_time = fields.Str(allow_none=True, validate=validate.Length(max=20))
+    alternate_date_1 = fields.Date(allow_none=True)
+    alternate_date_2 = fields.Date(allow_none=True)
+
+    # Reason
+    reason = fields.Str(required=True, validate=validate.Length(min=1))
+    is_urgent = fields.Bool(load_default=False)
+
+    # Notes
+    notes = fields.Str(allow_none=True)
+
+
+class AppointmentRequestReviewSchema(Schema):
+    """Schema for staff reviewing appointment request"""
+
+    status = fields.Str(
+        required=True,
+        validate=validate.OneOf(["approved", "rejected", "scheduled"])
+    )
+    priority = fields.Str(
+        allow_none=True,
+        validate=validate.OneOf(["low", "normal", "high", "urgent"])
+    )
+    staff_notes = fields.Str(allow_none=True)
+    rejection_reason = fields.Str(allow_none=True)
+    appointment_id = fields.Int(allow_none=True)
+
+
 # Initialize reminder schema instances
 notification_template_schema = NotificationTemplateSchema()
 notification_templates_schema = NotificationTemplateSchema(many=True)
@@ -1214,3 +1364,14 @@ client_preferences_schema = ClientCommunicationPreferenceSchema(many=True)
 
 reminder_schema = ReminderSchema()
 reminders_schema = ReminderSchema(many=True)
+
+client_portal_user_schema = ClientPortalUserSchema()
+client_portal_users_schema = ClientPortalUserSchema(many=True)
+client_portal_user_registration_schema = ClientPortalUserRegistrationSchema()
+client_portal_user_login_schema = ClientPortalUserLoginSchema()
+client_portal_user_update_schema = ClientPortalUserUpdateSchema()
+
+appointment_request_schema = AppointmentRequestSchema()
+appointment_requests_schema = AppointmentRequestSchema(many=True)
+appointment_request_create_schema = AppointmentRequestCreateSchema()
+appointment_request_review_schema = AppointmentRequestReviewSchema()
