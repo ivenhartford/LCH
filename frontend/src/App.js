@@ -32,6 +32,13 @@ import LabResults from './components/LabResults';
 import Reminders from './components/Reminders';
 import NotificationTemplates from './components/NotificationTemplates';
 import Settings from './components/Settings';
+import ClientPortalLogin from './components/ClientPortalLogin';
+import ClientPortalLayout from './components/ClientPortalLayout';
+import ClientPortalDashboard from './components/ClientPortalDashboard';
+import ClientPatients from './components/ClientPatients';
+import ClientAppointmentHistory from './components/ClientAppointmentHistory';
+import ClientInvoices from './components/ClientInvoices';
+import AppointmentRequestForm from './components/AppointmentRequestForm';
 import logger from './utils/logger';
 import './App.css';
 
@@ -48,6 +55,11 @@ import './App.css';
  */
 function App() {
   const [user, setUser] = useState(null);
+  const [portalUser, setPortalUser] = useState(() => {
+    // Load portal user from localStorage on mount
+    const saved = localStorage.getItem('portalUser');
+    return saved ? JSON.parse(saved) : null;
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -150,13 +162,45 @@ function App() {
           }}
         >
           <Routes>
-            {/* Login Route - No layout */}
+            {/* Staff Login Route - No layout */}
             <Route
               path="/login"
               element={user ? <Navigate to="/" replace /> : <Login setUser={setUser} />}
             />
 
-            {/* Protected Routes - With layout */}
+            {/* Client Portal Login Route - No layout */}
+            <Route
+              path="/portal/login"
+              element={
+                portalUser ? (
+                  <Navigate to="/portal/dashboard" replace />
+                ) : (
+                  <ClientPortalLogin setPortalUser={setPortalUser} />
+                )
+              }
+            />
+
+            {/* Client Portal Protected Routes - With portal layout */}
+            <Route
+              path="/portal/*"
+              element={
+                portalUser ? (
+                  <ClientPortalLayout portalUser={portalUser} setPortalUser={setPortalUser}>
+                    <Routes>
+                      <Route path="/dashboard" element={<ClientPortalDashboard portalUser={portalUser} />} />
+                      <Route path="/patients" element={<ClientPatients portalUser={portalUser} />} />
+                      <Route path="/appointments" element={<ClientAppointmentHistory portalUser={portalUser} />} />
+                      <Route path="/invoices" element={<ClientInvoices portalUser={portalUser} />} />
+                      <Route path="/request-appointment" element={<AppointmentRequestForm portalUser={portalUser} />} />
+                    </Routes>
+                  </ClientPortalLayout>
+                ) : (
+                  <Navigate to="/portal/login" replace />
+                )
+              }
+            />
+
+            {/* Staff Protected Routes - With layout */}
             <Route
               path="/*"
               element={
