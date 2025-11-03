@@ -35,6 +35,7 @@ import {
 } from '@mui/icons-material';
 import logger from '../utils/logger';
 import ConfirmDialog from './common/ConfirmDialog';
+import { useNotification } from '../contexts/NotificationContext';
 
 /**
  * Services Catalog Component
@@ -43,6 +44,7 @@ import ConfirmDialog from './common/ConfirmDialog';
  */
 function Services() {
   const queryClient = useQueryClient();
+  const { showNotification } = useNotification();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('true');
@@ -101,6 +103,13 @@ function Services() {
     onSuccess: () => {
       queryClient.invalidateQueries(['services']);
       handleCloseDialog();
+      showNotification(
+        editingService ? 'Service updated successfully' : 'Service created successfully',
+        'success'
+      );
+    },
+    onError: (error) => {
+      showNotification(error.message || 'Failed to save service', 'error');
     },
   });
 
@@ -113,7 +122,13 @@ function Services() {
       if (!response.ok) throw new Error('Failed to delete service');
       return response.json();
     },
-    onSuccess: () => queryClient.invalidateQueries(['services']),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['services']);
+      showNotification('Service deleted successfully', 'success');
+    },
+    onError: (error) => {
+      showNotification(error.message || 'Failed to delete service', 'error');
+    },
   });
 
   const handleOpenDialog = (service = null) => {
@@ -441,11 +456,6 @@ function Services() {
             {saveMutation.isLoading ? <CircularProgress size={24} /> : 'Save'}
           </Button>
         </DialogActions>
-        {saveMutation.isError && (
-          <Alert severity="error" sx={{ m: 2 }}>
-            {saveMutation.error.message}
-          </Alert>
-        )}
       </Dialog>
 
       {/* Delete Confirmation Dialog */}

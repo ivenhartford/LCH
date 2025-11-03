@@ -36,6 +36,7 @@ import {
 } from '@mui/icons-material';
 import logger from '../utils/logger';
 import ConfirmDialog from './common/ConfirmDialog';
+import { useNotification } from '../contexts/NotificationContext';
 
 /**
  * Medications Management Component
@@ -50,6 +51,7 @@ import ConfirmDialog from './common/ConfirmDialog';
  */
 function Medications() {
   const queryClient = useQueryClient();
+  const { showNotification } = useNotification();
 
   // State
   const [searchTerm, setSearchTerm] = useState('');
@@ -152,6 +154,13 @@ function Medications() {
       logger.info(editingMedication ? 'Medication updated' : 'Medication created');
       queryClient.invalidateQueries(['medications']);
       handleCloseDialog();
+      showNotification(
+        editingMedication ? 'Medication updated successfully' : 'Medication created successfully',
+        'success'
+      );
+    },
+    onError: (error) => {
+      showNotification(error.message || 'Failed to save medication', 'error');
     },
   });
 
@@ -173,6 +182,10 @@ function Medications() {
     onSuccess: () => {
       logger.info('Medication deleted');
       queryClient.invalidateQueries(['medications']);
+      showNotification('Medication deleted successfully', 'success');
+    },
+    onError: (error) => {
+      showNotification(error.message || 'Failed to delete medication', 'error');
     },
   });
 
@@ -638,11 +651,6 @@ function Medications() {
             {saveMutation.isLoading ? <CircularProgress size={24} /> : 'Save'}
           </Button>
         </DialogActions>
-        {saveMutation.isError && (
-          <Alert severity="error" sx={{ m: 2 }}>
-            {saveMutation.error.message}
-          </Alert>
-        )}
       </Dialog>
 
       {/* Delete Confirmation Dialog */}

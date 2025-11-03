@@ -7,17 +7,17 @@ import {
   Typography,
   Container,
   Paper,
-  Alert,
   CircularProgress,
   InputAdornment,
   IconButton
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
+import { useNotification } from '../contexts/NotificationContext';
 
 function Login({ setUser }) {
+  const { showNotification } = useNotification();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
@@ -25,17 +25,14 @@ function Login({ setUser }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Clear any previous errors
-    setError('');
-
     // Basic validation
     if (!username.trim()) {
-      setError('Username is required');
+      showNotification('Username is required', 'error');
       return;
     }
 
     if (!password) {
-      setError('Password is required');
+      showNotification('Password is required', 'error');
       return;
     }
 
@@ -53,13 +50,14 @@ function Login({ setUser }) {
       if (response.ok) {
         const user = await fetch('/api/check_session').then((res) => res.json());
         setUser(user);
+        showNotification('Login successful', 'success');
         navigate('/');
       } else {
         const data = await response.json();
-        setError(data.message || 'Login failed. Please check your credentials.');
+        showNotification(data.message || 'Login failed. Please check your credentials.', 'error');
       }
     } catch (err) {
-      setError('Network error. Please try again.');
+      showNotification('Network error. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -108,12 +106,6 @@ function Login({ setUser }) {
             Staff Login
           </Typography>
 
-          {error && (
-            <Alert severity="error" sx={{ mb: 3 }}>
-              {error}
-            </Alert>
-          )}
-
           <Box component="form" onSubmit={handleSubmit} noValidate>
             <TextField
               id="username"
@@ -127,7 +119,6 @@ function Login({ setUser }) {
               disabled={loading}
               autoComplete="username"
               autoFocus
-              error={error && !username.trim()}
               sx={{ mb: 2 }}
             />
 
@@ -143,7 +134,6 @@ function Login({ setUser }) {
               onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
               autoComplete="current-password"
-              error={error && !password}
               sx={{ mb: 3 }}
               InputProps={{
                 endAdornment: (
