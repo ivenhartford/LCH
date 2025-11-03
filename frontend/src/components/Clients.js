@@ -210,6 +210,7 @@ function Clients() {
           color="primary"
           startIcon={<AddIcon />}
           onClick={handleCreateClient}
+          aria-label="Create new client"
         >
           New Client
         </Button>
@@ -234,7 +235,7 @@ function Clients() {
               ),
               endAdornment: searchInput && (
                 <InputAdornment position="end">
-                  <IconButton size="small" onClick={handleClearSearch}>
+                  <IconButton size="small" onClick={handleClearSearch} aria-label="Clear search">
                     <ClearIcon />
                   </IconButton>
                 </InputAdornment>
@@ -242,7 +243,12 @@ function Clients() {
             }}
             sx={{ mr: 2 }}
           />
-          <Button variant="contained" onClick={handleSearch} disabled={!searchInput && !searchTerm}>
+          <Button
+            variant="contained"
+            onClick={handleSearch}
+            disabled={!searchInput && !searchTerm}
+            aria-label="Search clients"
+          >
             Search
           </Button>
           <FormControlLabel
@@ -290,6 +296,9 @@ function Clients() {
                   hover
                   onClick={() => handleRowClick(client.id)}
                   sx={{ cursor: 'pointer' }}
+                  aria-label={`View details for ${client.first_name} ${client.last_name}`}
+                  role="button"
+                  tabIndex={0}
                 >
                   <TableCell>
                     <Typography variant="body2" fontWeight="medium">

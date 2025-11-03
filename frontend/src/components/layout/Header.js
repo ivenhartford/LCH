@@ -154,16 +154,16 @@ const Header = ({ user, onMenuToggle, onLogout }) => {
             </Box>
           )}
           <Divider />
-          <MenuItem onClick={handleProfile}>
+          <MenuItem onClick={handleProfile} aria-label="View profile">
             <AccountCircle sx={{ mr: 1 }} />
             Profile
           </MenuItem>
-          <MenuItem onClick={handleSettings}>
+          <MenuItem onClick={handleSettings} aria-label="Open settings">
             <Settings sx={{ mr: 1 }} />
             Settings
           </MenuItem>
           <Divider />
-          <MenuItem onClick={handleLogout}>
+          <MenuItem onClick={handleLogout} aria-label="Logout from application">
             <ExitToApp sx={{ mr: 1 }} />
             Logout
           </MenuItem>

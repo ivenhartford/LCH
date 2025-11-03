@@ -144,7 +144,7 @@ function InventoryDashboard() {
       {/* Key Metrics */}
       <Grid container spacing={3} mb={3}>
         <Grid item xs={12} sm={6} md={3}>
-          <Card>
+          <Card aria-label={`Total products: ${totalProducts}`}>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
                 <Box>
@@ -160,7 +160,7 @@ function InventoryDashboard() {
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card>
+          <Card aria-label={`Low stock items: ${lowStockProducts.length}`}>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
                 <Box>
@@ -178,7 +178,7 @@ function InventoryDashboard() {
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card>
+          <Card aria-label={`Pending orders: ${pendingPOs}`}>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
                 <Box>
@@ -194,7 +194,7 @@ function InventoryDashboard() {
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card>
+          <Card aria-label={`Inventory value: $${totalInventoryValue.toFixed(0)}`}>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
                 <Box>
@@ -218,7 +218,12 @@ function InventoryDashboard() {
               <WarningIcon color="warning" />
               Low Stock Alerts
             </Typography>
-            <Button variant="outlined" size="small" onClick={() => navigate('/products')}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => navigate('/products')}
+              aria-label="View all products"
+            >
               View All Products
             </Button>
           </Box>
@@ -278,7 +283,12 @@ function InventoryDashboard() {
                 <LocalShippingIcon />
                 Recent Purchase Orders
               </Typography>
-              <Button variant="outlined" size="small" onClick={() => navigate('/purchase-orders')}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => navigate('/purchase-orders')}
+                aria-label="View all purchase orders"
+              >
                 View All
               </Button>
             </Box>
@@ -397,6 +407,7 @@ function InventoryDashboard() {
               fullWidth
               onClick={() => navigate('/products')}
               startIcon={<InventoryIcon />}
+              aria-label="Manage products"
             >
               Manage Products
             </Button>
@@ -407,6 +418,7 @@ function InventoryDashboard() {
               fullWidth
               onClick={() => navigate('/vendors')}
               startIcon={<LocalShippingIcon />}
+              aria-label="Manage vendors"
             >
               Manage Vendors
             </Button>
@@ -417,6 +429,7 @@ function InventoryDashboard() {
               fullWidth
               onClick={() => navigate('/purchase-orders')}
               startIcon={<ShoppingCartIcon />}
+              aria-label="View purchase orders"
             >
               Purchase Orders
             </Button>
@@ -427,6 +440,7 @@ function InventoryDashboard() {
               fullWidth
               onClick={() => navigate('/products')}
               startIcon={<WarningIcon />}
+              aria-label="View low stock products"
             >
               View Low Stock
             </Button>
