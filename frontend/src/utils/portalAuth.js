@@ -1,34 +1,39 @@
 /**
  * Portal Authentication Utility
  * Handles JWT token storage and retrieval for client portal
+ *
+ * Token is stored in sessionStorage (clears when browser closes)
+ * User data is stored in localStorage (persists across sessions)
+ * Activity tracking uses localStorage to monitor idle time
  */
 
 const TOKEN_KEY = 'portal_auth_token';
 const USER_KEY = 'portal_user';
+const ACTIVITY_KEY = 'portal_last_activity';
 
 /**
- * Store JWT token in localStorage
+ * Store JWT token in sessionStorage (clears when browser closes)
  * @param {string} token - JWT token
  */
 export const setPortalToken = (token) => {
   if (token) {
-    localStorage.setItem(TOKEN_KEY, token);
+    sessionStorage.setItem(TOKEN_KEY, token);
   }
 };
 
 /**
- * Get JWT token from localStorage
+ * Get JWT token from sessionStorage
  * @returns {string|null} JWT token or null if not found
  */
 export const getPortalToken = () => {
-  return localStorage.getItem(TOKEN_KEY);
+  return sessionStorage.getItem(TOKEN_KEY);
 };
 
 /**
- * Remove JWT token from localStorage
+ * Remove JWT token from sessionStorage
  */
 export const removePortalToken = () => {
-  localStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(TOKEN_KEY);
 };
 
 /**
@@ -71,6 +76,7 @@ export const isPortalAuthenticated = () => {
 export const clearPortalAuth = () => {
   removePortalToken();
   removePortalUser();
+  removeLastActivity();
 };
 
 /**
@@ -85,4 +91,44 @@ export const getAuthHeader = () => {
     };
   }
   return {};
+};
+
+/**
+ * Update last activity timestamp
+ */
+export const updateLastActivity = () => {
+  localStorage.setItem(ACTIVITY_KEY, Date.now().toString());
+};
+
+/**
+ * Get last activity timestamp
+ * @returns {number|null} Timestamp or null if not found
+ */
+export const getLastActivity = () => {
+  const activity = localStorage.getItem(ACTIVITY_KEY);
+  return activity ? parseInt(activity, 10) : null;
+};
+
+/**
+ * Remove last activity timestamp
+ */
+export const removeLastActivity = () => {
+  localStorage.removeItem(ACTIVITY_KEY);
+};
+
+/**
+ * Check if user has been idle for more than specified minutes
+ * @param {number} minutes - Idle timeout in minutes (default: 15)
+ * @returns {boolean} True if idle time exceeded
+ */
+export const isIdleTimeoutExceeded = (minutes = 15) => {
+  const lastActivity = getLastActivity();
+  if (!lastActivity) {
+    return false;
+  }
+
+  const idleTime = Date.now() - lastActivity;
+  const idleMinutes = idleTime / (1000 * 60);
+
+  return idleMinutes >= minutes;
 };

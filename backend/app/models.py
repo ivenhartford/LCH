@@ -15,11 +15,31 @@ class User(UserMixin, db.Model):
     account_locked_until = db.Column(db.DateTime, nullable=True)
     last_login = db.Column(db.DateTime, nullable=True)
 
+    # PIN and session management
+    pin_hash = db.Column(db.String(128), nullable=True)
+    last_activity_at = db.Column(db.DateTime, nullable=True)
+    session_expires_at = db.Column(db.DateTime, nullable=True)
+
     def set_password(self, password):
         self.password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
     def check_password(self, password):
         return bcrypt.checkpw(password.encode("utf-8"), self.password_hash.encode("utf-8"))
+
+    def set_pin(self, pin):
+        """Set PIN hash using bcrypt (4-6 digit PIN)"""
+        if not pin or not pin.isdigit() or len(pin) < 4 or len(pin) > 6:
+            raise ValueError("PIN must be 4-6 digits")
+        self.pin_hash = bcrypt.hashpw(pin.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+    def check_pin(self, pin):
+        """Verify PIN against hash"""
+        if not self.pin_hash or not pin:
+            return False
+        try:
+            return bcrypt.checkpw(pin.encode("utf-8"), self.pin_hash.encode("utf-8"))
+        except Exception:
+            return False
 
 
 class Client(db.Model):
@@ -2079,6 +2099,11 @@ class ClientPortalUser(db.Model):
     failed_login_attempts = db.Column(db.Integer, default=0)
     account_locked_until = db.Column(db.DateTime, nullable=True)
 
+    # PIN and session management
+    pin_hash = db.Column(db.String(128), nullable=True)
+    last_activity_at = db.Column(db.DateTime, nullable=True)
+    session_expires_at = db.Column(db.DateTime, nullable=True)
+
     # Metadata
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(
@@ -2118,6 +2143,21 @@ class ClientPortalUser(db.Model):
             pass
 
         return False
+
+    def set_pin(self, pin):
+        """Set PIN hash using bcrypt (4-6 digit PIN)"""
+        if not pin or not pin.isdigit() or len(pin) < 4 or len(pin) > 6:
+            raise ValueError("PIN must be 4-6 digits")
+        self.pin_hash = bcrypt.hashpw(pin.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+    def check_pin(self, pin):
+        """Verify PIN against hash"""
+        if not self.pin_hash or not pin:
+            return False
+        try:
+            return bcrypt.checkpw(pin.encode("utf-8"), self.pin_hash.encode("utf-8"))
+        except Exception:
+            return False
 
     def to_dict(self):
         """Convert to dictionary"""

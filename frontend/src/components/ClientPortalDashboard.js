@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -24,9 +24,13 @@ import {
   Receipt as ReceiptIcon,
   RequestPage as RequestIcon,
   ArrowForward as ArrowForwardIcon,
+  Lock as LockIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { portalApi } from '../utils/portalApi';
+import { useSessionManager } from '../hooks/useSessionManager';
+import PinSetup from './PinSetup';
+import PinUnlock from './PinUnlock';
 
 /**
  * Client Portal Dashboard Component
@@ -36,9 +40,31 @@ import { portalApi } from '../utils/portalApi';
  * - Upcoming appointments list
  * - Recent invoices list
  * - Pending appointment requests
+ * - Session management with PIN-based auto-lock
  */
 function ClientPortalDashboard({ portalUser }) {
   const navigate = useNavigate();
+
+  // Session management with PIN auto-lock
+  const {
+    showPinSetup,
+    setShowPinSetup,
+    showPinUnlock,
+    handlePinUnlock,
+    handleSessionExpired,
+  } = useSessionManager();
+
+  // Prompt for PIN setup if user doesn't have one
+  useEffect(() => {
+    if (portalUser && !portalUser.has_pin) {
+      // Show PIN setup prompt after 5 seconds
+      const timer = setTimeout(() => {
+        setShowPinSetup(true);
+      }, 5000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [portalUser, setShowPinSetup]);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['portalDashboard', portalUser?.client_id],
@@ -283,6 +309,25 @@ function ClientPortalDashboard({ portalUser }) {
           </List>
         </Paper>
       )}
+
+      {/* PIN Setup Modal */}
+      <PinSetup
+        open={showPinSetup}
+        onClose={() => setShowPinSetup(false)}
+        onSuccess={() => {
+          // Update portal user to reflect PIN has been set
+          if (portalUser) {
+            portalUser.has_pin = true;
+          }
+        }}
+      />
+
+      {/* PIN Unlock Modal */}
+      <PinUnlock
+        open={showPinUnlock}
+        onUnlock={handlePinUnlock}
+        onSessionExpired={handleSessionExpired}
+      />
     </Box>
   );
 }

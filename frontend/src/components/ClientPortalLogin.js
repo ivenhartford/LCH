@@ -16,7 +16,7 @@ import {
   Link,
 } from '@mui/material';
 import { Login as LoginIcon, PersonAdd as RegisterIcon } from '@mui/icons-material';
-import { setPortalToken, setPortalUser as savePortalUser } from '../utils/portalAuth';
+import { setPortalToken, setPortalUser as savePortalUser, updateLastActivity } from '../utils/portalAuth';
 import PasswordStrengthMeter from './PasswordStrengthMeter';
 
 // Validation schemas
@@ -129,6 +129,10 @@ function ClientPortalLogin({ setPortalUser }) {
         }
         savePortalUser(result.user);
         setPortalUser(result.user);
+
+        // Initialize activity tracking
+        updateLastActivity();
+
         navigate('/portal/dashboard');
       } else {
         setError(result.error || 'Login failed');

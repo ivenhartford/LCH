@@ -438,6 +438,7 @@ Following comprehensive security audit, implementing critical fixes to secure th
 - ✅ Standardized bcrypt password hashing with auto-migration
 - ✅ Email verification flow (token generation, verification, resend)
 - ✅ Staff account lockout (5 failed attempts = 15 min lock)
+- ✅ PIN-based session management (8-hour sessions, 15-min auto-lock)
 - ✅ Comprehensive security test suite (30+ tests)
 
 #### Phase 1: Critical Fixes (Days 1-2) 🔴 ✅ COMPLETE
@@ -512,6 +513,47 @@ Following comprehensive security audit, implementing critical fixes to secure th
   - Add account lockout after failed attempts (5 attempts = 15 min lockout)
   - Match portal user lockout behavior
   - Add admin unlock capability (manual unlock by setting account_locked_until to None)
+
+#### Phase 3.5: PIN-Based Session Management ✅ COMPLETE
+**Status:** ✅ Complete
+**Completion Date:** 2025-11-03
+
+Enhanced user experience with PIN-based session management to reduce repeated logins while maintaining security.
+
+- [x] **Implement PIN authentication system**
+  - Add PIN fields (pin_hash, last_activity_at, session_expires_at) to User and ClientPortalUser models
+  - Create set_pin() and check_pin() methods with bcrypt hashing (4-6 digit PINs)
+  - Add PIN validation (4-6 digits, numeric only)
+
+- [x] **Create PIN authentication endpoints**
+  - POST /api/portal/set-pin - Set or update user PIN
+  - POST /api/portal/verify-pin - Verify PIN after idle timeout
+  - GET /api/portal/check-session - Check session status and idle timeout
+
+- [x] **Implement session management**
+  - 8-hour session timeout (clears on browser close via sessionStorage)
+  - 15-minute idle timeout (triggers PIN requirement)
+  - Automatic activity tracking (mouse, keyboard, touch, scroll)
+  - Session expiry detection and redirect to login
+
+- [x] **Build PIN UI components**
+  - PinSetup component - Modal for setting up PIN (shown 5 seconds after first login)
+  - PinUnlock component - Modal for re-authenticating with PIN after idle
+  - Session manager hook - Automatic session checking and activity tracking
+  - Integration with ClientPortalDashboard
+
+- [x] **Frontend session tracking**
+  - sessionStorage for JWT token (clears when browser closes)
+  - localStorage for activity tracking (persists across tabs)
+  - Automatic activity updates on user interaction
+  - 30-second interval session status checks
+
+**User Experience:**
+- Login once with full credentials
+- Set up optional 4-6 digit PIN
+- Stay logged in for 8 hours or until browser closes
+- After 15 minutes idle, unlock with PIN instead of full re-login
+- Automatic session expiry handling
 
 #### Phase 4: Low Priority & Hardening (Month 1) 🟢
 **Status:** Planned
