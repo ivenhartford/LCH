@@ -6,6 +6,8 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_restx import Api
 from flask_login import LoginManager
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -15,6 +17,13 @@ api = Api(
     title="Lenox Cat Hospital API",
     description="Veterinary Practice Management System API",
     doc="/api/docs",
+)
+
+# Rate limiting configuration
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://",
 )
 
 from config import config_by_name
@@ -60,6 +69,9 @@ def create_app(config_name=None, config_overrides=None):
     @login_manager.user_loader
     def load_user(user_id):
         return models.User.query.get(int(user_id))
+
+    # Initialize rate limiter
+    limiter.init_app(app)
 
     # Initialize API with app first
     api.init_app(app)

@@ -3,9 +3,12 @@
 ## Overview
 This roadmap outlines the phased development approach for building a comprehensive veterinary practice management system. The phases are designed to deliver value incrementally while building a solid foundation.
 
-## Current Status: Phase 3.5 - FULLY COMPLETE ✅ | Phase 4 Ready to Start 🚀
+## Current Status: Phase 3.6 - Security Hardening 🔒 | In Progress
 
-**Latest Update (2025-11-02 - Late Evening - FULLY Complete):**
+**Latest Update (2025-11-02 - Security Audit Complete):**
+- 🔍 **Security audit completed** - Comprehensive security review of entire codebase
+- ⚠️ **Critical vulnerabilities identified** - Unauthenticated portal endpoints, weak SECRET_KEY
+- 🚀 **Phase 3.6 Started** - Security hardening in progress
 - ✅ **Phase 3.5 FULLY COMPLETE!** Client Portal (Basic) - Backend + Frontend
 - ✅ 15 RESTful client portal API endpoints (2 auth + 6 portal views + 4 requests + 3 staff)
 - ✅ 7 complete React components (~1,400 lines total)
@@ -407,13 +410,157 @@ Add inventory management, staff scheduling, and begin building client-facing fea
 - [ ] Integrate SendGrid for email - DEFERRED to Phase 4
 - [ ] Add automated reminder scheduling background task - DEFERRED to Phase 4
 
-### 3.5 Client Portal - Phase 1 (Week 8)
-- [ ] Create client portal authentication
-- [ ] Build client portal dashboard
-- [ ] Add view-only medical records
-- [ ] Add appointment history view
-- [ ] Add invoice history view
-- [ ] Build online appointment request form
+### 3.5 Client Portal - Phase 1 (Week 8) ✅ COMPLETE
+- [x] Create client portal authentication ✅
+- [x] Build client portal dashboard ✅
+- [x] Add view-only medical records ✅
+- [x] Add appointment history view ✅
+- [x] Add invoice history view ✅
+- [x] Build online appointment request form ✅
+
+### 3.6 Security Hardening 🔒 IN PROGRESS
+**Priority:** CRITICAL (Security vulnerabilities must be fixed before Phase 4)
+**Status:** 🔄 In Progress
+**Audit Date:** 2025-11-02
+
+Following comprehensive security audit, implementing critical fixes to secure the application before continuing development.
+
+#### Phase 1: Critical Fixes (Days 1-2) 🔴 IMMEDIATE
+**Status:** In Progress
+
+- [ ] **Fix unauthenticated client portal endpoints** ⚠️ HIGHEST PRIORITY
+  - Add token-based authentication for portal endpoints
+  - Create `@portal_auth_required` decorator
+  - Verify client_id matches authenticated user
+  - Generate and validate JWT tokens on login
+  - Store tokens securely (httpOnly cookies or secure storage)
+  - Protect all `/api/portal/*` endpoints (dashboard, patients, appointments, invoices)
+
+- [ ] **Remove default SECRET_KEY fallback** ⚠️ CRITICAL
+  - Remove "a_default_secret_key" default value
+  - Fail application startup if SECRET_KEY not set in production
+  - Generate strong random key for production
+  - Update deployment documentation
+
+- [ ] **Add rate limiting** ⚠️ HIGH
+  - Install Flask-Limiter
+  - Add rate limits to authentication endpoints (5 attempts per 5 minutes)
+  - Add general API rate limits (100 requests per minute per user)
+  - Add IP-based rate limiting for unauthenticated endpoints
+
+#### Phase 2: High Priority Fixes (Week 1) 🟠
+**Status:** Pending
+
+- [ ] **Implement CSRF protection**
+  - Add Flask-WTF with CSRF tokens
+  - Implement CSRF token generation and validation
+  - Add CSRF tokens to all forms
+  - Configure CSRF exemptions for specific API endpoints if needed
+
+- [ ] **Add security headers**
+  - Install Flask-Talisman
+  - Configure Content-Security-Policy
+  - Add X-Frame-Options: DENY
+  - Add X-Content-Type-Options: nosniff
+  - Add Strict-Transport-Security (HSTS)
+  - Add Referrer-Policy
+
+- [ ] **Configure CORS properly**
+  - Install Flask-CORS
+  - Define explicit origin whitelist
+  - Configure CORS for development and production
+  - Restrict allowed methods and headers
+
+#### Phase 3: Medium Priority Fixes (Week 2) 🟡
+**Status:** Pending
+
+- [ ] **Strengthen password policy**
+  - Add password complexity validation
+  - Require uppercase, lowercase, number, special character
+  - Consider integrating zxcvbn for strength checking
+  - Add password strength meter to UI
+
+- [ ] **Standardize password hashing**
+  - Migrate ClientPortalUser to use bcrypt (from Werkzeug)
+  - Add migration script for existing portal user passwords
+  - Update models.py to use bcrypt consistently
+  - Test password verification after migration
+
+- [ ] **Enforce email verification**
+  - Implement email verification flow
+  - Send verification emails on registration
+  - Block portal access until email verified
+  - Add resend verification email endpoint
+
+- [ ] **Add staff account lockout**
+  - Implement failed login tracking for staff users
+  - Add account lockout after failed attempts
+  - Match portal user lockout behavior
+  - Add admin unlock capability
+
+#### Phase 4: Low Priority & Hardening (Month 1) 🟢
+**Status:** Planned
+
+- [ ] **Sanitize error messages**
+  - Review all exception handlers
+  - Return generic errors in production
+  - Log detailed errors server-side only
+  - Create error message constants
+
+- [ ] **Add security monitoring**
+  - Set up security event logging
+  - Track authentication failures
+  - Monitor suspicious access patterns
+  - Create security alerts
+
+- [ ] **Security testing**
+  - Run automated vulnerability scanning
+  - Perform penetration testing
+  - Test authentication/authorization
+  - Verify all critical fixes
+
+- [ ] **Update documentation**
+  - Document security architecture
+  - Create security best practices guide
+  - Update deployment security checklist
+  - Document incident response procedures
+
+#### Security Audit Findings Summary
+
+**Critical Vulnerabilities (2):**
+1. ⚠️ Unauthenticated client portal endpoints - Anyone can access sensitive data by guessing client_id
+2. ⚠️ Weak default SECRET_KEY - Session cookies can be forged
+
+**High Severity Issues (4):**
+3. No CSRF protection implemented
+4. No rate limiting on any endpoints
+5. Missing critical security headers (CSP, X-Frame-Options, HSTS, etc.)
+6. No CORS configuration
+
+**Medium Severity Issues (4):**
+7. Weak password policy (8 chars minimum, no complexity)
+8. Inconsistent password hashing (bcrypt vs Werkzeug)
+9. No email verification enforcement
+10. Default database connection string fallback
+
+**Low Severity Issues (4):**
+11. Verbose error messages leaking implementation details
+12. Sequential integer IDs (easy enumeration)
+13. Staff accounts lack account lockout
+14. Session cookie settings only secure in production
+
+**Security Strengths:**
+✅ SQL injection protection via SQLAlchemy ORM
+✅ Passwords properly hashed (no plaintext)
+✅ No hardcoded secrets or credentials
+✅ Input validation via Marshmallow
+✅ XSS prevention (no dangerous HTML rendering)
+✅ Comprehensive audit logging
+✅ HTTPOnly cookies enabled
+✅ Role-based access control
+
+**Estimated Time:** 2-3 weeks
+**Impact:** CRITICAL - Must complete before production deployment
 
 ### Phase 3 Deliverables
 ✓ Complete inventory management
@@ -421,6 +568,7 @@ Add inventory management, staff scheduling, and begin building client-facing fea
 ✓ Laboratory test tracking
 ✓ Automated reminders (email/SMS)
 ✓ Basic client portal
+⏳ Security hardening (in progress)
 
 ---
 

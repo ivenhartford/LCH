@@ -10,3 +10,5 @@ marshmallow-sqlalchemy
 python-dateutil
 pytest
 python-dotenv
+PyJWT
+Flask-Limiter

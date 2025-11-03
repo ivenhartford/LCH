@@ -43,6 +43,8 @@ from functools import wraps
 from flask import abort
 from marshmallow import ValidationError as MarshmallowValidationError
 from sqlalchemy.exc import IntegrityError
+from .auth import generate_portal_token, portal_auth_required
+from . import limiter
 
 bp = Blueprint("main", __name__)
 
@@ -58,6 +60,7 @@ def admin_required(f):
 
 
 @bp.route("/api/register", methods=["POST"])
+@limiter.limit("5 per hour")
 def register():
     data = request.get_json()
     username = data.get("username")
@@ -75,6 +78,7 @@ def register():
 
 
 @bp.route("/api/login", methods=["POST"])
+@limiter.limit("10 per 5 minutes")
 def login():
     data = request.get_json()
     username = data.get("username")
@@ -4598,6 +4602,7 @@ def delete_reminder(reminder_id):
 
 # Client Portal Authentication
 @bp.route("/api/portal/register", methods=["POST"])
+@limiter.limit("5 per hour")
 def portal_register():
     """Register a new client portal user"""
     try:
@@ -4646,6 +4651,7 @@ def portal_register():
 
 
 @bp.route("/api/portal/login", methods=["POST"])
+@limiter.limit("10 per 5 minutes")
 def portal_login():
     """Login to client portal"""
     try:
@@ -4674,12 +4680,16 @@ def portal_login():
         portal_user.account_locked_until = None
         db.session.commit()
 
+        # Generate JWT token
+        token = generate_portal_token(portal_user)
+
         # Get client info
         client = Client.query.get(portal_user.client_id)
 
         app.logger.info(f"Client portal login: {portal_user.username}")
         return jsonify({
             "message": "Login successful",
+            "token": token,  # JWT token for authentication
             "user": {
                 "id": portal_user.id,
                 "username": portal_user.username,
@@ -4697,7 +4707,8 @@ def portal_login():
 
 
 @bp.route("/api/portal/dashboard/<int:client_id>", methods=["GET"])
-def portal_dashboard(client_id):
+@portal_auth_required
+def portal_dashboard(client_id, **kwargs):
     """Get client portal dashboard data"""
     try:
         client = Client.query.get(client_id)
@@ -4760,7 +4771,8 @@ def portal_dashboard(client_id):
 
 
 @bp.route("/api/portal/patients/<int:client_id>", methods=["GET"])
-def portal_patients(client_id):
+@portal_auth_required
+def portal_patients(client_id, **kwargs):
     """Get all patients for a client"""
     try:
         patients = Patient.query.filter_by(owner_id=client_id, is_active=True).all()
@@ -4771,7 +4783,8 @@ def portal_patients(client_id):
 
 
 @bp.route("/api/portal/patients/<int:client_id>/<int:patient_id>", methods=["GET"])
-def portal_patient_detail(client_id, patient_id):
+@portal_auth_required
+def portal_patient_detail(client_id, patient_id, **kwargs):
     """Get patient details (read-only for portal)"""
     try:
         patient = Patient.query.filter_by(id=patient_id, owner_id=client_id).first()
@@ -4785,7 +4798,8 @@ def portal_patient_detail(client_id, patient_id):
 
 
 @bp.route("/api/portal/appointments/<int:client_id>", methods=["GET"])
-def portal_appointments(client_id):
+@portal_auth_required
+def portal_appointments(client_id, **kwargs):
     """Get appointment history for client"""
     try:
         # Get all appointments for client's patients
@@ -4811,7 +4825,8 @@ def portal_appointments(client_id):
 
 
 @bp.route("/api/portal/invoices/<int:client_id>", methods=["GET"])
-def portal_invoices(client_id):
+@portal_auth_required
+def portal_invoices(client_id, **kwargs):
     """Get invoice history for client"""
     try:
         invoices = Invoice.query.filter_by(client_id=client_id).order_by(Invoice.invoice_date.desc()).all()
@@ -4838,7 +4853,8 @@ def portal_invoices(client_id):
 
 
 @bp.route("/api/portal/invoices/<int:client_id>/<int:invoice_id>", methods=["GET"])
-def portal_invoice_detail(client_id, invoice_id):
+@portal_auth_required
+def portal_invoice_detail(client_id, invoice_id, **kwargs):
     """Get specific invoice details"""
     try:
         invoice = Invoice.query.filter_by(id=invoice_id, client_id=client_id).first()
@@ -4880,10 +4896,16 @@ def portal_invoice_detail(client_id, invoice_id):
 
 # Appointment Requests
 @bp.route("/api/portal/appointment-requests", methods=["POST"])
-def create_appointment_request():
+@portal_auth_required
+def create_appointment_request(**kwargs):
     """Create a new appointment request from client portal"""
     try:
         data = appointment_request_create_schema.load(request.json)
+
+        # Ensure the authenticated user can only create requests for themselves
+        authenticated_client_id = kwargs.get("authenticated_client_id")
+        if data["client_id"] != authenticated_client_id:
+            return jsonify({"error": "Unauthorized: You can only create requests for yourself"}), 403
 
         # Verify client and patient exist and are linked
         client = Client.query.get(data["client_id"])
@@ -4931,7 +4953,8 @@ def create_appointment_request():
 
 
 @bp.route("/api/portal/appointment-requests/<int:client_id>", methods=["GET"])
-def get_client_appointment_requests(client_id):
+@portal_auth_required
+def get_client_appointment_requests(client_id, **kwargs):
     """Get all appointment requests for a client"""
     try:
         requests = AppointmentRequest.query.filter_by(client_id=client_id).order_by(AppointmentRequest.created_at.desc()).all()
@@ -4960,7 +4983,8 @@ def get_client_appointment_requests(client_id):
 
 
 @bp.route("/api/portal/appointment-requests/<int:client_id>/<int:request_id>", methods=["GET"])
-def get_appointment_request_detail(client_id, request_id):
+@portal_auth_required
+def get_appointment_request_detail(client_id, request_id, **kwargs):
     """Get specific appointment request details"""
     try:
         req = AppointmentRequest.query.filter_by(id=request_id, client_id=client_id).first()
@@ -4987,7 +5011,8 @@ def get_appointment_request_detail(client_id, request_id):
 
 
 @bp.route("/api/portal/appointment-requests/<int:client_id>/<int:request_id>/cancel", methods=["POST"])
-def cancel_appointment_request(client_id, request_id):
+@portal_auth_required
+def cancel_appointment_request(client_id, request_id, **kwargs):
     """Cancel a pending appointment request"""
     try:
         req = AppointmentRequest.query.filter_by(id=request_id, client_id=client_id).first()
