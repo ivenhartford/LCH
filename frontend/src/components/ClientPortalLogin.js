@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -16,6 +16,8 @@ import {
   Link,
 } from '@mui/material';
 import { Login as LoginIcon, PersonAdd as RegisterIcon } from '@mui/icons-material';
+import { setPortalToken, setPortalUser as savePortalUser } from '../utils/portalAuth';
+import PasswordStrengthMeter from './PasswordStrengthMeter';
 
 // Validation schemas
 const loginSchema = z.object({
@@ -23,16 +25,28 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
-const registerSchema = z.object({
-  client_id: z.number().min(1, 'Client ID is required'),
-  username: z.string().min(3, 'Username must be at least 3 characters').max(50),
-  email: z.string().email('Invalid email address').max(120),
-  password: z.string().min(8, 'Password must be at least 8 characters').max(100),
-  password_confirm: z.string().min(8, 'Password confirmation is required'),
-}).refine((data) => data.password === data.password_confirm, {
-  message: "Passwords don't match",
-  path: ['password_confirm'],
-});
+const registerSchema = z
+  .object({
+    client_id: z.number().min(1, 'Client ID is required'),
+    username: z.string().min(3, 'Username must be at least 3 characters').max(50),
+    email: z.string().email('Invalid email address').max(120),
+    password: z
+      .string()
+      .min(8, 'Password must be at least 8 characters')
+      .max(100)
+      .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+      .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+      .regex(/\d/, 'Password must contain at least one number')
+      .regex(
+        /[!@#$%^&*()_+\-=\[\]{};':",.<>?/\\|`~]/,
+        'Password must contain at least one special character'
+      ),
+    password_confirm: z.string().min(8, 'Password confirmation is required'),
+  })
+  .refine((data) => data.password === data.password_confirm, {
+    message: "Passwords don't match",
+    path: ['password_confirm'],
+  });
 
 function TabPanel({ children, value, index }) {
   return (
@@ -88,6 +102,13 @@ function ClientPortalLogin({ setPortalUser }) {
     },
   });
 
+  // Watch password field for strength meter
+  const watchPassword = useWatch({
+    control: registerControl,
+    name: 'password',
+    defaultValue: '',
+  });
+
   const handleLogin = async (data) => {
     setError('');
     setIsLoading(true);
@@ -102,8 +123,12 @@ function ClientPortalLogin({ setPortalUser }) {
       const result = await response.json();
 
       if (response.ok) {
+        // Store JWT token and user info
+        if (result.token) {
+          setPortalToken(result.token);
+        }
+        savePortalUser(result.user);
         setPortalUser(result.user);
-        localStorage.setItem('portalUser', JSON.stringify(result.user));
         navigate('/portal/dashboard');
       } else {
         setError(result.error || 'Login failed');
@@ -310,6 +335,9 @@ function ClientPortalLogin({ setPortalUser }) {
                   />
                 )}
               />
+
+              {/* Password strength meter */}
+              {watchPassword && <PasswordStrengthMeter password={watchPassword} />}
 
               <Controller
                 name="password_confirm"

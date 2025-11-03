@@ -10,3 +10,8 @@ marshmallow-sqlalchemy
 python-dateutil
 pytest
 python-dotenv
+PyJWT
+Flask-Limiter
+Flask-WTF
+Flask-Talisman
+Flask-CORS

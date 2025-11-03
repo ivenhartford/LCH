@@ -8,7 +8,10 @@ load_dotenv(os.path.join(basedir, ".env"))
 class Config:
     """Base configuration"""
 
-    SECRET_KEY = os.environ.get("SECRET_KEY", "a_default_secret_key")
+    # SECURITY: SECRET_KEY must be set via environment variable
+    # Generate a strong key: python -c 'import secrets; print(secrets.token_hex(32))'
+    SECRET_KEY = os.environ.get("SECRET_KEY")
+
     SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL", "sqlite:///vet_clinic.db")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     FLASK_RUN_HOST = os.environ.get("FLASK_RUN_HOST", "0.0.0.0")
@@ -32,6 +35,9 @@ class Config:
     SESSION_COOKIE_SAMESITE = "Lax"
     PERMANENT_SESSION_LIFETIME = 3600  # 1 hour
 
+    # CORS - Allow frontend origin
+    CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "http://localhost:3000").split(",")
+
 
 class DevelopmentConfig(Config):
     """Development configuration"""
@@ -39,6 +45,13 @@ class DevelopmentConfig(Config):
     DEBUG = True
     TESTING = False
     SQLALCHEMY_ECHO = True  # Log SQL queries
+
+    # Allow default SECRET_KEY in development only (still not recommended)
+    if not Config.SECRET_KEY:
+        SECRET_KEY = "dev_secret_key_CHANGE_IN_PRODUCTION"
+        import warnings
+
+        warnings.warn("Using default SECRET_KEY in development. Set SECRET_KEY environment variable.")
 
 
 class TestingConfig(Config):
@@ -48,6 +61,7 @@ class TestingConfig(Config):
     TESTING = True
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     WTF_CSRF_ENABLED = False
+    SECRET_KEY = "test_secret_key_for_testing_only"
 
 
 class ProductionConfig(Config):

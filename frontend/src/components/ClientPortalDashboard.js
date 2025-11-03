@@ -26,6 +26,7 @@ import {
   ArrowForward as ArrowForwardIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
+import { portalApi } from '../utils/portalApi';
 
 /**
  * Client Portal Dashboard Component
@@ -41,11 +42,7 @@ function ClientPortalDashboard({ portalUser }) {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['portalDashboard', portalUser?.client_id],
-    queryFn: async () => {
-      const response = await fetch(`/api/portal/dashboard/${portalUser.client_id}`);
-      if (!response.ok) throw new Error('Failed to fetch dashboard data');
-      return response.json();
-    },
+    queryFn: () => portalApi.getDashboard(portalUser.client_id),
     enabled: !!portalUser?.client_id,
   });
 
