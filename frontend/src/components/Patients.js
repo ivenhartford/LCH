@@ -32,6 +32,8 @@ import {
   Pets as PetsIcon,
 } from '@mui/icons-material';
 import logger from '../utils/logger';
+import TableSkeleton from './common/TableSkeleton';
+import EmptyState from './common/EmptyState';
 
 /**
  * Patient (Cat) List Component
@@ -195,11 +197,18 @@ function Patients() {
   // Loading state
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-        <Typography variant="body1" sx={{ ml: 2 }}>
-          Loading patients...
-        </Typography>
+      <Box>
+        <Box mb={3} display="flex" justifyContent="space-between" alignItems="center">
+          <Typography variant="h4" component="h1">
+            <PetsIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+            Patients (Cats)
+          </Typography>
+        </Box>
+        <TableSkeleton
+          rows={rowsPerPage}
+          columns={7}
+          headers={['Name', 'Breed', 'Color', 'Age', 'Sex', 'Owner', 'Status']}
+        />
       </Box>
     );
   }
@@ -261,7 +270,14 @@ function Patients() {
               ),
               endAdornment: searchInput && (
                 <InputAdornment position="end">
-                  <IconButton size="small" onClick={handleClearSearch} aria-label="Clear search">
+                  <IconButton
+                    onClick={handleClearSearch}
+                    aria-label="Clear search"
+                    sx={{
+                      minWidth: 44,
+                      minHeight: 44,
+                    }}
+                  >
                     <ClearIcon />
                   </IconButton>
                 </InputAdornment>
@@ -291,38 +307,45 @@ function Patients() {
       </Paper>
 
       {/* Results count */}
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-        {searchTerm && `Search results for "${searchTerm}" - `}
-        Showing {patients.length} of {pagination.total} patients
-      </Typography>
+      {patients.length > 0 && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          {searchTerm && `Search results for "${searchTerm}" - `}
+          Showing {patients.length} of {pagination.total} patients
+        </Typography>
+      )}
 
-      {/* Table */}
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Name</TableCell>
-              <TableCell>Breed</TableCell>
-              <TableCell>Color</TableCell>
-              <TableCell>Age</TableCell>
-              <TableCell>Sex</TableCell>
-              <TableCell>Owner</TableCell>
-              <TableCell>Status</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {patients.length === 0 ? (
+      {/* Empty State or Table */}
+      {patients.length === 0 ? (
+        <EmptyState
+          icon={PetsIcon}
+          title={searchTerm ? 'No Patients Found' : 'No Patients Yet'}
+          message={
+            searchTerm
+              ? `No patients match your search for "${searchTerm}". Try adjusting your search terms or filters.`
+              : 'Get started by adding your first patient to the system. Patients are the cats that receive veterinary care.'
+          }
+          actionLabel={searchTerm ? undefined : 'New Patient'}
+          onAction={searchTerm ? undefined : handleCreatePatient}
+          actionIcon={AddIcon}
+          secondaryActionLabel={searchTerm ? 'Clear Search' : undefined}
+          onSecondaryAction={searchTerm ? handleClearSearch : undefined}
+        />
+      ) : (
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
               <TableRow>
-                <TableCell colSpan={7} align="center">
-                  <Typography variant="body1" color="text.secondary" py={4}>
-                    {searchTerm
-                      ? 'No patients found matching your search.'
-                      : 'No patients yet. Click "New Patient" to add one.'}
-                  </Typography>
-                </TableCell>
+                <TableCell>Name</TableCell>
+                <TableCell>Breed</TableCell>
+                <TableCell>Color</TableCell>
+                <TableCell>Age</TableCell>
+                <TableCell>Sex</TableCell>
+                <TableCell>Owner</TableCell>
+                <TableCell>Status</TableCell>
               </TableRow>
-            ) : (
-              patients.map((patient) => (
+            </TableHead>
+            <TableBody>
+              {patients.map((patient) => (
                 <TableRow
                   key={patient.id}
                   hover
@@ -355,20 +378,20 @@ function Patients() {
                     />
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-        <TablePagination
-          rowsPerPageOptions={[10, 25, 50, 100]}
-          component="div"
-          count={pagination.total}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-        />
-      </TableContainer>
+              ))}
+            </TableBody>
+          </Table>
+          <TablePagination
+            rowsPerPageOptions={[10, 25, 50, 100]}
+            component="div"
+            count={pagination.total}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+          />
+        </TableContainer>
+      )}
     </Box>
   );
 }

@@ -35,6 +35,10 @@ import {
   Search as SearchIcon,
 } from '@mui/icons-material';
 import logger from '../utils/logger';
+import ConfirmDialog from './common/ConfirmDialog';
+import TableSkeleton from './common/TableSkeleton';
+import EmptyState from './common/EmptyState';
+import { useNotification } from '../contexts/NotificationContext';
 
 /**
  * Medications Management Component
@@ -49,6 +53,7 @@ import logger from '../utils/logger';
  */
 function Medications() {
   const queryClient = useQueryClient();
+  const { showNotification } = useNotification();
 
   // State
   const [searchTerm, setSearchTerm] = useState('');
@@ -56,6 +61,7 @@ function Medications() {
   const [drugClassFilter, setDrugClassFilter] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMedication, setEditingMedication] = useState(null);
+  const [deleteDialog, setDeleteDialog] = useState({ open: false, medicationId: null, drugName: '' });
   const [formData, setFormData] = useState({
     drug_name: '',
     brand_names: '',
@@ -150,6 +156,13 @@ function Medications() {
       logger.info(editingMedication ? 'Medication updated' : 'Medication created');
       queryClient.invalidateQueries(['medications']);
       handleCloseDialog();
+      showNotification(
+        editingMedication ? 'Medication updated successfully' : 'Medication created successfully',
+        'success'
+      );
+    },
+    onError: (error) => {
+      showNotification(error.message || 'Failed to save medication', 'error');
     },
   });
 
@@ -171,6 +184,10 @@ function Medications() {
     onSuccess: () => {
       logger.info('Medication deleted');
       queryClient.invalidateQueries(['medications']);
+      showNotification('Medication deleted successfully', 'success');
+    },
+    onError: (error) => {
+      showNotification(error.message || 'Failed to delete medication', 'error');
     },
   });
 
@@ -234,16 +251,30 @@ function Medications() {
   };
 
   const handleDelete = (medicationId, drugName) => {
-    if (window.confirm(`Are you sure you want to delete ${drugName}?`)) {
-      logger.logAction('Delete medication', { medicationId, drugName });
-      deleteMutation.mutate(medicationId);
-    }
+    setDeleteDialog({ open: true, medicationId, drugName });
+  };
+
+  const handleDeleteConfirm = () => {
+    logger.logAction('Delete medication', { medicationId: deleteDialog.medicationId, drugName: deleteDialog.drugName });
+    deleteMutation.mutate(deleteDialog.medicationId);
+    setDeleteDialog({ open: false, medicationId: null, drugName: '' });
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialog({ open: false, medicationId: null, drugName: '' });
   };
 
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
+      <Box>
+        <Typography variant="h4" gutterBottom>
+          Medications
+        </Typography>
+        <TableSkeleton
+          rows={10}
+          columns={8}
+          headers={['Drug Name', 'Brand Names', 'Class', 'Controlled', 'Forms', 'Stock', 'Cost', 'Status']}
+        />
       </Box>
     );
   }
@@ -338,34 +369,56 @@ function Medications() {
         </Grid>
       </Paper>
 
-      {/* Table */}
-      <Paper>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Drug Name</TableCell>
-                <TableCell>Brand Names</TableCell>
-                <TableCell>Drug Class</TableCell>
-                <TableCell>Forms</TableCell>
-                <TableCell>Strengths</TableCell>
-                <TableCell>Stock</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {medications.length === 0 ? (
+      {/* Empty State or Table */}
+      {medications.length === 0 ? (
+        <EmptyState
+          icon={searchTerm || drugClassFilter || activeFilter !== 'true' ? SearchIcon : AddIcon}
+          title={
+            searchTerm || drugClassFilter || activeFilter !== 'true'
+              ? 'No Medications Found'
+              : 'No Medications Yet'
+          }
+          message={
+            searchTerm || drugClassFilter || activeFilter !== 'true'
+              ? 'No medications match your current search or filter criteria. Try adjusting your filters.'
+              : 'Get started by adding your first medication to the database. Build your veterinary formulary with essential drugs, dosing information, and inventory tracking.'
+          }
+          actionLabel={
+            searchTerm || drugClassFilter || activeFilter !== 'true'
+              ? 'Clear Filters'
+              : 'Add Medication'
+          }
+          onAction={
+            searchTerm || drugClassFilter || activeFilter !== 'true'
+              ? () => {
+                  setSearchTerm('');
+                  setDrugClassFilter('');
+                  setActiveFilter('true');
+                }
+              : () => handleOpenDialog()
+          }
+          actionIcon={
+            searchTerm || drugClassFilter || activeFilter !== 'true' ? undefined : AddIcon
+          }
+        />
+      ) : (
+        <Paper>
+          <TableContainer>
+            <Table>
+              <TableHead>
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
-                    <Typography variant="body2" color="text.secondary" py={4}>
-                      No medications found.
-                      {(searchTerm || drugClassFilter) && ' Try adjusting filters.'}
-                    </Typography>
-                  </TableCell>
+                  <TableCell>Drug Name</TableCell>
+                  <TableCell>Brand Names</TableCell>
+                  <TableCell>Drug Class</TableCell>
+                  <TableCell>Forms</TableCell>
+                  <TableCell>Strengths</TableCell>
+                  <TableCell>Stock</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell align="right">Actions</TableCell>
                 </TableRow>
-              ) : (
-                medications.map((medication) => (
+              </TableHead>
+              <TableBody>
+                {medications.map((medication) => (
                   <TableRow key={medication.id} hover>
                     <TableCell>
                       <Typography variant="body2" fontWeight="medium">
@@ -436,17 +489,17 @@ function Medications() {
                       </Tooltip>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-        <Box p={2}>
-          <Typography variant="body2" color="text.secondary">
-            Total: {medications.length} medications
-          </Typography>
-        </Box>
-      </Paper>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <Box p={2}>
+            <Typography variant="body2" color="text.secondary">
+              Total: {medications.length} medications
+            </Typography>
+          </Box>
+        </Paper>
+      )}
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="md" fullWidth>
@@ -629,12 +682,19 @@ function Medications() {
             {saveMutation.isLoading ? <CircularProgress size={24} /> : 'Save'}
           </Button>
         </DialogActions>
-        {saveMutation.isError && (
-          <Alert severity="error" sx={{ m: 2 }}>
-            {saveMutation.error.message}
-          </Alert>
-        )}
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialog.open}
+        title="Delete Medication"
+        message={`Are you sure you want to delete "${deleteDialog.drugName}"? This action cannot be undone and will remove all medication information.`}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+        confirmText="Delete"
+        confirmColor="error"
+        loading={deleteMutation.isLoading}
+      />
     </Box>
   );
 }

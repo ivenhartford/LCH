@@ -98,7 +98,13 @@ const Header = ({ user, onMenuToggle, onLogout }) => {
           aria-label="open drawer"
           edge="start"
           onClick={onMenuToggle}
-          sx={{ mr: 2, display: { sm: 'none' } }}
+          size="large"
+          sx={{
+            mr: 2,
+            display: { sm: 'none' },
+            minWidth: 44,
+            minHeight: 44,
+          }}
         >
           <MenuIcon />
         </IconButton>
@@ -122,6 +128,10 @@ const Header = ({ user, onMenuToggle, onLogout }) => {
               aria-haspopup="true"
               onClick={handleMenuOpen}
               color="inherit"
+              sx={{
+                minWidth: 44,
+                minHeight: 44,
+              }}
             >
               <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.dark' }}>
                 {getUserInitials()}

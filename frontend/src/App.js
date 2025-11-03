@@ -40,6 +40,7 @@ import ClientAppointmentHistory from './components/ClientAppointmentHistory';
 import ClientInvoices from './components/ClientInvoices';
 import AppointmentRequestForm from './components/AppointmentRequestForm';
 import logger from './utils/logger';
+import { NotificationProvider } from './contexts/NotificationContext';
 import './App.css';
 
 /**
@@ -155,12 +156,13 @@ function App() {
   return (
     <ErrorBoundary>
       <QueryProvider>
-        <BrowserRouter
-          future={{
-            v7_startTransition: true,
-            v7_relativeSplatPath: true,
-          }}
-        >
+        <NotificationProvider>
+          <BrowserRouter
+            future={{
+              v7_startTransition: true,
+              v7_relativeSplatPath: true,
+            }}
+          >
           <Routes>
             {/* Staff Login Route - No layout */}
             <Route
@@ -270,6 +272,7 @@ function App() {
             />
           </Routes>
         </BrowserRouter>
+        </NotificationProvider>
       </QueryProvider>
     </ErrorBoundary>
   );

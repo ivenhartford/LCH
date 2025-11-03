@@ -34,6 +34,10 @@ import {
   Search as SearchIcon,
 } from '@mui/icons-material';
 import logger from '../utils/logger';
+import ConfirmDialog from './common/ConfirmDialog';
+import TableSkeleton from './common/TableSkeleton';
+import EmptyState from './common/EmptyState';
+import { useNotification } from '../contexts/NotificationContext';
 
 /**
  * Services Catalog Component
@@ -42,6 +46,7 @@ import logger from '../utils/logger';
  */
 function Services() {
   const queryClient = useQueryClient();
+  const { showNotification } = useNotification();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('true');
@@ -49,6 +54,7 @@ function Services() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingService, setEditingService] = useState(null);
+  const [deleteDialog, setDeleteDialog] = useState({ open: false, serviceId: null, serviceName: '' });
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -99,6 +105,13 @@ function Services() {
     onSuccess: () => {
       queryClient.invalidateQueries(['services']);
       handleCloseDialog();
+      showNotification(
+        editingService ? 'Service updated successfully' : 'Service created successfully',
+        'success'
+      );
+    },
+    onError: (error) => {
+      showNotification(error.message || 'Failed to save service', 'error');
     },
   });
 
@@ -111,7 +124,13 @@ function Services() {
       if (!response.ok) throw new Error('Failed to delete service');
       return response.json();
     },
-    onSuccess: () => queryClient.invalidateQueries(['services']),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['services']);
+      showNotification('Service deleted successfully', 'success');
+    },
+    onError: (error) => {
+      showNotification(error.message || 'Failed to delete service', 'error');
+    },
   });
 
   const handleOpenDialog = (service = null) => {
@@ -153,15 +172,29 @@ function Services() {
   };
 
   const handleDelete = (serviceId, name) => {
-    if (window.confirm(`Delete ${name}?`)) {
-      deleteMutation.mutate(serviceId);
-    }
+    setDeleteDialog({ open: true, serviceId, serviceName: name });
+  };
+
+  const handleDeleteConfirm = () => {
+    deleteMutation.mutate(deleteDialog.serviceId);
+    setDeleteDialog({ open: false, serviceId: null, serviceName: '' });
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialog({ open: false, serviceId: null, serviceName: '' });
   };
 
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
+      <Box>
+        <Typography variant="h4" gutterBottom>
+          Services Catalog
+        </Typography>
+        <TableSkeleton
+          rows={10}
+          columns={7}
+          headers={['Name', 'Category', 'Type', 'Price', 'Cost', 'Taxable', 'Status']}
+        />
       </Box>
     );
   }
@@ -240,32 +273,53 @@ function Services() {
         </Grid>
       </Paper>
 
-      <Paper>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>Category</TableCell>
-                <TableCell align="right">Price</TableCell>
-                <TableCell align="right">Cost</TableCell>
-                <TableCell>Taxable</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredServices.length === 0 ? (
+      {/* Empty State or Table */}
+      {filteredServices.length === 0 ? (
+        <EmptyState
+          icon={searchTerm || activeFilter || typeFilter || categoryFilter ? SearchIcon : AddIcon}
+          title={
+            searchTerm || activeFilter || typeFilter || categoryFilter
+              ? 'No Services Found'
+              : 'No Services Yet'
+          }
+          message={
+            searchTerm || activeFilter || typeFilter || categoryFilter
+              ? 'No services match your current search or filter criteria. Try adjusting your filters.'
+              : 'Get started by adding your first service or product to the catalog. Services can be used for creating invoices and tracking revenue.'
+          }
+          actionLabel={
+            searchTerm || activeFilter || typeFilter || categoryFilter ? 'Clear Filters' : 'Add Service'
+          }
+          onAction={
+            searchTerm || activeFilter || typeFilter || categoryFilter
+              ? () => {
+                  setSearchTerm('');
+                  setActiveFilter('true');
+                  setTypeFilter('');
+                  setCategoryFilter('');
+                }
+              : () => handleOpenDialog()
+          }
+          actionIcon={searchTerm || activeFilter || typeFilter || categoryFilter ? undefined : AddIcon}
+        />
+      ) : (
+        <Paper>
+          <TableContainer>
+            <Table>
+              <TableHead>
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
-                    <Typography variant="body2" color="text.secondary" py={4}>
-                      No services found.
-                    </Typography>
-                  </TableCell>
+                  <TableCell>Name</TableCell>
+                  <TableCell>Type</TableCell>
+                  <TableCell>Category</TableCell>
+                  <TableCell align="right">Price</TableCell>
+                  <TableCell align="right">Cost</TableCell>
+                  <TableCell>Taxable</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell align="right">Actions</TableCell>
                 </TableRow>
-              ) : (
-                filteredServices.map((service) => (
+              </TableHead>
+              <TableBody>
+                {filteredServices.map((service) => (
                   <TableRow key={service.id} hover>
                     <TableCell>
                       <Typography variant="body2" fontWeight="medium">
@@ -316,17 +370,17 @@ function Services() {
                       </Tooltip>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-        <Box p={2}>
-          <Typography variant="body2" color="text.secondary">
-            Total: {filteredServices.length} services
-          </Typography>
-        </Box>
-      </Paper>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <Box p={2}>
+            <Typography variant="body2" color="text.secondary">
+              Total: {filteredServices.length} services
+            </Typography>
+          </Box>
+        </Paper>
+      )}
 
       <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>{editingService ? 'Edit Service' : 'Add Service'}</DialogTitle>
@@ -432,12 +486,19 @@ function Services() {
             {saveMutation.isLoading ? <CircularProgress size={24} /> : 'Save'}
           </Button>
         </DialogActions>
-        {saveMutation.isError && (
-          <Alert severity="error" sx={{ m: 2 }}>
-            {saveMutation.error.message}
-          </Alert>
-        )}
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialog.open}
+        title="Delete Service"
+        message={`Are you sure you want to delete "${deleteDialog.serviceName}"? This action cannot be undone.`}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+        confirmText="Delete"
+        confirmColor="error"
+        loading={deleteMutation.isLoading}
+      />
     </Box>
   );
 }

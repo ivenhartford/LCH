@@ -30,6 +30,8 @@ import {
   Person as PersonIcon,
 } from '@mui/icons-material';
 import logger from '../utils/logger';
+import TableSkeleton from './common/TableSkeleton';
+import EmptyState from './common/EmptyState';
 
 /**
  * Client List Component
@@ -169,11 +171,18 @@ function Clients() {
   // Loading state
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-        <Typography variant="body1" sx={{ ml: 2 }}>
-          Loading clients...
-        </Typography>
+      <Box>
+        <Box mb={3} display="flex" justifyContent="space-between" alignItems="center">
+          <Typography variant="h4" component="h1">
+            <PersonIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+            Clients (Cat Owners)
+          </Typography>
+        </Box>
+        <TableSkeleton
+          rows={rowsPerPage}
+          columns={6}
+          headers={['Name', 'Email', 'Phone', 'City', 'Status', 'Balance']}
+        />
       </Box>
     );
   }
@@ -235,7 +244,14 @@ function Clients() {
               ),
               endAdornment: searchInput && (
                 <InputAdornment position="end">
-                  <IconButton size="small" onClick={handleClearSearch} aria-label="Clear search">
+                  <IconButton
+                    onClick={handleClearSearch}
+                    aria-label="Clear search"
+                    sx={{
+                      minWidth: 44,
+                      minHeight: 44,
+                    }}
+                  >
                     <ClearIcon />
                   </IconButton>
                 </InputAdornment>
@@ -260,37 +276,44 @@ function Clients() {
       </Paper>
 
       {/* Results count */}
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-        {searchTerm && `Search results for "${searchTerm}" - `}
-        Showing {clients.length} of {pagination.total} clients
-      </Typography>
+      {clients.length > 0 && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          {searchTerm && `Search results for "${searchTerm}" - `}
+          Showing {clients.length} of {pagination.total} clients
+        </Typography>
+      )}
 
-      {/* Table */}
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Name</TableCell>
-              <TableCell>Email</TableCell>
-              <TableCell>Phone</TableCell>
-              <TableCell>City</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="right">Balance</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {clients.length === 0 ? (
+      {/* Empty State or Table */}
+      {clients.length === 0 ? (
+        <EmptyState
+          icon={PersonIcon}
+          title={searchTerm ? 'No Clients Found' : 'No Clients Yet'}
+          message={
+            searchTerm
+              ? `No clients match your search for "${searchTerm}". Try adjusting your search terms or filters.`
+              : 'Get started by adding your first client to the system. Clients are the cat owners who bring their pets for care.'
+          }
+          actionLabel={searchTerm ? undefined : 'New Client'}
+          onAction={searchTerm ? undefined : handleCreateClient}
+          actionIcon={AddIcon}
+          secondaryActionLabel={searchTerm ? 'Clear Search' : undefined}
+          onSecondaryAction={searchTerm ? handleClearSearch : undefined}
+        />
+      ) : (
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
               <TableRow>
-                <TableCell colSpan={6} align="center">
-                  <Typography variant="body1" color="text.secondary" py={4}>
-                    {searchTerm
-                      ? 'No clients found matching your search.'
-                      : 'No clients yet. Click "New Client" to add one.'}
-                  </Typography>
-                </TableCell>
+                <TableCell>Name</TableCell>
+                <TableCell>Email</TableCell>
+                <TableCell>Phone</TableCell>
+                <TableCell>City</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell align="right">Balance</TableCell>
               </TableRow>
-            ) : (
-              clients.map((client) => (
+            </TableHead>
+            <TableBody>
+              {clients.map((client) => (
                 <TableRow
                   key={client.id}
                   hover
@@ -321,20 +344,20 @@ function Clients() {
                       : '$0.00'}
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-        <TablePagination
-          rowsPerPageOptions={[10, 25, 50, 100]}
-          component="div"
-          count={pagination.total}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-        />
-      </TableContainer>
+              ))}
+            </TableBody>
+          </Table>
+          <TablePagination
+            rowsPerPageOptions={[10, 25, 50, 100]}
+            component="div"
+            count={pagination.total}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+          />
+        </TableContainer>
+      )}
     </Box>
   );
 }
