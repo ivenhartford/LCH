@@ -81,18 +81,25 @@ def register():
 @bp.route("/api/login", methods=["POST"])
 @limiter.limit("10 per 5 minutes")
 def login():
+    from .security_monitor import get_security_monitor
+
+    security_monitor = get_security_monitor()
+    ip_address = security_monitor.get_client_ip()
+
     data = request.get_json()
     username = data.get("username")
     password = data.get("password")
     user = User.query.filter_by(username=username).first()
 
     if not user:
-        app.logger.warning(f"Failed login attempt for unknown username: {username}.")
+        # Track failed login for unknown user
+        security_monitor.track_failed_login(ip_address, username)
+        app.logger.warning(f"Failed login attempt for unknown username: {username} from {ip_address}")
         return jsonify({"message": "Invalid credentials"}), 401
 
     # Check if account is locked
     if user.account_locked_until and user.account_locked_until > datetime.utcnow():
-        app.logger.warning(f"Login attempt for locked account: {username}")
+        app.logger.warning(f"Login attempt for locked account: {username} from {ip_address}")
         return jsonify({"error": "Account is locked. Please contact administrator."}), 403
 
     # Verify password
@@ -103,10 +110,16 @@ def login():
         user.last_login = datetime.utcnow()
         db.session.commit()
 
+        # Track successful login
+        security_monitor.track_successful_login(ip_address, username, user.id)
+
         login_user(user)
-        app.logger.info(f"User {username} logged in successfully.")
+        app.logger.info(f"User {username} logged in successfully from {ip_address}")
         return jsonify({"message": "Logged in successfully"}), 200
     else:
+        # Track failed login attempt
+        security_monitor.track_failed_login(ip_address, username)
+
         # Failed login - increment counter
         user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
 
@@ -116,14 +129,18 @@ def login():
 
             user.account_locked_until = datetime.utcnow() + timedelta(minutes=15)
             db.session.commit()
+
+            # Track account lockout event
+            security_monitor.track_account_lockout(username, user.id, ip_address)
+
             app.logger.warning(
-                f"Account locked for user {username} after {user.failed_login_attempts} failed attempts"
+                f"Account locked for user {username} after {user.failed_login_attempts} failed attempts from {ip_address}"
             )
             return jsonify({"error": "Account locked due to multiple failed login attempts. Try again in 15 minutes."}), 403
 
         db.session.commit()
         app.logger.warning(
-            f"Failed login attempt for username: {username}. " f"Attempts: {user.failed_login_attempts}/5"
+            f"Failed login attempt for username: {username} from {ip_address}. " f"Attempts: {user.failed_login_attempts}/5"
         )
         return jsonify({"message": "Invalid credentials"}), 401
 
@@ -138,6 +155,18 @@ def check_session():
 @bp.route("/api/logout")
 @login_required
 def logout():
+    from .security_monitor import get_security_monitor
+
+    security_monitor = get_security_monitor()
+    ip_address = security_monitor.get_client_ip()
+
+    # Track logout event
+    security_monitor.track_logout(
+        current_user.username,
+        current_user.id,
+        ip_address
+    )
+
     logout_user()
     return jsonify({"message": "Logged out successfully"})
 
