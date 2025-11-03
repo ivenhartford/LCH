@@ -8,10 +8,14 @@ from flask_restx import Api
 from flask_login import LoginManager
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_cors import CORS
+from flask_talisman import Talisman
+from flask_wtf.csrf import CSRFProtect
 
 db = SQLAlchemy()
 migrate = Migrate()
 login_manager = LoginManager()
+csrf = CSRFProtect()
 api = Api(
     version="1.0",
     title="Lenox Cat Hospital API",
@@ -43,6 +47,13 @@ def create_app(config_name=None, config_overrides=None):
     if config_overrides:
         app.config.update(config_overrides)
 
+    # SECURITY: Enforce SECRET_KEY in production
+    if config_name == "production" and not app.config.get("SECRET_KEY"):
+        raise ValueError(
+            "SECRET_KEY environment variable MUST be set in production. "
+            "Generate one with: python -c 'import secrets; print(secrets.token_hex(32))'"
+        )
+
     if not app.testing:
         if not os.path.exists("logs"):
             os.mkdir("logs")
@@ -72,6 +83,52 @@ def create_app(config_name=None, config_overrides=None):
 
     # Initialize rate limiter
     limiter.init_app(app)
+
+    # CORS Configuration
+    cors_origins = app.config.get("CORS_ORIGINS", ["http://localhost:3000"])
+    CORS(
+        app,
+        resources={r"/api/*": {"origins": cors_origins}},
+        supports_credentials=True,
+        allow_headers=["Content-Type", "Authorization"],
+        methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    )
+
+    # Security Headers with Flask-Talisman (only in production)
+    if not app.debug and not app.testing:
+        csp = {
+            "default-src": "'self'",
+            "script-src": ["'self'", "'unsafe-inline'"],
+            "style-src": ["'self'", "'unsafe-inline'"],
+            "img-src": ["'self'", "data:", "https:"],
+            "font-src": ["'self'", "data:"],
+            "connect-src": ["'self'"],
+        }
+        Talisman(
+            app,
+            force_https=True,
+            strict_transport_security=True,
+            content_security_policy=csp,
+            content_security_policy_nonce_in=["script-src"],
+        )
+
+    # CSRF Protection - Initialize but exempt API endpoints that use JWT
+    csrf.init_app(app)
+
+    # Exempt JWT-authenticated portal endpoints from CSRF
+    # (they use Bearer token authentication instead)
+    csrf.exempt("routes.portal_login")
+    csrf.exempt("routes.portal_register")
+    csrf.exempt("routes.portal_dashboard")
+    csrf.exempt("routes.portal_patients")
+    csrf.exempt("routes.portal_patient_detail")
+    csrf.exempt("routes.portal_appointments")
+    csrf.exempt("routes.portal_invoices")
+    csrf.exempt("routes.portal_invoice_detail")
+    csrf.exempt("routes.create_appointment_request")
+    csrf.exempt("routes.get_client_appointment_requests")
+    csrf.exempt("routes.get_appointment_request_detail")
+    csrf.exempt("routes.cancel_appointment_request")
 
     # Initialize API with app first
     api.init_app(app)

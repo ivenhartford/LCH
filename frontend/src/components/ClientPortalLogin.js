@@ -16,6 +16,7 @@ import {
   Link,
 } from '@mui/material';
 import { Login as LoginIcon, PersonAdd as RegisterIcon } from '@mui/icons-material';
+import { setPortalToken, setPortalUser as savePortalUser } from '../utils/portalAuth';
 
 // Validation schemas
 const loginSchema = z.object({
@@ -102,8 +103,12 @@ function ClientPortalLogin({ setPortalUser }) {
       const result = await response.json();
 
       if (response.ok) {
+        // Store JWT token and user info
+        if (result.token) {
+          setPortalToken(result.token);
+        }
+        savePortalUser(result.user);
         setPortalUser(result.user);
-        localStorage.setItem('portalUser', JSON.stringify(result.user));
         navigate('/portal/dashboard');
       } else {
         setError(result.error || 'Login failed');

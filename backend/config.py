@@ -35,6 +35,9 @@ class Config:
     SESSION_COOKIE_SAMESITE = "Lax"
     PERMANENT_SESSION_LIFETIME = 3600  # 1 hour
 
+    # CORS - Allow frontend origin
+    CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "http://localhost:3000").split(",")
+
 
 class DevelopmentConfig(Config):
     """Development configuration"""
@@ -66,13 +69,6 @@ class ProductionConfig(Config):
 
     DEBUG = False
     TESTING = False
-
-    # SECURITY: Enforce SECRET_KEY in production
-    if not Config.SECRET_KEY:
-        raise ValueError(
-            "SECRET_KEY environment variable MUST be set in production. "
-            "Generate one with: python -c 'import secrets; print(secrets.token_hex(32))'"
-        )
 
     # Production should use PostgreSQL
     SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL", "postgresql://localhost/vet_clinic")

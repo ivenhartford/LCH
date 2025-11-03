@@ -24,6 +24,7 @@ import {
   RequestPage as RequestIcon,
   Logout as LogoutIcon,
 } from '@mui/icons-material';
+import { clearPortalAuth } from '../utils/portalAuth';
 
 const drawerWidth = 240;
 
@@ -45,8 +46,8 @@ function ClientPortalLayout({ portalUser, setPortalUser }) {
   const navigate = useNavigate();
 
   const handleLogout = () => {
+    clearPortalAuth();
     setPortalUser(null);
-    localStorage.removeItem('portalUser');
     navigate('/portal/login');
   };
 
