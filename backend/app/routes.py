@@ -4741,6 +4741,11 @@ def portal_login():
         portal_user.last_login = datetime.utcnow()
         portal_user.failed_login_attempts = 0
         portal_user.account_locked_until = None
+
+        # Set session management (8-hour session)
+        portal_user.session_expires_at = datetime.utcnow() + timedelta(hours=8)
+        portal_user.last_activity_at = datetime.utcnow()
+
         db.session.commit()
 
         # Generate JWT token
@@ -4758,7 +4763,8 @@ def portal_login():
                 "username": portal_user.username,
                 "email": portal_user.email,
                 "client_id": portal_user.client_id,
-                "client_name": f"{client.first_name} {client.last_name}" if client else None
+                "client_name": f"{client.first_name} {client.last_name}" if client else None,
+                "has_pin": portal_user.pin_hash is not None
             }
         }), 200
 
@@ -5162,6 +5168,142 @@ def resend_verification():
     except Exception as e:
         app.logger.error(f"Error resending verification: {str(e)}", exc_info=True)
         return jsonify({"error": "Failed to send verification email"}), 400
+
+
+@bp.route("/api/portal/set-pin", methods=["POST"])
+@portal_auth_required
+def portal_set_pin():
+    """Set or update PIN for quick re-authentication"""
+    try:
+        # Get authenticated user from token
+        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        payload = verify_portal_token(token)
+
+        if not payload:
+            return jsonify({"error": "Invalid token"}), 401
+
+        portal_user = ClientPortalUser.query.get(payload["portal_user_id"])
+        if not portal_user:
+            return jsonify({"error": "User not found"}), 404
+
+        # Get PIN from request
+        pin = request.json.get("pin")
+        if not pin:
+            return jsonify({"error": "PIN required"}), 400
+
+        # Validate and set PIN
+        try:
+            portal_user.set_pin(pin)
+            db.session.commit()
+
+            app.logger.info(f"PIN set for portal user: {portal_user.username}")
+            return jsonify({"message": "PIN set successfully"}), 200
+
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
+    except Exception as e:
+        app.logger.error(f"Error setting PIN: {str(e)}", exc_info=True)
+        return jsonify({"error": "Failed to set PIN"}), 400
+
+
+@bp.route("/api/portal/verify-pin", methods=["POST"])
+@portal_auth_required
+def portal_verify_pin():
+    """Verify PIN to unlock session after idle timeout"""
+    try:
+        # Get authenticated user from token
+        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        payload = verify_portal_token(token)
+
+        if not payload:
+            return jsonify({"error": "Invalid token"}), 401
+
+        portal_user = ClientPortalUser.query.get(payload["portal_user_id"])
+        if not portal_user:
+            return jsonify({"error": "User not found"}), 404
+
+        # Check if session has expired (8 hours)
+        if portal_user.session_expires_at and portal_user.session_expires_at < datetime.utcnow():
+            return jsonify({
+                "error": "Session expired. Please log in again.",
+                "session_expired": True
+            }), 401
+
+        # Get PIN from request
+        pin = request.json.get("pin")
+        if not pin:
+            return jsonify({"error": "PIN required"}), 400
+
+        # Verify PIN
+        if not portal_user.check_pin(pin):
+            return jsonify({"error": "Invalid PIN"}), 401
+
+        # Update last activity
+        portal_user.last_activity_at = datetime.utcnow()
+        db.session.commit()
+
+        app.logger.info(f"PIN verified for portal user: {portal_user.username}")
+        return jsonify({
+            "message": "PIN verified successfully",
+            "user": {
+                "id": portal_user.id,
+                "username": portal_user.username,
+                "client_id": portal_user.client_id
+            }
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Error verifying PIN: {str(e)}", exc_info=True)
+        return jsonify({"error": "Failed to verify PIN"}), 400
+
+
+@bp.route("/api/portal/check-session", methods=["GET"])
+@portal_auth_required
+def portal_check_session():
+    """Check if session is active and if PIN is required"""
+    try:
+        # Get authenticated user from token
+        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        payload = verify_portal_token(token)
+
+        if not payload:
+            return jsonify({"error": "Invalid token"}), 401
+
+        portal_user = ClientPortalUser.query.get(payload["portal_user_id"])
+        if not portal_user:
+            return jsonify({"error": "User not found"}), 404
+
+        # Check if session has expired (8 hours)
+        if portal_user.session_expires_at and portal_user.session_expires_at < datetime.utcnow():
+            return jsonify({
+                "session_expired": True,
+                "requires_login": True,
+                "message": "Session expired. Please log in again."
+            }), 200
+
+        # Check if idle timeout has occurred (15 minutes)
+        requires_pin = False
+        if portal_user.last_activity_at:
+            idle_time = datetime.utcnow() - portal_user.last_activity_at
+            if idle_time.total_seconds() > 900:  # 15 minutes
+                requires_pin = True
+
+        # Update activity if no PIN required
+        if not requires_pin:
+            portal_user.last_activity_at = datetime.utcnow()
+            db.session.commit()
+
+        return jsonify({
+            "session_expired": False,
+            "requires_pin": requires_pin,
+            "has_pin": portal_user.pin_hash is not None,
+            "requires_login": False
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Error checking session: {str(e)}", exc_info=True)
+        return jsonify({"error": "Failed to check session"}), 400
 
 
 # Staff-side Appointment Request Management
