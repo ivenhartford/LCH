@@ -35,6 +35,7 @@ import {
   Search as SearchIcon,
 } from '@mui/icons-material';
 import logger from '../utils/logger';
+import ConfirmDialog from './common/ConfirmDialog';
 
 /**
  * Medications Management Component
@@ -56,6 +57,7 @@ function Medications() {
   const [drugClassFilter, setDrugClassFilter] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMedication, setEditingMedication] = useState(null);
+  const [deleteDialog, setDeleteDialog] = useState({ open: false, medicationId: null, drugName: '' });
   const [formData, setFormData] = useState({
     drug_name: '',
     brand_names: '',
@@ -234,10 +236,17 @@ function Medications() {
   };
 
   const handleDelete = (medicationId, drugName) => {
-    if (window.confirm(`Are you sure you want to delete ${drugName}?`)) {
-      logger.logAction('Delete medication', { medicationId, drugName });
-      deleteMutation.mutate(medicationId);
-    }
+    setDeleteDialog({ open: true, medicationId, drugName });
+  };
+
+  const handleDeleteConfirm = () => {
+    logger.logAction('Delete medication', { medicationId: deleteDialog.medicationId, drugName: deleteDialog.drugName });
+    deleteMutation.mutate(deleteDialog.medicationId);
+    setDeleteDialog({ open: false, medicationId: null, drugName: '' });
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialog({ open: false, medicationId: null, drugName: '' });
   };
 
   if (isLoading) {
@@ -635,6 +644,17 @@ function Medications() {
           </Alert>
         )}
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialog.open}
+        title="Delete Medication"
+        message={`Are you sure you want to delete "${deleteDialog.drugName}"? This action cannot be undone and will remove all medication information.`}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+        confirmText="Delete"
+        confirmColor="error"
+      />
     </Box>
   );
 }

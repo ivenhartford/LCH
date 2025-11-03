@@ -34,6 +34,7 @@ import {
   Search as SearchIcon,
 } from '@mui/icons-material';
 import logger from '../utils/logger';
+import ConfirmDialog from './common/ConfirmDialog';
 
 /**
  * Services Catalog Component
@@ -49,6 +50,7 @@ function Services() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingService, setEditingService] = useState(null);
+  const [deleteDialog, setDeleteDialog] = useState({ open: false, serviceId: null, serviceName: '' });
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -153,9 +155,16 @@ function Services() {
   };
 
   const handleDelete = (serviceId, name) => {
-    if (window.confirm(`Delete ${name}?`)) {
-      deleteMutation.mutate(serviceId);
-    }
+    setDeleteDialog({ open: true, serviceId, serviceName: name });
+  };
+
+  const handleDeleteConfirm = () => {
+    deleteMutation.mutate(deleteDialog.serviceId);
+    setDeleteDialog({ open: false, serviceId: null, serviceName: '' });
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialog({ open: false, serviceId: null, serviceName: '' });
   };
 
   if (isLoading) {
@@ -438,6 +447,17 @@ function Services() {
           </Alert>
         )}
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialog.open}
+        title="Delete Service"
+        message={`Are you sure you want to delete "${deleteDialog.serviceName}"? This action cannot be undone.`}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+        confirmText="Delete"
+        confirmColor="error"
+      />
     </Box>
   );
 }

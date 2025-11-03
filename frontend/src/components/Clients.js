@@ -235,7 +235,14 @@ function Clients() {
               ),
               endAdornment: searchInput && (
                 <InputAdornment position="end">
-                  <IconButton size="small" onClick={handleClearSearch} aria-label="Clear search">
+                  <IconButton
+                    onClick={handleClearSearch}
+                    aria-label="Clear search"
+                    sx={{
+                      minWidth: 44,
+                      minHeight: 44,
+                    }}
+                  >
                     <ClearIcon />
                   </IconButton>
                 </InputAdornment>
