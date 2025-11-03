@@ -130,6 +130,29 @@ def create_app(config_name=None, config_overrides=None):
     csrf.exempt("routes.get_appointment_request_detail")
     csrf.exempt("routes.cancel_appointment_request")
 
+    # Initialize error handlers and security monitoring
+    from .error_handlers import (
+        handle_validation_error,
+        handle_not_found_error,
+        handle_auth_error,
+        handle_permission_error,
+        handle_database_error,
+    )
+    from .security_monitor import get_security_monitor
+    from marshmallow import ValidationError
+    from werkzeug.exceptions import NotFound, Unauthorized, Forbidden
+    from sqlalchemy.exc import SQLAlchemyError
+
+    # Register error handlers
+    app.register_error_handler(ValidationError, handle_validation_error)
+    app.register_error_handler(NotFound, handle_not_found_error)
+    app.register_error_handler(Unauthorized, handle_auth_error)
+    app.register_error_handler(Forbidden, handle_permission_error)
+    app.register_error_handler(SQLAlchemyError, handle_database_error)
+
+    # Initialize security monitor (accessible via get_security_monitor())
+    app.security_monitor = get_security_monitor()
+
     # Initialize API with app first
     api.init_app(app)
 
