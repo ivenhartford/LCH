@@ -170,6 +170,7 @@ const Sidebar = ({ open, onClose }) => {
                 <ListItemButton
                   selected={isSelected(item.path)}
                   onClick={() => handleNavigation(item.path, item.text)}
+                  aria-label={`Navigate to ${item.text}`}
                   sx={{
                     '&.Mui-selected': {
                       backgroundColor: 'primary.light',
@@ -205,6 +206,7 @@ const Sidebar = ({ open, onClose }) => {
           <ListItemButton
             selected={isSelected('/settings')}
             onClick={() => handleNavigation('/settings', 'Settings')}
+            aria-label="Navigate to Settings"
           >
             <ListItemIcon>
               <SettingsIcon />
@@ -223,6 +225,7 @@ const Sidebar = ({ open, onClose }) => {
         variant="temporary"
         open={open}
         onClose={onClose}
+        aria-label="Mobile navigation menu"
         ModalProps={{
           keepMounted: true, // Better mobile performance
         }}
@@ -240,6 +243,7 @@ const Sidebar = ({ open, onClose }) => {
       {/* Desktop drawer */}
       <Drawer
         variant="permanent"
+        aria-label="Main navigation menu"
         sx={{
           display: { xs: 'none', sm: 'block' },
           width: drawerWidth,

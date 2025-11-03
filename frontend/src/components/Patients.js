@@ -236,6 +236,7 @@ function Patients() {
           color="primary"
           startIcon={<AddIcon />}
           onClick={handleCreatePatient}
+          aria-label="Create new patient"
         >
           New Patient
         </Button>
@@ -260,7 +261,7 @@ function Patients() {
               ),
               endAdornment: searchInput && (
                 <InputAdornment position="end">
-                  <IconButton size="small" onClick={handleClearSearch}>
+                  <IconButton size="small" onClick={handleClearSearch} aria-label="Clear search">
                     <ClearIcon />
                   </IconButton>
                 </InputAdornment>
@@ -273,6 +274,7 @@ function Patients() {
             onClick={handleSearch}
             disabled={!searchInput && !searchTerm}
             sx={{ mr: 2, minWidth: '100px' }}
+            aria-label="Search patients"
           >
             Search
           </Button>
@@ -326,6 +328,9 @@ function Patients() {
                   hover
                   onClick={() => handleRowClick(patient.id)}
                   sx={{ cursor: 'pointer' }}
+                  aria-label={`View details for ${patient.name}`}
+                  role="button"
+                  tabIndex={0}
                 >
                   <TableCell>
                     <Typography variant="body2" fontWeight="medium">
