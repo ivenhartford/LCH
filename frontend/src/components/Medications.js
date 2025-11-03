@@ -36,6 +36,7 @@ import {
 } from '@mui/icons-material';
 import logger from '../utils/logger';
 import ConfirmDialog from './common/ConfirmDialog';
+import TableSkeleton from './common/TableSkeleton';
 import { useNotification } from '../contexts/NotificationContext';
 
 /**
@@ -264,8 +265,15 @@ function Medications() {
 
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
+      <Box>
+        <Typography variant="h4" gutterBottom>
+          Medications
+        </Typography>
+        <TableSkeleton
+          rows={10}
+          columns={8}
+          headers={['Drug Name', 'Brand Names', 'Class', 'Controlled', 'Forms', 'Stock', 'Cost', 'Status']}
+        />
       </Box>
     );
   }
@@ -662,6 +670,7 @@ function Medications() {
         onCancel={handleDeleteCancel}
         confirmText="Delete"
         confirmColor="error"
+        loading={deleteMutation.isLoading}
       />
     </Box>
   );

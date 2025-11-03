@@ -6,6 +6,7 @@ import {
   DialogContentText,
   DialogActions,
   Button,
+  CircularProgress,
 } from '@mui/material';
 import { Warning as WarningIcon } from '@mui/icons-material';
 
@@ -24,6 +25,7 @@ import { Warning as WarningIcon } from '@mui/icons-material';
  * - confirmColor: String - Color for confirm button (default: "error")
  * - cancelText: String - Text for cancel button (default: "Cancel")
  * - showWarningIcon: Boolean - Show warning icon in title (default: true)
+ * - loading: Boolean - Show loading spinner and disable buttons (default: false)
  *
  * Example usage:
  * ```jsx
@@ -46,6 +48,7 @@ const ConfirmDialog = ({
   confirmColor = 'error',
   cancelText = 'Cancel',
   showWarningIcon = true,
+  loading = false,
 }) => {
   return (
     <Dialog
@@ -76,6 +79,7 @@ const ConfirmDialog = ({
         <Button
           onClick={onCancel}
           variant="outlined"
+          disabled={loading}
           sx={{
             minWidth: 100,
           }}
@@ -87,11 +91,13 @@ const ConfirmDialog = ({
           variant="contained"
           color={confirmColor}
           autoFocus
+          disabled={loading}
+          startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
           sx={{
             minWidth: 100,
           }}
         >
-          {confirmText}
+          {loading ? 'Deleting...' : confirmText}
         </Button>
       </DialogActions>
     </Dialog>

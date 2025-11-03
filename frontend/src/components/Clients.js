@@ -30,6 +30,7 @@ import {
   Person as PersonIcon,
 } from '@mui/icons-material';
 import logger from '../utils/logger';
+import TableSkeleton from './common/TableSkeleton';
 
 /**
  * Client List Component
@@ -169,11 +170,18 @@ function Clients() {
   // Loading state
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-        <Typography variant="body1" sx={{ ml: 2 }}>
-          Loading clients...
-        </Typography>
+      <Box>
+        <Box mb={3} display="flex" justifyContent="space-between" alignItems="center">
+          <Typography variant="h4" component="h1">
+            <PersonIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+            Clients (Cat Owners)
+          </Typography>
+        </Box>
+        <TableSkeleton
+          rows={rowsPerPage}
+          columns={6}
+          headers={['Name', 'Email', 'Phone', 'City', 'Status', 'Balance']}
+        />
       </Box>
     );
   }

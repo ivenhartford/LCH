@@ -35,6 +35,7 @@ import {
 } from '@mui/icons-material';
 import logger from '../utils/logger';
 import ConfirmDialog from './common/ConfirmDialog';
+import TableSkeleton from './common/TableSkeleton';
 import { useNotification } from '../contexts/NotificationContext';
 
 /**
@@ -184,8 +185,15 @@ function Services() {
 
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
+      <Box>
+        <Typography variant="h4" gutterBottom>
+          Services Catalog
+        </Typography>
+        <TableSkeleton
+          rows={10}
+          columns={7}
+          headers={['Name', 'Category', 'Type', 'Price', 'Cost', 'Taxable', 'Status']}
+        />
       </Box>
     );
   }
@@ -467,6 +475,7 @@ function Services() {
         onCancel={handleDeleteCancel}
         confirmText="Delete"
         confirmColor="error"
+        loading={deleteMutation.isLoading}
       />
     </Box>
   );

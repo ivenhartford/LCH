@@ -32,6 +32,7 @@ import {
   Pets as PetsIcon,
 } from '@mui/icons-material';
 import logger from '../utils/logger';
+import TableSkeleton from './common/TableSkeleton';
 
 /**
  * Patient (Cat) List Component
@@ -195,11 +196,18 @@ function Patients() {
   // Loading state
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-        <Typography variant="body1" sx={{ ml: 2 }}>
-          Loading patients...
-        </Typography>
+      <Box>
+        <Box mb={3} display="flex" justifyContent="space-between" alignItems="center">
+          <Typography variant="h4" component="h1">
+            <PetsIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+            Patients (Cats)
+          </Typography>
+        </Box>
+        <TableSkeleton
+          rows={rowsPerPage}
+          columns={7}
+          headers={['Name', 'Breed', 'Color', 'Age', 'Sex', 'Owner', 'Status']}
+        />
       </Box>
     );
   }
