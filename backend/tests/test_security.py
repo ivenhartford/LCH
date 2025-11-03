@@ -338,3 +338,516 @@ class TestCORSConfiguration:
         response = client.options("/api/portal/login", headers={"Origin": "http://localhost:3000"})
 
         assert response.headers.get("Access-Control-Allow-Credentials") == "true"
+
+
+class TestPasswordPolicy:
+    """Test password complexity requirements (Phase 3)"""
+
+    def test_password_requires_minimum_length(self, app, client, test_client_user):
+        """Test password requires minimum 8 characters"""
+        with app.app_context():
+            # Create another client for registration
+            new_client = Client(
+                first_name="New",
+                last_name="Client",
+                email="newclient@example.com",
+                phone_primary="555-0200",
+            )
+            db.session.add(new_client)
+            db.session.commit()
+            new_client_id = new_client.id
+
+        response = client.post(
+            "/api/portal/register",
+            json={
+                "client_id": new_client_id,
+                "username": "shortpass",
+                "email": "shortpass@example.com",
+                "password": "Short1!",  # Only 7 characters
+                "password_confirm": "Short1!",
+            },
+        )
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert "error" in data
+
+    def test_password_requires_uppercase(self, app, client, test_client_user):
+        """Test password requires uppercase letter"""
+        with app.app_context():
+            new_client = Client(
+                first_name="New",
+                last_name="Client",
+                email="newclient@example.com",
+                phone_primary="555-0200",
+            )
+            db.session.add(new_client)
+            db.session.commit()
+            new_client_id = new_client.id
+
+        response = client.post(
+            "/api/portal/register",
+            json={
+                "client_id": new_client_id,
+                "username": "noupper",
+                "email": "noupper@example.com",
+                "password": "nouppercase1!",  # No uppercase
+                "password_confirm": "nouppercase1!",
+            },
+        )
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert "error" in data
+
+    def test_password_requires_lowercase(self, app, client, test_client_user):
+        """Test password requires lowercase letter"""
+        with app.app_context():
+            new_client = Client(
+                first_name="New",
+                last_name="Client",
+                email="newclient@example.com",
+                phone_primary="555-0200",
+            )
+            db.session.add(new_client)
+            db.session.commit()
+            new_client_id = new_client.id
+
+        response = client.post(
+            "/api/portal/register",
+            json={
+                "client_id": new_client_id,
+                "username": "nolower",
+                "email": "nolower@example.com",
+                "password": "NOLOWERCASE1!",  # No lowercase
+                "password_confirm": "NOLOWERCASE1!",
+            },
+        )
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert "error" in data
+
+    def test_password_requires_digit(self, app, client, test_client_user):
+        """Test password requires digit"""
+        with app.app_context():
+            new_client = Client(
+                first_name="New",
+                last_name="Client",
+                email="newclient@example.com",
+                phone_primary="555-0200",
+            )
+            db.session.add(new_client)
+            db.session.commit()
+            new_client_id = new_client.id
+
+        response = client.post(
+            "/api/portal/register",
+            json={
+                "client_id": new_client_id,
+                "username": "nodigit",
+                "email": "nodigit@example.com",
+                "password": "NoDigitPass!",  # No digit
+                "password_confirm": "NoDigitPass!",
+            },
+        )
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert "error" in data
+
+    def test_password_requires_special_char(self, app, client, test_client_user):
+        """Test password requires special character"""
+        with app.app_context():
+            new_client = Client(
+                first_name="New",
+                last_name="Client",
+                email="newclient@example.com",
+                phone_primary="555-0200",
+            )
+            db.session.add(new_client)
+            db.session.commit()
+            new_client_id = new_client.id
+
+        response = client.post(
+            "/api/portal/register",
+            json={
+                "client_id": new_client_id,
+                "username": "nospecial",
+                "email": "nospecial@example.com",
+                "password": "NoSpecial123",  # No special character
+                "password_confirm": "NoSpecial123",
+            },
+        )
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert "error" in data
+
+    def test_password_complex_succeeds(self, app, client, test_client_user):
+        """Test password with all complexity requirements succeeds"""
+        with app.app_context():
+            new_client = Client(
+                first_name="New",
+                last_name="Client",
+                email="newclient@example.com",
+                phone_primary="555-0200",
+            )
+            db.session.add(new_client)
+            db.session.commit()
+            new_client_id = new_client.id
+
+        response = client.post(
+            "/api/portal/register",
+            json={
+                "client_id": new_client_id,
+                "username": "validuser",
+                "email": "validuser@example.com",
+                "password": "ValidPass123!",  # All requirements met
+                "password_confirm": "ValidPass123!",
+            },
+        )
+
+        assert response.status_code == 201
+
+
+class TestEmailVerification:
+    """Test email verification flow (Phase 3)"""
+
+    def test_registration_sends_verification(self, app, client, test_client_user):
+        """Test registration creates verification token"""
+        with app.app_context():
+            new_client = Client(
+                first_name="New",
+                last_name="Client",
+                email="newclient@example.com",
+                phone_primary="555-0200",
+            )
+            db.session.add(new_client)
+            db.session.commit()
+            new_client_id = new_client.id
+
+        response = client.post(
+            "/api/portal/register",
+            json={
+                "client_id": new_client_id,
+                "username": "verifyuser",
+                "email": "verify@example.com",
+                "password": "VerifyPass123!",
+                "password_confirm": "VerifyPass123!",
+            },
+        )
+
+        assert response.status_code == 201
+
+        # Check that user has verification token
+        with app.app_context():
+            portal_user = ClientPortalUser.query.filter_by(username="verifyuser").first()
+            assert portal_user is not None
+            assert portal_user.is_verified is False
+            assert portal_user.verification_token is not None
+            assert portal_user.reset_token_expiry is not None
+
+    def test_unverified_user_cannot_login(self, app, client):
+        """Test unverified user cannot login"""
+        with app.app_context():
+            # Create client and unverified portal user
+            test_client_obj = Client(
+                first_name="Test",
+                last_name="Client",
+                email="test@example.com",
+                phone_primary="555-0100",
+            )
+            db.session.add(test_client_obj)
+            db.session.commit()
+
+            portal_user = ClientPortalUser(
+                client_id=test_client_obj.id,
+                username="unverified",
+                email="unverified@example.com",
+                is_verified=False,
+            )
+            portal_user.set_password("TestPassword123!")
+            db.session.add(portal_user)
+            db.session.commit()
+
+        response = client.post(
+            "/api/portal/login",
+            json={"username": "unverified", "password": "TestPassword123!"},
+        )
+
+        assert response.status_code == 403
+        data = response.get_json()
+        assert "Email not verified" in data["error"]
+        assert data.get("requires_verification") is True
+
+    def test_verified_user_can_login(self, app, client):
+        """Test verified user can login"""
+        with app.app_context():
+            # Create client and verified portal user
+            test_client_obj = Client(
+                first_name="Test",
+                last_name="Client",
+                email="test@example.com",
+                phone_primary="555-0100",
+            )
+            db.session.add(test_client_obj)
+            db.session.commit()
+
+            portal_user = ClientPortalUser(
+                client_id=test_client_obj.id,
+                username="verified",
+                email="verified@example.com",
+                is_verified=True,  # Verified
+            )
+            portal_user.set_password("TestPassword123!")
+            db.session.add(portal_user)
+            db.session.commit()
+
+        response = client.post(
+            "/api/portal/login",
+            json={"username": "verified", "password": "TestPassword123!"},
+        )
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "token" in data
+
+    def test_verify_email_with_valid_token(self, app, client):
+        """Test email verification with valid token"""
+        from datetime import datetime, timedelta
+
+        with app.app_context():
+            # Create client and unverified portal user with token
+            test_client_obj = Client(
+                first_name="Test",
+                last_name="Client",
+                email="test@example.com",
+                phone_primary="555-0100",
+            )
+            db.session.add(test_client_obj)
+            db.session.commit()
+
+            portal_user = ClientPortalUser(
+                client_id=test_client_obj.id,
+                username="toverify",
+                email="toverify@example.com",
+                is_verified=False,
+                verification_token="valid_token_12345",
+                reset_token_expiry=datetime.utcnow() + timedelta(hours=24),
+            )
+            portal_user.set_password("TestPassword123!")
+            db.session.add(portal_user)
+            db.session.commit()
+
+        response = client.post(
+            "/api/portal/verify-email",
+            json={"token": "valid_token_12345"},
+        )
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["message"] == "Email verified successfully"
+
+        # Check that user is now verified
+        with app.app_context():
+            portal_user = ClientPortalUser.query.filter_by(username="toverify").first()
+            assert portal_user.is_verified is True
+
+    def test_verify_email_with_invalid_token(self, client):
+        """Test email verification with invalid token"""
+        response = client.post(
+            "/api/portal/verify-email",
+            json={"token": "invalid_token"},
+        )
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert "Invalid or expired" in data["error"]
+
+    def test_verify_email_with_expired_token(self, app, client):
+        """Test email verification with expired token"""
+        from datetime import datetime, timedelta
+
+        with app.app_context():
+            # Create client and unverified portal user with expired token
+            test_client_obj = Client(
+                first_name="Test",
+                last_name="Client",
+                email="test@example.com",
+                phone_primary="555-0100",
+            )
+            db.session.add(test_client_obj)
+            db.session.commit()
+
+            portal_user = ClientPortalUser(
+                client_id=test_client_obj.id,
+                username="expired",
+                email="expired@example.com",
+                is_verified=False,
+                verification_token="expired_token_12345",
+                reset_token_expiry=datetime.utcnow() - timedelta(hours=1),  # Expired
+            )
+            portal_user.set_password("TestPassword123!")
+            db.session.add(portal_user)
+            db.session.commit()
+
+        response = client.post(
+            "/api/portal/verify-email",
+            json={"token": "expired_token_12345"},
+        )
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert "Invalid or expired" in data["error"]
+
+
+class TestStaffAccountLockout:
+    """Test staff account lockout after failed login attempts (Phase 3)"""
+
+    def test_staff_lockout_after_5_failed_attempts(self, app, client):
+        """Test staff account locks after 5 failed login attempts"""
+        with app.app_context():
+            # Create staff user
+            user = User(username="stafftest")
+            user.set_password("CorrectPassword123!")
+            db.session.add(user)
+            db.session.commit()
+
+        # Make 5 failed login attempts
+        for i in range(5):
+            response = client.post(
+                "/api/login",
+                json={"username": "stafftest", "password": "WrongPassword"},
+            )
+            assert response.status_code == 401
+
+        # 6th attempt should return locked message
+        response = client.post(
+            "/api/login",
+            json={"username": "stafftest", "password": "WrongPassword"},
+        )
+
+        assert response.status_code == 403
+        data = response.get_json()
+        assert "Account is locked" in data["error"]
+
+    def test_staff_lockout_prevents_login_even_with_correct_password(self, app, client):
+        """Test locked account cannot login even with correct password"""
+        with app.app_context():
+            # Create staff user
+            user = User(username="stafftest2")
+            user.set_password("CorrectPassword123!")
+            db.session.add(user)
+            db.session.commit()
+
+        # Make 5 failed login attempts to lock account
+        for i in range(5):
+            client.post(
+                "/api/login",
+                json={"username": "stafftest2", "password": "WrongPassword"},
+            )
+
+        # Try with correct password - should still be locked
+        response = client.post(
+            "/api/login",
+            json={"username": "stafftest2", "password": "CorrectPassword123!"},
+        )
+
+        assert response.status_code == 403
+        data = response.get_json()
+        assert "Account is locked" in data["error"]
+
+    def test_staff_lockout_resets_on_successful_login(self, app, client):
+        """Test failed attempt counter resets on successful login"""
+        with app.app_context():
+            # Create staff user
+            user = User(username="stafftest3")
+            user.set_password("CorrectPassword123!")
+            db.session.add(user)
+            db.session.commit()
+
+        # Make 3 failed attempts
+        for i in range(3):
+            response = client.post(
+                "/api/login",
+                json={"username": "stafftest3", "password": "WrongPassword"},
+            )
+            assert response.status_code == 401
+
+        # Successful login
+        response = client.post(
+            "/api/login",
+            json={"username": "stafftest3", "password": "CorrectPassword123!"},
+        )
+        assert response.status_code == 200
+
+        # Make 3 more failed attempts (should not lock yet)
+        for i in range(3):
+            response = client.post(
+                "/api/login",
+                json={"username": "stafftest3", "password": "WrongPassword"},
+            )
+            assert response.status_code == 401
+
+        # Should still be able to try (not locked, counter was reset)
+        response = client.post(
+            "/api/login",
+            json={"username": "stafftest3", "password": "WrongPassword"},
+        )
+        assert response.status_code == 401  # Still trying, not locked
+
+
+class TestBcryptPasswordHashing:
+    """Test bcrypt password hashing for portal users (Phase 3)"""
+
+    def test_portal_user_uses_bcrypt(self, app):
+        """Test new portal users use bcrypt hashing"""
+        with app.app_context():
+            test_client_obj = Client(
+                first_name="Test",
+                last_name="Client",
+                email="test@example.com",
+                phone_primary="555-0100",
+            )
+            db.session.add(test_client_obj)
+            db.session.commit()
+
+            portal_user = ClientPortalUser(
+                client_id=test_client_obj.id,
+                username="bcrypttest",
+                email="bcrypttest@example.com",
+            )
+            portal_user.set_password("TestPassword123!")
+            db.session.add(portal_user)
+            db.session.commit()
+
+            # Check password hash starts with bcrypt prefix
+            assert portal_user.password_hash.startswith("$2b$")
+
+    def test_portal_user_check_password(self, app):
+        """Test portal user password verification"""
+        with app.app_context():
+            test_client_obj = Client(
+                first_name="Test",
+                last_name="Client",
+                email="test@example.com",
+                phone_primary="555-0100",
+            )
+            db.session.add(test_client_obj)
+            db.session.commit()
+
+            portal_user = ClientPortalUser(
+                client_id=test_client_obj.id,
+                username="checktest",
+                email="checktest@example.com",
+            )
+            portal_user.set_password("TestPassword123!")
+            db.session.add(portal_user)
+            db.session.commit()
+
+            # Check correct password
+            assert portal_user.check_password("TestPassword123!") is True
+
+            # Check incorrect password
+            assert portal_user.check_password("WrongPassword") is False

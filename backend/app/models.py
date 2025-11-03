@@ -10,6 +10,11 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(128))
     role = db.Column(db.String(80), nullable=False, default="user")
 
+    # Account lockout fields (matching portal user behavior)
+    failed_login_attempts = db.Column(db.Integer, default=0)
+    account_locked_until = db.Column(db.DateTime, nullable=True)
+    last_login = db.Column(db.DateTime, nullable=True)
+
     def set_password(self, password):
         self.password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
@@ -2084,16 +2089,35 @@ class ClientPortalUser(db.Model):
     client = db.relationship("Client", backref="portal_user")
 
     def set_password(self, password):
-        """Set password hash"""
-        from werkzeug.security import generate_password_hash
-
-        self.password_hash = generate_password_hash(password)
+        """Set password hash using bcrypt (standardized with staff users)"""
+        self.password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
     def check_password(self, password):
         """Check password against hash"""
-        from werkzeug.security import check_password_hash
+        # Support both bcrypt and legacy Werkzeug hashes for migration
+        password_bytes = password.encode("utf-8")
+        hash_bytes = self.password_hash.encode("utf-8")
 
-        return check_password_hash(self.password_hash, password)
+        # Try bcrypt first (new format)
+        try:
+            if bcrypt.checkpw(password_bytes, hash_bytes):
+                return True
+        except (ValueError, AttributeError):
+            pass
+
+        # Fallback to Werkzeug for legacy hashes (migration support)
+        try:
+            from werkzeug.security import check_password_hash
+
+            if check_password_hash(self.password_hash, password):
+                # Auto-migrate to bcrypt on successful login
+                self.set_password(password)
+                db.session.commit()
+                return True
+        except Exception:
+            pass
+
+        return False
 
     def to_dict(self):
         """Convert to dictionary"""

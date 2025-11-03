@@ -418,17 +418,32 @@ Add inventory management, staff scheduling, and begin building client-facing fea
 - [x] Add invoice history view ✅
 - [x] Build online appointment request form ✅
 
-### 3.6 Security Hardening 🔒 IN PROGRESS
+### 3.6 Security Hardening 🔒
 **Priority:** CRITICAL (Security vulnerabilities must be fixed before Phase 4)
-**Status:** 🔄 In Progress
+**Status:** 🔄 In Progress (Phases 1-3 Complete, Phase 4 Pending)
 **Audit Date:** 2025-11-02
+**Completion Date (Phases 1-3):** 2025-11-03
 
 Following comprehensive security audit, implementing critical fixes to secure the application before continuing development.
 
-#### Phase 1: Critical Fixes (Days 1-2) 🔴 IMMEDIATE
-**Status:** In Progress
+**Phase 1-3 Implementation Summary:**
+- ✅ JWT authentication for all portal endpoints
+- ✅ SECRET_KEY enforcement in production
+- ✅ Rate limiting on authentication endpoints
+- ✅ CSRF protection with Flask-WTF
+- ✅ Security headers (CSP, HSTS, X-Frame-Options)
+- ✅ CORS configuration with explicit origin whitelist
+- ✅ Password complexity requirements (8+ chars, uppercase, lowercase, digit, special)
+- ✅ PasswordStrengthMeter UI component
+- ✅ Standardized bcrypt password hashing with auto-migration
+- ✅ Email verification flow (token generation, verification, resend)
+- ✅ Staff account lockout (5 failed attempts = 15 min lock)
+- ✅ Comprehensive security test suite (30+ tests)
 
-- [ ] **Fix unauthenticated client portal endpoints** ⚠️ HIGHEST PRIORITY
+#### Phase 1: Critical Fixes (Days 1-2) 🔴 ✅ COMPLETE
+**Status:** ✅ Complete
+
+- [x] **Fix unauthenticated client portal endpoints** ⚠️ HIGHEST PRIORITY
   - Add token-based authentication for portal endpoints
   - Create `@portal_auth_required` decorator
   - Verify client_id matches authenticated user
@@ -436,28 +451,28 @@ Following comprehensive security audit, implementing critical fixes to secure th
   - Store tokens securely (httpOnly cookies or secure storage)
   - Protect all `/api/portal/*` endpoints (dashboard, patients, appointments, invoices)
 
-- [ ] **Remove default SECRET_KEY fallback** ⚠️ CRITICAL
+- [x] **Remove default SECRET_KEY fallback** ⚠️ CRITICAL
   - Remove "a_default_secret_key" default value
   - Fail application startup if SECRET_KEY not set in production
   - Generate strong random key for production
   - Update deployment documentation
 
-- [ ] **Add rate limiting** ⚠️ HIGH
+- [x] **Add rate limiting** ⚠️ HIGH
   - Install Flask-Limiter
   - Add rate limits to authentication endpoints (5 attempts per 5 minutes)
   - Add general API rate limits (100 requests per minute per user)
   - Add IP-based rate limiting for unauthenticated endpoints
 
-#### Phase 2: High Priority Fixes (Week 1) 🟠
-**Status:** Pending
+#### Phase 2: High Priority Fixes (Week 1) 🟠 ✅ COMPLETE
+**Status:** ✅ Complete
 
-- [ ] **Implement CSRF protection**
+- [x] **Implement CSRF protection**
   - Add Flask-WTF with CSRF tokens
   - Implement CSRF token generation and validation
   - Add CSRF tokens to all forms
   - Configure CSRF exemptions for specific API endpoints if needed
 
-- [ ] **Add security headers**
+- [x] **Add security headers**
   - Install Flask-Talisman
   - Configure Content-Security-Policy
   - Add X-Frame-Options: DENY
@@ -465,38 +480,38 @@ Following comprehensive security audit, implementing critical fixes to secure th
   - Add Strict-Transport-Security (HSTS)
   - Add Referrer-Policy
 
-- [ ] **Configure CORS properly**
+- [x] **Configure CORS properly**
   - Install Flask-CORS
   - Define explicit origin whitelist
   - Configure CORS for development and production
   - Restrict allowed methods and headers
 
-#### Phase 3: Medium Priority Fixes (Week 2) 🟡
-**Status:** Pending
+#### Phase 3: Medium Priority Fixes (Week 2) 🟡 ✅ COMPLETE
+**Status:** ✅ Complete
 
-- [ ] **Strengthen password policy**
+- [x] **Strengthen password policy**
   - Add password complexity validation
   - Require uppercase, lowercase, number, special character
   - Consider integrating zxcvbn for strength checking
   - Add password strength meter to UI
 
-- [ ] **Standardize password hashing**
+- [x] **Standardize password hashing**
   - Migrate ClientPortalUser to use bcrypt (from Werkzeug)
-  - Add migration script for existing portal user passwords
+  - Add migration script for existing portal user passwords (auto-migration on login)
   - Update models.py to use bcrypt consistently
   - Test password verification after migration
 
-- [ ] **Enforce email verification**
+- [x] **Enforce email verification**
   - Implement email verification flow
   - Send verification emails on registration
   - Block portal access until email verified
   - Add resend verification email endpoint
 
-- [ ] **Add staff account lockout**
+- [x] **Add staff account lockout**
   - Implement failed login tracking for staff users
-  - Add account lockout after failed attempts
+  - Add account lockout after failed attempts (5 attempts = 15 min lockout)
   - Match portal user lockout behavior
-  - Add admin unlock capability
+  - Add admin unlock capability (manual unlock by setting account_locked_until to None)
 
 #### Phase 4: Low Priority & Hardening (Month 1) 🟢
 **Status:** Planned

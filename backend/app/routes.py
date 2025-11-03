@@ -38,12 +38,13 @@ from .schemas import (
     appointment_request_review_schema,
 )
 from flask_login import login_user, logout_user, login_required, current_user
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 from flask import abort
 from marshmallow import ValidationError as MarshmallowValidationError
 from sqlalchemy.exc import IntegrityError
 from .auth import generate_portal_token, portal_auth_required
+from .email_verification import generate_verification_token, send_verification_email, is_token_valid
 from . import limiter
 
 bp = Blueprint("main", __name__)
@@ -85,13 +86,46 @@ def login():
     password = data.get("password")
     user = User.query.filter_by(username=username).first()
 
-    if user and user.check_password(password):
+    if not user:
+        app.logger.warning(f"Failed login attempt for unknown username: {username}.")
+        return jsonify({"message": "Invalid credentials"}), 401
+
+    # Check if account is locked
+    if user.account_locked_until and user.account_locked_until > datetime.utcnow():
+        app.logger.warning(f"Login attempt for locked account: {username}")
+        return jsonify({"error": "Account is locked. Please contact administrator."}), 403
+
+    # Verify password
+    if user.check_password(password):
+        # Successful login - reset failed attempts
+        user.failed_login_attempts = 0
+        user.account_locked_until = None
+        user.last_login = datetime.utcnow()
+        db.session.commit()
+
         login_user(user)
         app.logger.info(f"User {username} logged in successfully.")
         return jsonify({"message": "Logged in successfully"}), 200
+    else:
+        # Failed login - increment counter
+        user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
 
-    app.logger.warning(f"Failed login attempt for username: {username}.")
-    return jsonify({"message": "Invalid credentials"}), 401
+        # Lock account after 5 failed attempts for 15 minutes
+        if user.failed_login_attempts >= 5:
+            from datetime import timedelta
+
+            user.account_locked_until = datetime.utcnow() + timedelta(minutes=15)
+            db.session.commit()
+            app.logger.warning(
+                f"Account locked for user {username} after {user.failed_login_attempts} failed attempts"
+            )
+            return jsonify({"error": "Account locked due to multiple failed login attempts. Try again in 15 minutes."}), 403
+
+        db.session.commit()
+        app.logger.warning(
+            f"Failed login attempt for username: {username}. " f"Attempts: {user.failed_login_attempts}/5"
+        )
+        return jsonify({"message": "Invalid credentials"}), 401
 
 
 @bp.route("/api/check_session")
@@ -4632,15 +4666,32 @@ def portal_register():
         portal_user = ClientPortalUser(
             client_id=data["client_id"],
             username=data["username"],
-            email=data["email"]
+            email=data["email"],
+            is_verified=False,  # Require email verification
         )
         portal_user.set_password(data["password"])
+
+        # Generate email verification token
+        portal_user.verification_token = generate_verification_token()
+        portal_user.reset_token_expiry = datetime.utcnow() + timedelta(hours=24)  # Token valid for 24 hours
 
         db.session.add(portal_user)
         db.session.commit()
 
+        # Send verification email
+        send_verification_email(portal_user.email, portal_user.verification_token, portal_user.username)
+
         app.logger.info(f"Client portal user registered: {portal_user.username}")
-        return jsonify({"message": "Registration successful", "user": {"id": portal_user.id, "username": portal_user.username}}), 201
+        return (
+            jsonify(
+                {
+                    "message": "Registration successful! Please check your email to verify your account.",
+                    "user": {"id": portal_user.id, "username": portal_user.username},
+                    "requires_verification": True,
+                }
+            ),
+            201,
+        )
 
     except MarshmallowValidationError as e:
         return jsonify({"error": e.messages}), 400
@@ -4669,6 +4720,18 @@ def portal_login():
         # Check if account is active
         if not portal_user.is_active:
             return jsonify({"error": "Account is inactive"}), 403
+
+        # Check if email is verified (Phase 3.6 security requirement)
+        if not portal_user.is_verified:
+            return (
+                jsonify(
+                    {
+                        "error": "Email not verified. Please check your email for verification link.",
+                        "requires_verification": True,
+                    }
+                ),
+                403,
+            )
 
         # Check if account is locked
         if portal_user.account_locked_until and portal_user.account_locked_until > datetime.utcnow():
@@ -5032,6 +5095,73 @@ def cancel_appointment_request(client_id, request_id, **kwargs):
         db.session.rollback()
         app.logger.error(f"Error cancelling appointment request: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 400
+
+
+# Email Verification Endpoints
+@bp.route("/api/portal/verify-email", methods=["POST"])
+def verify_email():
+    """Verify user email with token"""
+    try:
+        token = request.json.get("token")
+        if not token:
+            return jsonify({"error": "Verification token required"}), 400
+
+        # Find user by verification token
+        portal_user = ClientPortalUser.query.filter_by(verification_token=token).first()
+
+        if not portal_user:
+            return jsonify({"error": "Invalid verification token"}), 400
+
+        # Check if token is still valid (24 hours)
+        if not is_token_valid(portal_user.reset_token_expiry):
+            return jsonify({"error": "Verification token expired. Please request a new one."}), 400
+
+        # Verify the account
+        portal_user.is_verified = True
+        portal_user.verification_token = None
+        portal_user.reset_token_expiry = None
+        db.session.commit()
+
+        app.logger.info(f"Email verified for user: {portal_user.username}")
+        return jsonify({"message": "Email verified successfully! You can now log in."}), 200
+
+    except Exception as e:
+        app.logger.error(f"Error verifying email: {str(e)}", exc_info=True)
+        return jsonify({"error": "Verification failed"}), 400
+
+
+@bp.route("/api/portal/resend-verification", methods=["POST"])
+@limiter.limit("3 per hour")
+def resend_verification():
+    """Resend verification email"""
+    try:
+        email = request.json.get("email")
+        if not email:
+            return jsonify({"error": "Email required"}), 400
+
+        portal_user = ClientPortalUser.query.filter_by(email=email).first()
+
+        if not portal_user:
+            # Don't reveal if email exists for security
+            return jsonify({"message": "If the email exists, a verification link has been sent."}), 200
+
+        if portal_user.is_verified:
+            return jsonify({"error": "Email already verified"}), 400
+
+        # Generate new token
+        portal_user.verification_token = generate_verification_token()
+        portal_user.reset_token_expiry = datetime.utcnow() + timedelta(hours=24)
+        db.session.commit()
+
+        # Send verification email
+        send_verification_email(portal_user.email, portal_user.verification_token, portal_user.username)
+
+        app.logger.info(f"Verification email resent to: {email}")
+        return jsonify({"message": "Verification email sent. Please check your inbox."}), 200
+
+    except Exception as e:
+        app.logger.error(f"Error resending verification: {str(e)}", exc_info=True)
+        return jsonify({"error": "Failed to send verification email"}), 400
 
 
 # Staff-side Appointment Request Management

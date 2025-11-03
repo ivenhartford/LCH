@@ -3,7 +3,8 @@ Marshmallow schemas for API request/response validation and serialization
 """
 
 from datetime import datetime
-from marshmallow import Schema, fields, validate
+from marshmallow import Schema, fields, validate, validates, ValidationError
+from .password_validator import PasswordValidator
 
 
 class ClientSchema(Schema):
@@ -1249,6 +1250,13 @@ class ClientPortalUserRegistrationSchema(Schema):
     password = fields.Str(required=True, validate=validate.Length(min=8, max=100))
     password_confirm = fields.Str(required=True, validate=validate.Length(min=8, max=100))
 
+    @validates("password")
+    def validate_password_complexity(self, value):
+        """Validate password meets complexity requirements"""
+        is_valid, errors = PasswordValidator.validate(value)
+        if not is_valid:
+            raise ValidationError(errors)
+
 
 class ClientPortalUserLoginSchema(Schema):
     """Schema for client portal user login"""
@@ -1264,6 +1272,14 @@ class ClientPortalUserUpdateSchema(Schema):
     password = fields.Str(validate=validate.Length(min=8, max=100))
     password_confirm = fields.Str(validate=validate.Length(min=8, max=100))
     is_active = fields.Bool()
+
+    @validates("password")
+    def validate_password_complexity(self, value):
+        """Validate password meets complexity requirements"""
+        if value:  # Only validate if password is being updated
+            is_valid, errors = PasswordValidator.validate(value)
+            if not is_valid:
+                raise ValidationError(errors)
 
 
 class AppointmentRequestSchema(Schema):
