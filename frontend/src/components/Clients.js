@@ -31,6 +31,7 @@ import {
 } from '@mui/icons-material';
 import logger from '../utils/logger';
 import TableSkeleton from './common/TableSkeleton';
+import EmptyState from './common/EmptyState';
 
 /**
  * Client List Component
@@ -275,37 +276,44 @@ function Clients() {
       </Paper>
 
       {/* Results count */}
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-        {searchTerm && `Search results for "${searchTerm}" - `}
-        Showing {clients.length} of {pagination.total} clients
-      </Typography>
+      {clients.length > 0 && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          {searchTerm && `Search results for "${searchTerm}" - `}
+          Showing {clients.length} of {pagination.total} clients
+        </Typography>
+      )}
 
-      {/* Table */}
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Name</TableCell>
-              <TableCell>Email</TableCell>
-              <TableCell>Phone</TableCell>
-              <TableCell>City</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="right">Balance</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {clients.length === 0 ? (
+      {/* Empty State or Table */}
+      {clients.length === 0 ? (
+        <EmptyState
+          icon={PersonIcon}
+          title={searchTerm ? 'No Clients Found' : 'No Clients Yet'}
+          message={
+            searchTerm
+              ? `No clients match your search for "${searchTerm}". Try adjusting your search terms or filters.`
+              : 'Get started by adding your first client to the system. Clients are the cat owners who bring their pets for care.'
+          }
+          actionLabel={searchTerm ? undefined : 'New Client'}
+          onAction={searchTerm ? undefined : handleCreateClient}
+          actionIcon={AddIcon}
+          secondaryActionLabel={searchTerm ? 'Clear Search' : undefined}
+          onSecondaryAction={searchTerm ? handleClearSearch : undefined}
+        />
+      ) : (
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
               <TableRow>
-                <TableCell colSpan={6} align="center">
-                  <Typography variant="body1" color="text.secondary" py={4}>
-                    {searchTerm
-                      ? 'No clients found matching your search.'
-                      : 'No clients yet. Click "New Client" to add one.'}
-                  </Typography>
-                </TableCell>
+                <TableCell>Name</TableCell>
+                <TableCell>Email</TableCell>
+                <TableCell>Phone</TableCell>
+                <TableCell>City</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell align="right">Balance</TableCell>
               </TableRow>
-            ) : (
-              clients.map((client) => (
+            </TableHead>
+            <TableBody>
+              {clients.map((client) => (
                 <TableRow
                   key={client.id}
                   hover
@@ -336,20 +344,20 @@ function Clients() {
                       : '$0.00'}
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-        <TablePagination
-          rowsPerPageOptions={[10, 25, 50, 100]}
-          component="div"
-          count={pagination.total}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-        />
-      </TableContainer>
+              ))}
+            </TableBody>
+          </Table>
+          <TablePagination
+            rowsPerPageOptions={[10, 25, 50, 100]}
+            component="div"
+            count={pagination.total}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+          />
+        </TableContainer>
+      )}
     </Box>
   );
 }

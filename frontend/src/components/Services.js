@@ -36,6 +36,7 @@ import {
 import logger from '../utils/logger';
 import ConfirmDialog from './common/ConfirmDialog';
 import TableSkeleton from './common/TableSkeleton';
+import EmptyState from './common/EmptyState';
 import { useNotification } from '../contexts/NotificationContext';
 
 /**
@@ -272,32 +273,53 @@ function Services() {
         </Grid>
       </Paper>
 
-      <Paper>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>Category</TableCell>
-                <TableCell align="right">Price</TableCell>
-                <TableCell align="right">Cost</TableCell>
-                <TableCell>Taxable</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredServices.length === 0 ? (
+      {/* Empty State or Table */}
+      {filteredServices.length === 0 ? (
+        <EmptyState
+          icon={searchTerm || activeFilter || typeFilter || categoryFilter ? SearchIcon : AddIcon}
+          title={
+            searchTerm || activeFilter || typeFilter || categoryFilter
+              ? 'No Services Found'
+              : 'No Services Yet'
+          }
+          message={
+            searchTerm || activeFilter || typeFilter || categoryFilter
+              ? 'No services match your current search or filter criteria. Try adjusting your filters.'
+              : 'Get started by adding your first service or product to the catalog. Services can be used for creating invoices and tracking revenue.'
+          }
+          actionLabel={
+            searchTerm || activeFilter || typeFilter || categoryFilter ? 'Clear Filters' : 'Add Service'
+          }
+          onAction={
+            searchTerm || activeFilter || typeFilter || categoryFilter
+              ? () => {
+                  setSearchTerm('');
+                  setActiveFilter('true');
+                  setTypeFilter('');
+                  setCategoryFilter('');
+                }
+              : () => handleOpenDialog()
+          }
+          actionIcon={searchTerm || activeFilter || typeFilter || categoryFilter ? undefined : AddIcon}
+        />
+      ) : (
+        <Paper>
+          <TableContainer>
+            <Table>
+              <TableHead>
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
-                    <Typography variant="body2" color="text.secondary" py={4}>
-                      No services found.
-                    </Typography>
-                  </TableCell>
+                  <TableCell>Name</TableCell>
+                  <TableCell>Type</TableCell>
+                  <TableCell>Category</TableCell>
+                  <TableCell align="right">Price</TableCell>
+                  <TableCell align="right">Cost</TableCell>
+                  <TableCell>Taxable</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell align="right">Actions</TableCell>
                 </TableRow>
-              ) : (
-                filteredServices.map((service) => (
+              </TableHead>
+              <TableBody>
+                {filteredServices.map((service) => (
                   <TableRow key={service.id} hover>
                     <TableCell>
                       <Typography variant="body2" fontWeight="medium">
@@ -348,17 +370,17 @@ function Services() {
                       </Tooltip>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-        <Box p={2}>
-          <Typography variant="body2" color="text.secondary">
-            Total: {filteredServices.length} services
-          </Typography>
-        </Box>
-      </Paper>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <Box p={2}>
+            <Typography variant="body2" color="text.secondary">
+              Total: {filteredServices.length} services
+            </Typography>
+          </Box>
+        </Paper>
+      )}
 
       <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>{editingService ? 'Edit Service' : 'Add Service'}</DialogTitle>

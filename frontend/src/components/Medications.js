@@ -37,6 +37,7 @@ import {
 import logger from '../utils/logger';
 import ConfirmDialog from './common/ConfirmDialog';
 import TableSkeleton from './common/TableSkeleton';
+import EmptyState from './common/EmptyState';
 import { useNotification } from '../contexts/NotificationContext';
 
 /**
@@ -368,34 +369,56 @@ function Medications() {
         </Grid>
       </Paper>
 
-      {/* Table */}
-      <Paper>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Drug Name</TableCell>
-                <TableCell>Brand Names</TableCell>
-                <TableCell>Drug Class</TableCell>
-                <TableCell>Forms</TableCell>
-                <TableCell>Strengths</TableCell>
-                <TableCell>Stock</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {medications.length === 0 ? (
+      {/* Empty State or Table */}
+      {medications.length === 0 ? (
+        <EmptyState
+          icon={searchTerm || drugClassFilter || activeFilter !== 'true' ? SearchIcon : AddIcon}
+          title={
+            searchTerm || drugClassFilter || activeFilter !== 'true'
+              ? 'No Medications Found'
+              : 'No Medications Yet'
+          }
+          message={
+            searchTerm || drugClassFilter || activeFilter !== 'true'
+              ? 'No medications match your current search or filter criteria. Try adjusting your filters.'
+              : 'Get started by adding your first medication to the database. Build your veterinary formulary with essential drugs, dosing information, and inventory tracking.'
+          }
+          actionLabel={
+            searchTerm || drugClassFilter || activeFilter !== 'true'
+              ? 'Clear Filters'
+              : 'Add Medication'
+          }
+          onAction={
+            searchTerm || drugClassFilter || activeFilter !== 'true'
+              ? () => {
+                  setSearchTerm('');
+                  setDrugClassFilter('');
+                  setActiveFilter('true');
+                }
+              : () => handleOpenDialog()
+          }
+          actionIcon={
+            searchTerm || drugClassFilter || activeFilter !== 'true' ? undefined : AddIcon
+          }
+        />
+      ) : (
+        <Paper>
+          <TableContainer>
+            <Table>
+              <TableHead>
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
-                    <Typography variant="body2" color="text.secondary" py={4}>
-                      No medications found.
-                      {(searchTerm || drugClassFilter) && ' Try adjusting filters.'}
-                    </Typography>
-                  </TableCell>
+                  <TableCell>Drug Name</TableCell>
+                  <TableCell>Brand Names</TableCell>
+                  <TableCell>Drug Class</TableCell>
+                  <TableCell>Forms</TableCell>
+                  <TableCell>Strengths</TableCell>
+                  <TableCell>Stock</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell align="right">Actions</TableCell>
                 </TableRow>
-              ) : (
-                medications.map((medication) => (
+              </TableHead>
+              <TableBody>
+                {medications.map((medication) => (
                   <TableRow key={medication.id} hover>
                     <TableCell>
                       <Typography variant="body2" fontWeight="medium">
@@ -466,17 +489,17 @@ function Medications() {
                       </Tooltip>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-        <Box p={2}>
-          <Typography variant="body2" color="text.secondary">
-            Total: {medications.length} medications
-          </Typography>
-        </Box>
-      </Paper>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <Box p={2}>
+            <Typography variant="body2" color="text.secondary">
+              Total: {medications.length} medications
+            </Typography>
+          </Box>
+        </Paper>
+      )}
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="md" fullWidth>
