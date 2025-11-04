@@ -22,12 +22,23 @@ import {
   Toolbar,
   FormControlLabel,
   Switch,
+  Card,
+  CardContent,
+  CardActions,
+  Grid,
+  useMediaQuery,
+  useTheme,
+  Divider,
 } from '@mui/material';
 import {
   Search as SearchIcon,
   Add as AddIcon,
   Clear as ClearIcon,
   Person as PersonIcon,
+  Email as EmailIcon,
+  Phone as PhoneIcon,
+  LocationOn as LocationIcon,
+  ChevronRight as ChevronRightIcon,
 } from '@mui/icons-material';
 import logger from '../utils/logger';
 import TableSkeleton from './common/TableSkeleton';
@@ -45,6 +56,8 @@ import EmptyState from './common/EmptyState';
  */
 function Clients() {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   // State for pagination and search
   const [page, setPage] = useState(0);
@@ -283,7 +296,7 @@ function Clients() {
         </Typography>
       )}
 
-      {/* Empty State or Table */}
+      {/* Empty State or Client List */}
       {clients.length === 0 ? (
         <EmptyState
           icon={PersonIcon}
@@ -299,7 +312,104 @@ function Clients() {
           secondaryActionLabel={searchTerm ? 'Clear Search' : undefined}
           onSecondaryAction={searchTerm ? handleClearSearch : undefined}
         />
+      ) : isMobile ? (
+        /* Mobile Card Layout */
+        <>
+          <Grid container spacing={2}>
+            {clients.map((client) => (
+              <Grid item xs={12} key={client.id}>
+                <Card
+                  sx={{
+                    cursor: 'pointer',
+                    '&:hover': {
+                      boxShadow: 3,
+                      transform: 'translateY(-2px)',
+                      transition: 'all 0.2s ease-in-out',
+                    },
+                  }}
+                  onClick={() => handleRowClick(client.id)}
+                >
+                  <CardContent>
+                    <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
+                      <Typography variant="h6" component="h2">
+                        {client.first_name} {client.last_name}
+                      </Typography>
+                      {client.is_active ? (
+                        <Chip label="Active" color="success" size="small" />
+                      ) : (
+                        <Chip label="Inactive" color="default" size="small" />
+                      )}
+                    </Box>
+
+                    <Box display="flex" flexDirection="column" gap={1}>
+                      {client.email && (
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <EmailIcon fontSize="small" color="action" />
+                          <Typography variant="body2" color="text.secondary">
+                            {client.email}
+                          </Typography>
+                        </Box>
+                      )}
+
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <PhoneIcon fontSize="small" color="action" />
+                        <Typography variant="body2" color="text.secondary">
+                          {client.phone_primary}
+                        </Typography>
+                      </Box>
+
+                      {client.city && (
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <LocationIcon fontSize="small" color="action" />
+                          <Typography variant="body2" color="text.secondary">
+                            {client.city}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
+
+                    <Divider sx={{ my: 1.5 }} />
+
+                    <Box display="flex" justifyContent="space-between" alignItems="center">
+                      <Typography variant="body2" color="text.secondary">
+                        Account Balance
+                      </Typography>
+                      <Typography variant="h6" color="primary">
+                        {client.account_balance
+                          ? `$${parseFloat(client.account_balance).toFixed(2)}`
+                          : '$0.00'}
+                      </Typography>
+                    </Box>
+                  </CardContent>
+
+                  <CardActions sx={{ justifyContent: 'flex-end', pt: 0 }}>
+                    <Button
+                      size="small"
+                      endIcon={<ChevronRightIcon />}
+                      onClick={() => handleRowClick(client.id)}
+                    >
+                      View Details
+                    </Button>
+                  </CardActions>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+
+          <Box mt={2}>
+            <TablePagination
+              rowsPerPageOptions={[10, 25, 50, 100]}
+              component="div"
+              count={pagination.total}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+            />
+          </Box>
+        </>
       ) : (
+        /* Desktop Table Layout */
         <TableContainer component={Paper}>
           <Table>
             <TableHead>
