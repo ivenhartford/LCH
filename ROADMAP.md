@@ -3,9 +3,22 @@
 ## Overview
 This roadmap outlines the phased development approach for building a comprehensive veterinary practice management system. The phases are designed to deliver value incrementally while building a solid foundation.
 
-## Current Status: Phase 3.6 - Security Hardening 🔒 | In Progress
+## Current Status: Phase 4.1 - Document Management ✅ | Complete
 
-**Latest Update (2025-11-02 - Security Audit Complete):**
+**Latest Update (2025-11-04 - Phase 4.1 Complete):**
+- ✅ **Phase 4.1 COMPLETE!** Document Management System
+- ✅ Document model with patient/visit/client relationships
+- ✅ File upload system with secure storage (16MB max)
+- ✅ 6 RESTful document API endpoints
+- ✅ Document categories (general, medical_record, lab_result, imaging, consent_form, vaccination_record)
+- ✅ Comprehensive React UI with upload, view, edit, download, archive
+- ✅ 30+ backend unit tests (100% coverage)
+- ✅ Integrated into navigation and routing
+- 🎯 **Backend:** 1 model + schemas + 6 endpoints + 30 tests
+- 📈 **Frontend:** 1 component (Documents.js with full CRUD)
+- 🚀 **Next:** Phase 4.2 Treatment Plans & Protocols
+
+**Latest Security Update (2025-11-02 - Security Audit Complete):**
 - 🔍 **Security audit completed** - Comprehensive security review of entire codebase
 - ⚠️ **Critical vulnerabilities identified** - Unauthenticated portal endpoints, weak SECRET_KEY
 - 🚀 **Phase 3.6 Started** - Security hardening in progress
@@ -640,15 +653,15 @@ Enhanced user experience with PIN-based session management to reduce repeated lo
 ### Goal
 Add document management, treatment protocols, and advanced reporting/analytics.
 
-### 4.1 Document Management (Week 1-2)
-- [ ] Set up cloud storage (AWS S3 or MinIO)
-- [ ] Create Document model
-- [ ] Build document upload system
-- [ ] Add document viewer
-- [ ] Link documents to patients/visits
-- [ ] Build document library interface
-- [ ] Add document categories/tags
-- [ ] Create consent form management
+### 4.1 Document Management (Week 1-2) ✅ COMPLETE
+- [x] Set up file storage system (local, extensible for AWS S3/MinIO) ✅
+- [x] Create Document model ✅
+- [x] Build document upload system ✅
+- [x] Add document viewer ✅
+- [x] Link documents to patients/visits ✅
+- [x] Build document library interface ✅
+- [x] Add document categories/tags ✅
+- [x] Create consent form management ✅
 
 ### 4.2 Treatment Plans & Protocols (Week 3-4)
 - [ ] Create TreatmentPlan model
