@@ -26,6 +26,12 @@ import {
   Grid,
   IconButton,
   Tooltip,
+  Card,
+  CardContent,
+  CardActions,
+  useMediaQuery,
+  useTheme,
+  Divider,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -33,6 +39,9 @@ import {
   Delete as DeleteIcon,
   Warning as WarningIcon,
   Search as SearchIcon,
+  LocalPharmacy as PharmacyIcon,
+  Inventory as InventoryIcon,
+  Category as CategoryIcon,
 } from '@mui/icons-material';
 import logger from '../utils/logger';
 import ConfirmDialog from './common/ConfirmDialog';
@@ -54,6 +63,8 @@ import { useNotification } from '../contexts/NotificationContext';
 function Medications() {
   const queryClient = useQueryClient();
   const { showNotification } = useNotification();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   // State
   const [searchTerm, setSearchTerm] = useState('');
@@ -369,7 +380,7 @@ function Medications() {
         </Grid>
       </Paper>
 
-      {/* Empty State or Table */}
+      {/* Empty State or Medication List */}
       {medications.length === 0 ? (
         <EmptyState
           icon={searchTerm || drugClassFilter || activeFilter !== 'true' ? SearchIcon : AddIcon}
@@ -401,7 +412,112 @@ function Medications() {
             searchTerm || drugClassFilter || activeFilter !== 'true' ? undefined : AddIcon
           }
         />
+      ) : isMobile ? (
+        /* Mobile Card Layout */
+        <>
+          <Grid container spacing={2}>
+            {medications.map((medication) => (
+              <Grid item xs={12} key={medication.id}>
+                <Card>
+                  <CardContent>
+                    <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
+                      <Box flex={1}>
+                        <Typography variant="h6" component="h2">
+                          {medication.drug_name}
+                        </Typography>
+                        {medication.brand_names && (
+                          <Typography variant="body2" color="text.secondary" mt={0.5}>
+                            {medication.brand_names}
+                          </Typography>
+                        )}
+                      </Box>
+                      <Box ml={2} display="flex" flexDirection="column" alignItems="flex-end" gap={0.5}>
+                        {medication.controlled_substance && (
+                          <Chip
+                            label={`DEA ${medication.dea_schedule}`}
+                            size="small"
+                            color="error"
+                          />
+                        )}
+                        <Chip
+                          label={medication.is_active ? 'Active' : 'Inactive'}
+                          color={medication.is_active ? 'success' : 'default'}
+                          size="small"
+                        />
+                      </Box>
+                    </Box>
+
+                    <Box display="flex" flexDirection="column" gap={1} mt={2}>
+                      {medication.drug_class && (
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <CategoryIcon fontSize="small" color="action" />
+                          <Typography variant="body2" color="text.secondary">
+                            {medication.drug_class}
+                          </Typography>
+                        </Box>
+                      )}
+
+                      {medication.available_forms && (
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <PharmacyIcon fontSize="small" color="action" />
+                          <Typography variant="body2" color="text.secondary">
+                            {medication.available_forms}
+                            {medication.strengths && ` • ${medication.strengths}`}
+                          </Typography>
+                        </Box>
+                      )}
+
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <InventoryIcon fontSize="small" color="action" />
+                        <Typography variant="body2" color="text.secondary">
+                          Stock: {medication.stock_quantity}
+                          {medication.stock_quantity <= medication.reorder_level && (
+                            <Chip
+                              label="Low Stock"
+                              size="small"
+                              color="warning"
+                              sx={{ ml: 1 }}
+                            />
+                          )}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </CardContent>
+
+                  <Divider />
+
+                  <CardActions sx={{ justifyContent: 'space-between', px: 2 }}>
+                    <Box display="flex" gap={1}>
+                      <Button
+                        size="small"
+                        startIcon={<EditIcon />}
+                        onClick={() => handleOpenDialog(medication)}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        size="small"
+                        color="error"
+                        startIcon={<DeleteIcon />}
+                        onClick={() => handleDelete(medication.id, medication.drug_name)}
+                      >
+                        Delete
+                      </Button>
+                    </Box>
+                  </CardActions>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+
+          <Box mt={2}>
+            <Typography variant="body2" color="text.secondary">
+              Total: {medications.length} medications
+            </Typography>
+          </Box>
+        </>
       ) : (
+        /* Desktop Table Layout */
         <Paper>
           <TableContainer>
             <Table>
