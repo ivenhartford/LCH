@@ -264,6 +264,13 @@ class Logger {
   }
 
   /**
+   * Log performance metrics
+   */
+  logPerformance(metric, details = null) {
+    this.info(`Performance: ${metric}`, details);
+  }
+
+  /**
    * Get all logs (for debugging or export)
    */
   getAllLogs() {

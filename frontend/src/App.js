@@ -6,6 +6,7 @@ import QueryProvider from './providers/QueryProvider';
 import MainLayout from './components/layout/MainLayout';
 import LoadingFallback from './components/common/LoadingFallback';
 import logger from './utils/logger';
+import { initPerformanceMonitoring } from './utils/performanceMonitoring';
 import { NotificationProvider } from './contexts/NotificationContext';
 import './App.css';
 
@@ -72,6 +73,9 @@ function App() {
 
   useEffect(() => {
     logger.info('App component mounted');
+
+    // Initialize performance monitoring
+    initPerformanceMonitoring();
 
     const checkSession = async () => {
       logger.debug('Checking user session');
