@@ -20,6 +20,7 @@ import {
 } from '@mui/material';
 import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material';
 import logger from '../utils/logger';
+import { useNotification } from '../contexts/NotificationContext';
 
 // Validation schema using Zod
 const patientSchema = z.object({
@@ -60,6 +61,7 @@ function PatientForm() {
   const { patientId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { showNotification } = useNotification();
   const [searchParams] = useSearchParams();
   const isEditMode = Boolean(patientId);
   const [selectedOwner, setSelectedOwner] = useState(null);
@@ -255,11 +257,16 @@ function PatientForm() {
       queryClient.invalidateQueries({ queryKey: ['patients'] });
       queryClient.invalidateQueries({ queryKey: ['patient', data.id] });
 
+      showNotification(
+        isEditMode ? 'Patient updated successfully' : 'Patient created successfully',
+        'success'
+      );
       logger.logAction('Navigate to patient detail after save', { patientId: data.id });
       navigate(`/patients/${data.id}`);
     },
     onError: (error) => {
       logger.error('Error saving patient', error);
+      showNotification(error.message || 'Failed to save patient', 'error');
     },
   });
 
@@ -351,13 +358,6 @@ function PatientForm() {
       {/* Form */}
       <Paper sx={{ p: 3 }}>
         <form onSubmit={handleSubmit(onSubmit)}>
-          {/* Mutation error */}
-          {mutation.isError && (
-            <Alert severity="error" sx={{ mb: 3 }}>
-              {mutation.error.message}
-            </Alert>
-          )}
-
           <Grid container spacing={3}>
             {/* Basic Information */}
             <Grid item xs={12}>

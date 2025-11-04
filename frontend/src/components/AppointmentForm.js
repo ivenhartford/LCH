@@ -24,6 +24,7 @@ import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-materia
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { useNotification } from '../contexts/NotificationContext';
 
 // Validation schema
 const appointmentSchema = z
@@ -96,6 +97,7 @@ const AppointmentForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { showNotification } = useNotification();
   const isEditMode = Boolean(id);
 
   const [selectedClientId, setSelectedClientId] = useState(null);
@@ -213,7 +215,14 @@ const AppointmentForm = () => {
       if (isEditMode) {
         queryClient.invalidateQueries(['appointment', id]);
       }
+      showNotification(
+        isEditMode ? 'Appointment updated successfully' : 'Appointment created successfully',
+        'success'
+      );
       navigate(isEditMode ? `/appointments/${id}` : `/appointments/${data.id}`);
+    },
+    onError: (error) => {
+      showNotification(error.message || 'Failed to save appointment', 'error');
     },
   });
 
@@ -241,13 +250,6 @@ const AppointmentForm = () => {
             {isEditMode ? 'Edit Appointment' : 'New Appointment'}
           </Typography>
         </Box>
-
-        {/* Error display */}
-        {saveMutation.isError && (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {saveMutation.error.message}
-          </Alert>
-        )}
 
         {/* Form */}
         <Paper sx={{ p: 3 }}>
@@ -515,13 +517,13 @@ const AppointmentForm = () => {
               {/* Actions */}
               <Grid item xs={12}>
                 <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-                  <Button variant="outlined" onClick={() => navigate(-1)}>
+                  <Button variant="outlined" onClick={() => navigate(-1)} disabled={saveMutation.isPending}>
                     Cancel
                   </Button>
                   <Button
                     type="submit"
                     variant="contained"
-                    startIcon={<SaveIcon />}
+                    startIcon={saveMutation.isPending ? <CircularProgress size={20} /> : <SaveIcon />}
                     disabled={saveMutation.isPending}
                   >
                     {saveMutation.isPending ? 'Saving...' : 'Save Appointment'}
