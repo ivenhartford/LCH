@@ -78,6 +78,7 @@ function ClientPortalLogin({ setPortalUser }) {
     control: loginControl,
     handleSubmit: handleLoginSubmit,
     formState: { errors: loginErrors },
+    setFocus: setLoginFocus,
   } = useForm({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -136,9 +137,13 @@ function ClientPortalLogin({ setPortalUser }) {
         navigate('/portal/dashboard');
       } else {
         setError(result.error || 'Login failed');
+        // Focus username field for retry
+        setTimeout(() => setLoginFocus('username'), 100);
       }
     } catch (err) {
       setError('Network error. Please try again.');
+      // Focus username field for retry
+      setTimeout(() => setLoginFocus('username'), 100);
     } finally {
       setIsLoading(false);
     }

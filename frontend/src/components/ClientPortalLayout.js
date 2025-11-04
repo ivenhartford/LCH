@@ -42,8 +42,9 @@ const menuItems = [
  * Provides navigation wrapper for client portal pages.
  * Includes sidebar navigation and top app bar with user info.
  */
-function ClientPortalLayout({ portalUser, setPortalUser }) {
+function ClientPortalLayout({ portalUser, setPortalUser, children }) {
   const navigate = useNavigate();
+  const mainContentRef = React.useRef(null);
 
   const handleLogout = () => {
     clearPortalAuth();
@@ -51,15 +52,44 @@ function ClientPortalLayout({ portalUser, setPortalUser }) {
     navigate('/portal/login');
   };
 
+  // Focus main content when route changes
+  React.useEffect(() => {
+    if (mainContentRef.current) {
+      mainContentRef.current.focus();
+    }
+  }, [children]);
+
   if (!portalUser) {
     navigate('/portal/login');
     return null;
   }
 
   return (
-    <Box sx={{ display: 'flex' }}>
-      {/* App Bar */}
-      <AppBar
+    <>
+      {/* Skip link for keyboard navigation */}
+      <Box
+        component="a"
+        href="#portal-main-content"
+        sx={{
+          position: 'absolute',
+          left: '-9999px',
+          zIndex: 9999,
+          padding: 1,
+          backgroundColor: 'primary.main',
+          color: 'primary.contrastText',
+          textDecoration: 'none',
+          '&:focus': {
+            left: 0,
+            top: 0,
+          },
+        }}
+      >
+        Skip to main content
+      </Box>
+
+      <Box sx={{ display: 'flex' }}>
+        {/* App Bar */}
+        <AppBar
         position="fixed"
         sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}
       >
@@ -133,13 +163,25 @@ function ClientPortalLayout({ portalUser, setPortalUser }) {
       </Drawer>
 
       {/* Main Content */}
-      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+      <Box
+        component="main"
+        ref={mainContentRef}
+        tabIndex={-1}
+        id="portal-main-content"
+        aria-label="Main content"
+        sx={{
+          flexGrow: 1,
+          p: 3,
+          outline: 'none', // Remove focus outline since this is for screen readers
+        }}
+      >
         <Toolbar /> {/* Spacer for AppBar */}
         <Container maxWidth="lg">
-          <Outlet />
+          {children}
         </Container>
       </Box>
-    </Box>
+      </Box>
+    </>
   );
 }
 

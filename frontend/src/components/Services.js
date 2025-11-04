@@ -26,12 +26,21 @@ import {
   Grid,
   IconButton,
   Tooltip,
+  Card,
+  CardContent,
+  CardActions,
+  useMediaQuery,
+  useTheme,
+  Divider,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Search as SearchIcon,
+  AttachMoney as MoneyIcon,
+  Category as CategoryIcon,
+  ChevronRight as ChevronRightIcon,
 } from '@mui/icons-material';
 import logger from '../utils/logger';
 import ConfirmDialog from './common/ConfirmDialog';
@@ -47,6 +56,8 @@ import { useNotification } from '../contexts/NotificationContext';
 function Services() {
   const queryClient = useQueryClient();
   const { showNotification } = useNotification();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('true');
@@ -273,7 +284,7 @@ function Services() {
         </Grid>
       </Paper>
 
-      {/* Empty State or Table */}
+      {/* Empty State or Service List */}
       {filteredServices.length === 0 ? (
         <EmptyState
           icon={searchTerm || activeFilter || typeFilter || categoryFilter ? SearchIcon : AddIcon}
@@ -302,7 +313,94 @@ function Services() {
           }
           actionIcon={searchTerm || activeFilter || typeFilter || categoryFilter ? undefined : AddIcon}
         />
+      ) : isMobile ? (
+        /* Mobile Card Layout */
+        <>
+          <Grid container spacing={2}>
+            {filteredServices.map((service) => (
+              <Grid item xs={12} key={service.id}>
+                <Card>
+                  <CardContent>
+                    <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
+                      <Box flex={1}>
+                        <Typography variant="h6" component="h2">
+                          {service.name}
+                        </Typography>
+                        {service.description && (
+                          <Typography variant="body2" color="text.secondary" mt={0.5}>
+                            {service.description}
+                          </Typography>
+                        )}
+                      </Box>
+                      <Box ml={2} display="flex" flexDirection="column" alignItems="flex-end" gap={0.5}>
+                        <Chip
+                          label={service.service_type}
+                          size="small"
+                          color={service.service_type === 'service' ? 'primary' : 'secondary'}
+                        />
+                        <Chip
+                          label={service.is_active ? 'Active' : 'Inactive'}
+                          color={service.is_active ? 'success' : 'default'}
+                          size="small"
+                        />
+                      </Box>
+                    </Box>
+
+                    <Box display="flex" flexDirection="column" gap={1} mt={2}>
+                      {service.category && (
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <CategoryIcon fontSize="small" color="action" />
+                          <Typography variant="body2" color="text.secondary">
+                            {service.category}
+                          </Typography>
+                        </Box>
+                      )}
+
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <MoneyIcon fontSize="small" color="action" />
+                        <Typography variant="body2" color="text.secondary">
+                          Price: ${parseFloat(service.unit_price).toFixed(2)}
+                          {service.cost && ` • Cost: $${parseFloat(service.cost).toFixed(2)}`}
+                          {service.taxable && ' • Taxable'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </CardContent>
+
+                  <Divider />
+
+                  <CardActions sx={{ justifyContent: 'space-between', px: 2 }}>
+                    <Box display="flex" gap={1}>
+                      <Button
+                        size="small"
+                        startIcon={<EditIcon />}
+                        onClick={() => handleOpenDialog(service)}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        size="small"
+                        color="error"
+                        startIcon={<DeleteIcon />}
+                        onClick={() => handleDelete(service.id, service.name)}
+                      >
+                        Delete
+                      </Button>
+                    </Box>
+                  </CardActions>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+
+          <Box mt={2}>
+            <Typography variant="body2" color="text.secondary">
+              Total: {filteredServices.length} services
+            </Typography>
+          </Box>
+        </>
       ) : (
+        /* Desktop Table Layout */
         <Paper>
           <TableContainer>
             <Table>

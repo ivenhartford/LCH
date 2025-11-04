@@ -26,6 +26,7 @@ import logger from '../../utils/logger';
 
 const MainLayout = ({ user, onLogout, children }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const mainContentRef = React.useRef(null);
 
   React.useEffect(() => {
     logger.logLifecycle('MainLayout', 'mounted', {
@@ -49,6 +50,14 @@ const MainLayout = ({ user, onLogout, children }) => {
     };
   }, [user]);
 
+  // Focus main content when route changes
+  React.useEffect(() => {
+    if (mainContentRef.current) {
+      mainContentRef.current.focus();
+      logger.debug('Focus moved to main content');
+    }
+  }, [children]);
+
   const handleDrawerToggle = () => {
     logger.logAction('Mobile drawer toggled', { open: !mobileOpen });
     setMobileOpen(!mobileOpen);
@@ -61,6 +70,27 @@ const MainLayout = ({ user, onLogout, children }) => {
 
   return (
     <ThemeProvider theme={theme}>
+      {/* Skip link for keyboard navigation */}
+      <Box
+        component="a"
+        href="#main-content"
+        sx={{
+          position: 'absolute',
+          left: '-9999px',
+          zIndex: 9999,
+          padding: 1,
+          backgroundColor: 'primary.main',
+          color: 'primary.contrastText',
+          textDecoration: 'none',
+          '&:focus': {
+            left: 0,
+            top: 0,
+          },
+        }}
+      >
+        Skip to main content
+      </Box>
+
       <Box sx={{ display: 'flex' }}>
         <CssBaseline />
 
@@ -73,12 +103,17 @@ const MainLayout = ({ user, onLogout, children }) => {
         {/* Main content area */}
         <Box
           component="main"
+          ref={mainContentRef}
+          tabIndex={-1}
+          id="main-content"
+          aria-label="Main content"
           sx={{
             flexGrow: 1,
             p: 3,
             width: { sm: `calc(100% - ${drawerWidth}px)` },
             minHeight: '100vh',
             backgroundColor: 'background.default',
+            outline: 'none', // Remove focus outline since this is for screen readers
           }}
         >
           <Toolbar /> {/* Spacer for AppBar */}

@@ -24,12 +24,23 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  Card,
+  CardContent,
+  CardActions,
+  Grid,
+  useMediaQuery,
+  useTheme,
+  Divider,
 } from '@mui/material';
 import {
   Search as SearchIcon,
   Add as AddIcon,
   Clear as ClearIcon,
   Pets as PetsIcon,
+  Cake as CakeIcon,
+  ColorLens as ColorIcon,
+  Person as PersonIcon,
+  ChevronRight as ChevronRightIcon,
 } from '@mui/icons-material';
 import logger from '../utils/logger';
 import TableSkeleton from './common/TableSkeleton';
@@ -48,6 +59,8 @@ import EmptyState from './common/EmptyState';
  */
 function Patients() {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   // State for pagination and search
   const [page, setPage] = useState(0);
@@ -314,7 +327,7 @@ function Patients() {
         </Typography>
       )}
 
-      {/* Empty State or Table */}
+      {/* Empty State or Patient List */}
       {patients.length === 0 ? (
         <EmptyState
           icon={PetsIcon}
@@ -330,7 +343,112 @@ function Patients() {
           secondaryActionLabel={searchTerm ? 'Clear Search' : undefined}
           onSecondaryAction={searchTerm ? handleClearSearch : undefined}
         />
+      ) : isMobile ? (
+        /* Mobile Card Layout */
+        <>
+          <Grid container spacing={2}>
+            {patients.map((patient) => (
+              <Grid item xs={12} key={patient.id}>
+                <Card
+                  sx={{
+                    cursor: 'pointer',
+                    '&:hover': {
+                      boxShadow: 3,
+                      transform: 'translateY(-2px)',
+                      transition: 'all 0.2s ease-in-out',
+                    },
+                  }}
+                  onClick={() => handleRowClick(patient.id)}
+                >
+                  <CardContent>
+                    <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
+                      <Typography variant="h6" component="h2">
+                        {patient.name}
+                      </Typography>
+                      <Chip
+                        label={patient.status}
+                        color={getStatusColor(patient.status)}
+                        size="small"
+                      />
+                    </Box>
+
+                    <Box display="flex" flexDirection="column" gap={1}>
+                      {patient.breed && (
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <PetsIcon fontSize="small" color="action" />
+                          <Typography variant="body2" color="text.secondary">
+                            {patient.breed}
+                          </Typography>
+                        </Box>
+                      )}
+
+                      {patient.color && (
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <ColorIcon fontSize="small" color="action" />
+                          <Typography variant="body2" color="text.secondary">
+                            {patient.color}
+                          </Typography>
+                        </Box>
+                      )}
+
+                      {patient.age_display && (
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <CakeIcon fontSize="small" color="action" />
+                          <Typography variant="body2" color="text.secondary">
+                            {patient.age_display} {patient.sex && `• ${patient.sex}`}
+                          </Typography>
+                        </Box>
+                      )}
+
+                      {patient.owner_name && (
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <PersonIcon fontSize="small" color="action" />
+                          <Typography variant="body2" color="text.secondary">
+                            {patient.owner_name}
+                          </Typography>
+                        </Box>
+                      )}
+
+                      {patient.microchip_number && (
+                        <Box mt={1}>
+                          <Chip
+                            label={`Chip: ${patient.microchip_number}`}
+                            size="small"
+                            variant="outlined"
+                          />
+                        </Box>
+                      )}
+                    </Box>
+                  </CardContent>
+
+                  <CardActions sx={{ justifyContent: 'flex-end', pt: 0 }}>
+                    <Button
+                      size="small"
+                      endIcon={<ChevronRightIcon />}
+                      onClick={() => handleRowClick(patient.id)}
+                    >
+                      View Details
+                    </Button>
+                  </CardActions>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+
+          <Box mt={2}>
+            <TablePagination
+              rowsPerPageOptions={[10, 25, 50, 100]}
+              component="div"
+              count={pagination.total}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+            />
+          </Box>
+        </>
       ) : (
+        /* Desktop Table Layout */
         <TableContainer component={Paper}>
           <Table>
             <TableHead>

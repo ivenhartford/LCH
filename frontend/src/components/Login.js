@@ -20,6 +20,7 @@ function Login({ setUser }) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const usernameRef = React.useRef(null);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -28,6 +29,9 @@ function Login({ setUser }) {
     // Basic validation
     if (!username.trim()) {
       showNotification('Username is required', 'error');
+      if (usernameRef.current) {
+        usernameRef.current.focus();
+      }
       return;
     }
 
@@ -55,9 +59,17 @@ function Login({ setUser }) {
       } else {
         const data = await response.json();
         showNotification(data.message || 'Login failed. Please check your credentials.', 'error');
+        // Focus username field for retry
+        if (usernameRef.current) {
+          usernameRef.current.focus();
+        }
       }
     } catch (err) {
       showNotification('Network error. Please try again.', 'error');
+      // Focus username field for retry
+      if (usernameRef.current) {
+        usernameRef.current.focus();
+      }
     } finally {
       setLoading(false);
     }
@@ -119,6 +131,7 @@ function Login({ setUser }) {
               disabled={loading}
               autoComplete="username"
               autoFocus
+              inputRef={usernameRef}
               sx={{ mb: 2 }}
             />
 

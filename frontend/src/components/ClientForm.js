@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material';
 import logger from '../utils/logger';
+import { useNotification } from '../contexts/NotificationContext';
 
 // Validation schema using Zod
 const clientSchema = z.object({
@@ -56,6 +57,7 @@ function ClientForm() {
   const { clientId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { showNotification } = useNotification();
   const isEditMode = Boolean(clientId);
 
   useEffect(() => {
@@ -185,11 +187,16 @@ function ClientForm() {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       queryClient.invalidateQueries({ queryKey: ['client', data.id] });
 
+      showNotification(
+        isEditMode ? 'Client updated successfully' : 'Client created successfully',
+        'success'
+      );
       logger.logAction('Navigate to client detail after save', { clientId: data.id });
       navigate(`/clients/${data.id}`);
     },
     onError: (error) => {
       logger.error('Error saving client', error);
+      showNotification(error.message || 'Failed to save client', 'error');
     },
   });
 
@@ -266,13 +273,6 @@ function ClientForm() {
       {/* Form */}
       <Paper sx={{ p: 3 }}>
         <form onSubmit={handleSubmit(onSubmit)}>
-          {/* Mutation error */}
-          {mutation.isError && (
-            <Alert severity="error" sx={{ mb: 3 }}>
-              {mutation.error.message}
-            </Alert>
-          )}
-
           <Grid container spacing={3}>
             {/* Personal Information */}
             <Grid item xs={12}>
