@@ -30,6 +30,7 @@ import {
   Email as EmailIcon,
   Assessment as AssessmentIcon,
   Settings as SettingsIcon,
+  Description as DocumentIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import logger from '../../utils/logger';
@@ -87,6 +88,7 @@ const Sidebar = ({ open, onClose }) => {
         { text: 'Appointments', icon: <CalendarIcon />, path: '/appointments' },
         { text: 'Medications', icon: <MedicationIcon />, path: '/medications' },
         { text: 'Services', icon: <InventoryIcon />, path: '/services' },
+        { text: 'Documents', icon: <DocumentIcon />, path: '/documents' },
       ],
     },
     {

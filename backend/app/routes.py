@@ -1,12 +1,14 @@
 import os
-from flask import jsonify, send_from_directory, request, Blueprint
+import uuid
+from werkzeug.utils import secure_filename
+from flask import jsonify, send_from_directory, send_file, request, Blueprint
 from flask import current_app as app
 from .models import (
     db, User, Patient, Pet, Appointment, AppointmentType, Client,
     Visit, VitalSigns, SOAPNote, Diagnosis, Vaccination,
     Medication, Prescription, Service, Invoice, InvoiceItem, Payment,
     Vendor, Product, PurchaseOrder, PurchaseOrderItem, InventoryTransaction,
-    ClientPortalUser, AppointmentRequest
+    ClientPortalUser, AppointmentRequest, Document
 )
 from .schemas import (
     client_schema,
@@ -36,6 +38,9 @@ from .schemas import (
     appointment_requests_schema,
     appointment_request_create_schema,
     appointment_request_review_schema,
+    document_schema,
+    documents_schema,
+    document_update_schema,
 )
 from flask_login import login_user, logout_user, login_required, current_user
 from datetime import datetime, timedelta
@@ -5451,6 +5456,319 @@ def review_appointment_request(request_id):
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error reviewing appointment request: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+# ============================================================================
+# DOCUMENT MANAGEMENT ROUTES
+# ============================================================================
+
+
+def allowed_file(filename):
+    """Check if file extension is allowed"""
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in app.config.get("ALLOWED_EXTENSIONS", set())
+
+
+@bp.route("/api/documents", methods=["POST"])
+@login_required
+def upload_document():
+    """
+    Upload a new document
+    Expects multipart/form-data with:
+    - file: The document file
+    - category: Document category
+    - patient_id: (optional) Patient ID
+    - visit_id: (optional) Visit ID
+    - client_id: (optional) Client ID
+    - description: (optional) Document description
+    - tags: (optional) Comma-separated tags
+    - is_consent_form: (optional) Boolean
+    - consent_type: (optional) Consent form type
+    - signed_date: (optional) Signed date
+    """
+    try:
+        # Check if file is present
+        if "file" not in request.files:
+            return jsonify({"error": "No file provided"}), 400
+
+        file = request.files["file"]
+
+        if file.filename == "":
+            return jsonify({"error": "No file selected"}), 400
+
+        if not allowed_file(file.filename):
+            return jsonify({"error": "File type not allowed"}), 400
+
+        # Get form data
+        category = request.form.get("category", "general")
+        patient_id = request.form.get("patient_id", type=int)
+        visit_id = request.form.get("visit_id", type=int)
+        client_id = request.form.get("client_id", type=int)
+        description = request.form.get("description")
+        tags = request.form.get("tags")
+        is_consent_form = request.form.get("is_consent_form", "false").lower() == "true"
+        consent_type = request.form.get("consent_type")
+        signed_date_str = request.form.get("signed_date")
+
+        # Validate at least one relationship is provided
+        if not patient_id and not visit_id and not client_id:
+            return jsonify({"error": "Document must be linked to a patient, visit, or client"}), 400
+
+        # Generate unique filename
+        original_filename = secure_filename(file.filename)
+        file_extension = original_filename.rsplit(".", 1)[1].lower()
+        unique_filename = f"{uuid.uuid4().hex}.{file_extension}"
+
+        # Save file
+        upload_folder = app.config["UPLOAD_FOLDER"]
+        os.makedirs(upload_folder, exist_ok=True)
+        file_path = os.path.join(upload_folder, unique_filename)
+        file.save(file_path)
+
+        # Get file size
+        file_size = os.path.getsize(file_path)
+
+        # Parse signed date if provided
+        signed_date = None
+        if signed_date_str:
+            try:
+                signed_date = datetime.fromisoformat(signed_date_str.replace("Z", "+00:00"))
+            except ValueError:
+                pass
+
+        # Create document record
+        document = Document(
+            filename=unique_filename,
+            original_filename=original_filename,
+            file_path=file_path,
+            file_type=file.content_type or "application/octet-stream",
+            file_size=file_size,
+            category=category,
+            tags=tags,
+            description=description,
+            is_consent_form=is_consent_form,
+            consent_type=consent_type if is_consent_form else None,
+            signed_date=signed_date,
+            patient_id=patient_id,
+            visit_id=visit_id,
+            client_id=client_id,
+            uploaded_by_id=current_user.id,
+        )
+
+        db.session.add(document)
+        db.session.commit()
+
+        app.logger.info(
+            f"Document uploaded: {original_filename} (ID: {document.id}) by {current_user.username}"
+        )
+
+        return jsonify(document.to_dict()), 201
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error uploading document: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/documents", methods=["GET"])
+@login_required
+def get_documents():
+    """
+    Get list of documents with optional filtering
+    Query params:
+        - page: Page number (default 1)
+        - per_page: Items per page (default 50)
+        - patient_id: Filter by patient
+        - visit_id: Filter by visit
+        - client_id: Filter by client
+        - category: Filter by category
+        - is_consent_form: Filter consent forms (true/false)
+        - is_archived: Include archived documents (true/false, default false)
+        - search: Search in filename or description
+    """
+    try:
+        # Get query parameters
+        page = request.args.get("page", 1, type=int)
+        per_page = request.args.get("per_page", 50, type=int)
+        patient_id = request.args.get("patient_id", type=int)
+        visit_id = request.args.get("visit_id", type=int)
+        client_id = request.args.get("client_id", type=int)
+        category = request.args.get("category")
+        is_consent_form = request.args.get("is_consent_form")
+        is_archived = request.args.get("is_archived", "false").lower() == "true"
+        search = request.args.get("search", "").strip()
+
+        # Build query
+        query = Document.query
+
+        # Apply filters
+        if patient_id:
+            query = query.filter_by(patient_id=patient_id)
+        if visit_id:
+            query = query.filter_by(visit_id=visit_id)
+        if client_id:
+            query = query.filter_by(client_id=client_id)
+        if category:
+            query = query.filter_by(category=category)
+        if is_consent_form is not None:
+            consent_bool = is_consent_form.lower() == "true"
+            query = query.filter_by(is_consent_form=consent_bool)
+        if not is_archived:
+            query = query.filter_by(is_archived=False)
+
+        # Search in filename or description
+        if search:
+            search_pattern = f"%{search}%"
+            query = query.filter(
+                db.or_(
+                    Document.original_filename.ilike(search_pattern),
+                    Document.description.ilike(search_pattern),
+                )
+            )
+
+        # Order by creation date (newest first)
+        query = query.order_by(Document.created_at.desc())
+
+        # Paginate
+        paginated = query.paginate(page=page, per_page=per_page, error_out=False)
+
+        return jsonify({
+            "documents": [doc.to_dict() for doc in paginated.items],
+            "total": paginated.total,
+            "pages": paginated.pages,
+            "current_page": page,
+            "per_page": per_page,
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching documents: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/documents/<int:document_id>", methods=["GET"])
+@login_required
+def get_document(document_id):
+    """Get a specific document's metadata by ID"""
+    try:
+        document = Document.query.get_or_404(document_id)
+        return jsonify(document.to_dict()), 200
+    except Exception as e:
+        app.logger.error(f"Error getting document {document_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Document not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/documents/<int:document_id>/download", methods=["GET"])
+@login_required
+def download_document(document_id):
+    """Download a document file"""
+    try:
+        document = Document.query.get_or_404(document_id)
+
+        # Check if file exists
+        if not os.path.exists(document.file_path):
+            app.logger.error(f"Document file not found: {document.file_path}")
+            return jsonify({"error": "Document file not found on server"}), 404
+
+        app.logger.info(f"Document downloaded: {document.original_filename} (ID: {document_id}) by {current_user.username}")
+
+        return send_file(
+            document.file_path,
+            mimetype=document.file_type,
+            as_attachment=True,
+            download_name=document.original_filename,
+        )
+
+    except Exception as e:
+        app.logger.error(f"Error downloading document {document_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Document not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/documents/<int:document_id>", methods=["PUT"])
+@login_required
+def update_document(document_id):
+    """Update document metadata (file cannot be changed)"""
+    try:
+        document = Document.query.get_or_404(document_id)
+        data = document_update_schema.load(request.get_json())
+
+        # Update fields
+        if "category" in data:
+            document.category = data["category"]
+        if "tags" in data:
+            document.tags = ",".join(data["tags"]) if data["tags"] else None
+        if "description" in data:
+            document.description = data["description"]
+        if "notes" in data:
+            document.notes = data["notes"]
+        if "is_consent_form" in data:
+            document.is_consent_form = data["is_consent_form"]
+        if "consent_type" in data:
+            document.consent_type = data["consent_type"]
+        if "signed_date" in data:
+            document.signed_date = data["signed_date"]
+        if "patient_id" in data:
+            document.patient_id = data["patient_id"]
+        if "visit_id" in data:
+            document.visit_id = data["visit_id"]
+        if "client_id" in data:
+            document.client_id = data["client_id"]
+        if "is_archived" in data:
+            document.is_archived = data["is_archived"]
+
+        db.session.commit()
+
+        app.logger.info(f"Document updated: {document.original_filename} (ID: {document_id}) by {current_user.username}")
+
+        return jsonify(document.to_dict()), 200
+
+    except MarshmallowValidationError as e:
+        return jsonify({"error": e.messages}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating document {document_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Document not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/documents/<int:document_id>", methods=["DELETE"])
+@login_required
+def delete_document(document_id):
+    """Delete a document (soft delete - archive by default, hard delete with force=true)"""
+    try:
+        document = Document.query.get_or_404(document_id)
+        force_delete = request.args.get("force", "false").lower() == "true"
+
+        if force_delete:
+            # Hard delete - remove file and database record
+            if os.path.exists(document.file_path):
+                os.remove(document.file_path)
+                app.logger.info(f"Document file deleted: {document.file_path}")
+
+            db.session.delete(document)
+            db.session.commit()
+
+            app.logger.info(f"Document permanently deleted: {document.original_filename} (ID: {document_id}) by {current_user.username}")
+
+            return jsonify({"message": "Document permanently deleted"}), 200
+        else:
+            # Soft delete - archive
+            document.is_archived = True
+            db.session.commit()
+
+            app.logger.info(f"Document archived: {document.original_filename} (ID: {document_id}) by {current_user.username}")
+
+            return jsonify({"message": "Document archived", "document": document.to_dict()}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting document {document_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Document not found"}), 404
         return jsonify({"error": str(e)}), 400
 
 

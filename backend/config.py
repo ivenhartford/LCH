@@ -28,6 +28,29 @@ class Config:
     # File Upload
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB max file size
     UPLOAD_FOLDER = os.path.join(basedir, "uploads")
+    ALLOWED_EXTENSIONS = {
+        "pdf", "doc", "docx", "txt", "rtf",  # Documents
+        "jpg", "jpeg", "png", "gif", "bmp", "tiff",  # Images
+        "xls", "xlsx", "csv",  # Spreadsheets
+        "zip", "rar"  # Archives
+    }
+    ALLOWED_MIME_TYPES = {
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "text/plain",
+        "application/rtf",
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "image/bmp",
+        "image/tiff",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "text/csv",
+        "application/zip",
+        "application/x-rar-compressed",
+    }
 
     # Session
     SESSION_COOKIE_SECURE = False
