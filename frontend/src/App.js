@@ -4,7 +4,7 @@ import { CircularProgress, Box, Typography } from '@mui/material';
 import ErrorBoundary from './components/ErrorBoundary';
 import QueryProvider from './providers/QueryProvider';
 import MainLayout from './components/layout/MainLayout';
-import Dashboard from './components/Dashboard';
+import Appointments from './components/Appointments';
 import Login from './components/Login';
 import Clients from './components/Clients';
 import ClientDetail from './components/ClientDetail';
@@ -222,7 +222,7 @@ function App() {
                       <Route path="/visits" element={<Visits />} />
                       <Route path="/visits/new" element={<VisitDetail />} />
                       <Route path="/visits/:visitId" element={<VisitDetail />} />
-                      <Route path="/appointments" element={<Dashboard />} />
+                      <Route path="/appointments" element={<Appointments />} />
                       <Route path="/appointments/new" element={<AppointmentForm />} />
                       <Route path="/appointments/:id" element={<AppointmentDetail />} />
                       <Route path="/appointments/:id/edit" element={<AppointmentForm />} />

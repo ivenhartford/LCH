@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   Drawer,
+  SwipeableDrawer,
   List,
   ListItem,
   ListItemButton,
@@ -220,12 +221,16 @@ const Sidebar = ({ open, onClose }) => {
 
   return (
     <>
-      {/* Mobile drawer */}
-      <Drawer
+      {/* Mobile drawer with swipe gestures */}
+      <SwipeableDrawer
         variant="temporary"
         open={open}
         onClose={onClose}
+        onOpen={() => {}} // Required for SwipeableDrawer but not used
         aria-label="Mobile navigation menu"
+        disableBackdropTransition
+        disableDiscovery={false}
+        swipeAreaWidth={20}
         ModalProps={{
           keepMounted: true, // Better mobile performance
         }}
@@ -238,7 +243,7 @@ const Sidebar = ({ open, onClose }) => {
         }}
       >
         {drawerContent}
-      </Drawer>
+      </SwipeableDrawer>
 
       {/* Desktop drawer */}
       <Drawer
