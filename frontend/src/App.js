@@ -1,47 +1,54 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom';
 import { CircularProgress, Box, Typography } from '@mui/material';
 import ErrorBoundary from './components/ErrorBoundary';
 import QueryProvider from './providers/QueryProvider';
 import MainLayout from './components/layout/MainLayout';
-import Appointments from './components/Appointments';
-import Login from './components/Login';
-import Clients from './components/Clients';
-import ClientDetail from './components/ClientDetail';
-import ClientForm from './components/ClientForm';
-import Patients from './components/Patients';
-import PatientDetail from './components/PatientDetail';
-import PatientForm from './components/PatientForm';
-import AppointmentDetail from './components/AppointmentDetail';
-import AppointmentForm from './components/AppointmentForm';
-import Visits from './components/Visits';
-import VisitDetail from './components/VisitDetail';
-import Medications from './components/Medications';
-import Services from './components/Services';
-import Invoices from './components/Invoices';
-import InvoiceDetail from './components/InvoiceDetail';
-import FinancialReports from './components/FinancialReports';
-import InventoryDashboard from './components/InventoryDashboard';
-import Products from './components/Products';
-import Vendors from './components/Vendors';
-import PurchaseOrders from './components/PurchaseOrders';
-import Staff from './components/Staff';
-import StaffSchedule from './components/StaffSchedule';
-import LabTests from './components/LabTests';
-import LabResults from './components/LabResults';
-import Reminders from './components/Reminders';
-import NotificationTemplates from './components/NotificationTemplates';
-import Settings from './components/Settings';
-import ClientPortalLogin from './components/ClientPortalLogin';
-import ClientPortalLayout from './components/ClientPortalLayout';
-import ClientPortalDashboard from './components/ClientPortalDashboard';
-import ClientPatients from './components/ClientPatients';
-import ClientAppointmentHistory from './components/ClientAppointmentHistory';
-import ClientInvoices from './components/ClientInvoices';
-import AppointmentRequestForm from './components/AppointmentRequestForm';
+import LoadingFallback from './components/common/LoadingFallback';
 import logger from './utils/logger';
 import { NotificationProvider } from './contexts/NotificationContext';
 import './App.css';
+
+// Lazy load route components for code splitting
+// Critical routes loaded immediately
+import Login from './components/Login';
+import ClientPortalLogin from './components/ClientPortalLogin';
+
+// Lazy-loaded route components
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const Appointments = lazy(() => import('./components/Appointments'));
+const Clients = lazy(() => import('./components/Clients'));
+const ClientDetail = lazy(() => import('./components/ClientDetail'));
+const ClientForm = lazy(() => import('./components/ClientForm'));
+const Patients = lazy(() => import('./components/Patients'));
+const PatientDetail = lazy(() => import('./components/PatientDetail'));
+const PatientForm = lazy(() => import('./components/PatientForm'));
+const AppointmentDetail = lazy(() => import('./components/AppointmentDetail'));
+const AppointmentForm = lazy(() => import('./components/AppointmentForm'));
+const Visits = lazy(() => import('./components/Visits'));
+const VisitDetail = lazy(() => import('./components/VisitDetail'));
+const Medications = lazy(() => import('./components/Medications'));
+const Services = lazy(() => import('./components/Services'));
+const Invoices = lazy(() => import('./components/Invoices'));
+const InvoiceDetail = lazy(() => import('./components/InvoiceDetail'));
+const FinancialReports = lazy(() => import('./components/FinancialReports'));
+const InventoryDashboard = lazy(() => import('./components/InventoryDashboard'));
+const Products = lazy(() => import('./components/Products'));
+const Vendors = lazy(() => import('./components/Vendors'));
+const PurchaseOrders = lazy(() => import('./components/PurchaseOrders'));
+const Staff = lazy(() => import('./components/Staff'));
+const StaffSchedule = lazy(() => import('./components/StaffSchedule'));
+const LabTests = lazy(() => import('./components/LabTests'));
+const LabResults = lazy(() => import('./components/LabResults'));
+const Reminders = lazy(() => import('./components/Reminders'));
+const NotificationTemplates = lazy(() => import('./components/NotificationTemplates'));
+const Settings = lazy(() => import('./components/Settings'));
+const ClientPortalLayout = lazy(() => import('./components/ClientPortalLayout'));
+const ClientPortalDashboard = lazy(() => import('./components/ClientPortalDashboard'));
+const ClientPatients = lazy(() => import('./components/ClientPatients'));
+const ClientAppointmentHistory = lazy(() => import('./components/ClientAppointmentHistory'));
+const ClientInvoices = lazy(() => import('./components/ClientInvoices'));
+const AppointmentRequestForm = lazy(() => import('./components/AppointmentRequestForm'));
 
 /**
  * Main Application Component
@@ -188,13 +195,15 @@ function App() {
               element={
                 portalUser ? (
                   <ClientPortalLayout portalUser={portalUser} setPortalUser={setPortalUser}>
-                    <Routes>
-                      <Route path="/dashboard" element={<ClientPortalDashboard portalUser={portalUser} />} />
-                      <Route path="/patients" element={<ClientPatients portalUser={portalUser} />} />
-                      <Route path="/appointments" element={<ClientAppointmentHistory portalUser={portalUser} />} />
-                      <Route path="/invoices" element={<ClientInvoices portalUser={portalUser} />} />
-                      <Route path="/request-appointment" element={<AppointmentRequestForm portalUser={portalUser} />} />
-                    </Routes>
+                    <Suspense fallback={<LoadingFallback />}>
+                      <Routes>
+                        <Route path="/dashboard" element={<ClientPortalDashboard portalUser={portalUser} />} />
+                        <Route path="/patients" element={<ClientPatients portalUser={portalUser} />} />
+                        <Route path="/appointments" element={<ClientAppointmentHistory portalUser={portalUser} />} />
+                        <Route path="/invoices" element={<ClientInvoices portalUser={portalUser} />} />
+                        <Route path="/request-appointment" element={<AppointmentRequestForm portalUser={portalUser} />} />
+                      </Routes>
+                    </Suspense>
                   </ClientPortalLayout>
                 ) : (
                   <Navigate to="/portal/login" replace />
@@ -208,62 +217,64 @@ function App() {
               element={
                 user ? (
                   <MainLayout user={user} onLogout={handleLogout}>
-                    <Routes>
-                      <Route path="/" element={<Dashboard />} />
-                      <Route path="/calendar" element={<Dashboard />} />
-                      <Route path="/clients" element={<Clients />} />
-                      <Route path="/clients/new" element={<ClientForm />} />
-                      <Route path="/clients/:clientId" element={<ClientDetail />} />
-                      <Route path="/clients/:clientId/edit" element={<ClientForm />} />
-                      <Route path="/patients" element={<Patients />} />
-                      <Route path="/patients/new" element={<PatientForm />} />
-                      <Route path="/patients/:patientId" element={<PatientDetail />} />
-                      <Route path="/patients/:patientId/edit" element={<PatientForm />} />
-                      <Route path="/visits" element={<Visits />} />
-                      <Route path="/visits/new" element={<VisitDetail />} />
-                      <Route path="/visits/:visitId" element={<VisitDetail />} />
-                      <Route path="/appointments" element={<Appointments />} />
-                      <Route path="/appointments/new" element={<AppointmentForm />} />
-                      <Route path="/appointments/:id" element={<AppointmentDetail />} />
-                      <Route path="/appointments/:id/edit" element={<AppointmentForm />} />
-                      <Route path="/medications" element={<Medications />} />
-                      <Route path="/services" element={<Services />} />
-                      <Route path="/invoices" element={<Invoices />} />
-                      <Route path="/invoices/:invoiceId" element={<InvoiceDetail />} />
-                      <Route path="/reports" element={<FinancialReports />} />
-                      <Route
-                        path="/invoices/old-placeholder"
-                        element={
-                          <Box>
-                            <Typography variant="h4">Invoices</Typography>
-                            <Typography color="text.secondary">
-                              Invoicing coming soon (Phase 2)
-                            </Typography>
-                          </Box>
-                        }
-                      />
-                      <Route path="/inventory" element={<InventoryDashboard />} />
-                      <Route path="/products" element={<Products />} />
-                      <Route path="/vendors" element={<Vendors />} />
-                      <Route path="/purchase-orders" element={<PurchaseOrders />} />
-                      <Route path="/staff" element={<Staff />} />
-                      <Route path="/staff-schedule" element={<StaffSchedule />} />
-                      <Route path="/lab-tests" element={<LabTests />} />
-                      <Route path="/lab-results" element={<LabResults />} />
-                      <Route path="/reminders" element={<Reminders />} />
-                      <Route path="/notification-templates" element={<NotificationTemplates />} />
-                      <Route path="/settings" element={<Settings user={user} />} />
-                      <Route
-                        path="/profile"
-                        element={
-                          <Box>
-                            <Typography variant="h4">Profile</Typography>
-                            <Typography color="text.secondary">User: {user?.username}</Typography>
-                            <Typography color="text.secondary">Role: {user?.role}</Typography>
-                          </Box>
-                        }
-                      />
-                    </Routes>
+                    <Suspense fallback={<LoadingFallback />}>
+                      <Routes>
+                        <Route path="/" element={<Dashboard />} />
+                        <Route path="/calendar" element={<Dashboard />} />
+                        <Route path="/clients" element={<Clients />} />
+                        <Route path="/clients/new" element={<ClientForm />} />
+                        <Route path="/clients/:clientId" element={<ClientDetail />} />
+                        <Route path="/clients/:clientId/edit" element={<ClientForm />} />
+                        <Route path="/patients" element={<Patients />} />
+                        <Route path="/patients/new" element={<PatientForm />} />
+                        <Route path="/patients/:patientId" element={<PatientDetail />} />
+                        <Route path="/patients/:patientId/edit" element={<PatientForm />} />
+                        <Route path="/visits" element={<Visits />} />
+                        <Route path="/visits/new" element={<VisitDetail />} />
+                        <Route path="/visits/:visitId" element={<VisitDetail />} />
+                        <Route path="/appointments" element={<Appointments />} />
+                        <Route path="/appointments/new" element={<AppointmentForm />} />
+                        <Route path="/appointments/:id" element={<AppointmentDetail />} />
+                        <Route path="/appointments/:id/edit" element={<AppointmentForm />} />
+                        <Route path="/medications" element={<Medications />} />
+                        <Route path="/services" element={<Services />} />
+                        <Route path="/invoices" element={<Invoices />} />
+                        <Route path="/invoices/:invoiceId" element={<InvoiceDetail />} />
+                        <Route path="/reports" element={<FinancialReports />} />
+                        <Route
+                          path="/invoices/old-placeholder"
+                          element={
+                            <Box>
+                              <Typography variant="h4">Invoices</Typography>
+                              <Typography color="text.secondary">
+                                Invoicing coming soon (Phase 2)
+                              </Typography>
+                            </Box>
+                          }
+                        />
+                        <Route path="/inventory" element={<InventoryDashboard />} />
+                        <Route path="/products" element={<Products />} />
+                        <Route path="/vendors" element={<Vendors />} />
+                        <Route path="/purchase-orders" element={<PurchaseOrders />} />
+                        <Route path="/staff" element={<Staff />} />
+                        <Route path="/staff-schedule" element={<StaffSchedule />} />
+                        <Route path="/lab-tests" element={<LabTests />} />
+                        <Route path="/lab-results" element={<LabResults />} />
+                        <Route path="/reminders" element={<Reminders />} />
+                        <Route path="/notification-templates" element={<NotificationTemplates />} />
+                        <Route path="/settings" element={<Settings user={user} />} />
+                        <Route
+                          path="/profile"
+                          element={
+                            <Box>
+                              <Typography variant="h4">Profile</Typography>
+                              <Typography color="text.secondary">User: {user?.username}</Typography>
+                              <Typography color="text.secondary">Role: {user?.role}</Typography>
+                            </Box>
+                          }
+                        />
+                      </Routes>
+                    </Suspense>
                   </MainLayout>
                 ) : (
                   <Navigate to="/login" replace />
