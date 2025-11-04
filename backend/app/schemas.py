@@ -1371,6 +1371,89 @@ class AppointmentRequestReviewSchema(Schema):
     appointment_id = fields.Int(allow_none=True)
 
 
+class DocumentSchema(Schema):
+    """Schema for Document model validation and serialization"""
+
+    id = fields.Int(dump_only=True)
+
+    # File Information
+    filename = fields.Str(dump_only=True)
+    original_filename = fields.Str(required=True, validate=validate.Length(min=1, max=255))
+    file_path = fields.Str(dump_only=True)
+    file_type = fields.Str(required=True, validate=validate.Length(max=100))
+    file_size = fields.Int(required=True, validate=validate.Range(min=1))
+    file_size_mb = fields.Float(dump_only=True)
+
+    # Document Classification
+    category = fields.Str(
+        validate=validate.OneOf([
+            "general",
+            "medical_record",
+            "lab_result",
+            "imaging",
+            "consent_form",
+            "vaccination_record",
+            "other"
+        ]),
+        load_default="general"
+    )
+    tags = fields.List(fields.Str(), allow_none=True)
+    description = fields.Str(allow_none=True)
+    notes = fields.Str(allow_none=True)
+
+    # Consent Form Fields
+    is_consent_form = fields.Bool(load_default=False)
+    consent_type = fields.Str(allow_none=True, validate=validate.Length(max=100))
+    signed_date = fields.DateTime(allow_none=True)
+
+    # Relationships
+    patient_id = fields.Int(allow_none=True)
+    patient_name = fields.Str(dump_only=True)
+    visit_id = fields.Int(allow_none=True)
+    client_id = fields.Int(allow_none=True)
+    client_name = fields.Str(dump_only=True)
+    uploaded_by_id = fields.Int(dump_only=True)
+    uploaded_by_name = fields.Str(dump_only=True)
+
+    # Metadata
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+    is_archived = fields.Bool(load_default=False)
+
+
+class DocumentUpdateSchema(Schema):
+    """Schema for updating existing document (all fields optional except file info)"""
+
+    # Document Classification
+    category = fields.Str(
+        validate=validate.OneOf([
+            "general",
+            "medical_record",
+            "lab_result",
+            "imaging",
+            "consent_form",
+            "vaccination_record",
+            "other"
+        ])
+    )
+    tags = fields.List(fields.Str())
+    description = fields.Str(allow_none=True)
+    notes = fields.Str(allow_none=True)
+
+    # Consent Form Fields
+    is_consent_form = fields.Bool()
+    consent_type = fields.Str(allow_none=True, validate=validate.Length(max=100))
+    signed_date = fields.DateTime(allow_none=True)
+
+    # Relationships
+    patient_id = fields.Int(allow_none=True)
+    visit_id = fields.Int(allow_none=True)
+    client_id = fields.Int(allow_none=True)
+
+    # Metadata
+    is_archived = fields.Bool()
+
+
 # Initialize reminder schema instances
 notification_template_schema = NotificationTemplateSchema()
 notification_templates_schema = NotificationTemplateSchema(many=True)
@@ -1391,3 +1474,7 @@ appointment_request_schema = AppointmentRequestSchema()
 appointment_requests_schema = AppointmentRequestSchema(many=True)
 appointment_request_create_schema = AppointmentRequestCreateSchema()
 appointment_request_review_schema = AppointmentRequestReviewSchema()
+
+document_schema = DocumentSchema()
+documents_schema = DocumentSchema(many=True)
+document_update_schema = DocumentUpdateSchema()

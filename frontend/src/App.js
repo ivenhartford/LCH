@@ -43,6 +43,7 @@ const LabTests = lazy(() => import('./components/LabTests'));
 const LabResults = lazy(() => import('./components/LabResults'));
 const Reminders = lazy(() => import('./components/Reminders'));
 const NotificationTemplates = lazy(() => import('./components/NotificationTemplates'));
+const Documents = lazy(() => import('./components/Documents'));
 const Settings = lazy(() => import('./components/Settings'));
 const ClientPortalLayout = lazy(() => import('./components/ClientPortalLayout'));
 const ClientPortalDashboard = lazy(() => import('./components/ClientPortalDashboard'));
@@ -266,6 +267,7 @@ function App() {
                         <Route path="/lab-results" element={<LabResults />} />
                         <Route path="/reminders" element={<Reminders />} />
                         <Route path="/notification-templates" element={<NotificationTemplates />} />
+                        <Route path="/documents" element={<Documents />} />
                         <Route path="/settings" element={<Settings user={user} />} />
                         <Route
                           path="/profile"

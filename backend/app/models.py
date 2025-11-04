@@ -2291,3 +2291,88 @@ class AppointmentRequest(db.Model):
                 self.updated_at.isoformat() if self.updated_at else None
             ),
         }
+
+
+class Document(db.Model):
+    """
+    Document Model - Stores documents related to patients, visits, and clients
+
+    Supports various document types including medical records, consent forms,
+    lab results, images, and general documents. Documents can be linked to
+    patients, visits, or clients.
+    """
+
+    __tablename__ = "document"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # File Information
+    filename = db.Column(db.String(255), nullable=False)
+    original_filename = db.Column(db.String(255), nullable=False)
+    file_path = db.Column(db.String(500), nullable=False)
+    file_type = db.Column(db.String(100), nullable=False)  # MIME type (e.g., application/pdf, image/jpeg)
+    file_size = db.Column(db.Integer, nullable=False)  # Size in bytes
+
+    # Document Classification
+    category = db.Column(
+        db.String(50), nullable=False, default="general"
+    )  # general, medical_record, lab_result, imaging, consent_form, vaccination_record, other
+    tags = db.Column(db.Text, nullable=True)  # Comma-separated tags for additional categorization
+    description = db.Column(db.Text, nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+
+    # Consent Form Fields
+    is_consent_form = db.Column(db.Boolean, default=False)
+    consent_type = db.Column(db.String(100), nullable=True)  # e.g., surgery, anesthesia, treatment, general
+    signed_date = db.Column(db.DateTime, nullable=True)
+
+    # Relationships (can belong to patient, visit, or client)
+    patient_id = db.Column(db.Integer, db.ForeignKey("patient.id"), nullable=True)
+    visit_id = db.Column(db.Integer, db.ForeignKey("visit.id"), nullable=True)
+    client_id = db.Column(db.Integer, db.ForeignKey("client.id"), nullable=True)
+    uploaded_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    is_archived = db.Column(db.Boolean, default=False)
+
+    # Relationships
+    patient = db.relationship("Patient", backref="documents")
+    visit = db.relationship("Visit", backref="documents")
+    client = db.relationship("Client", backref="documents")
+    uploaded_by = db.relationship("User", backref="documents_uploaded")
+
+    def __repr__(self):
+        return f"<Document {self.id} - {self.original_filename}>"
+
+    def to_dict(self):
+        """Convert document to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "filename": self.filename,
+            "original_filename": self.original_filename,
+            "file_path": self.file_path,
+            "file_type": self.file_type,
+            "file_size": self.file_size,
+            "file_size_mb": round(self.file_size / (1024 * 1024), 2),
+            "category": self.category,
+            "tags": self.tags.split(",") if self.tags else [],
+            "description": self.description,
+            "notes": self.notes,
+            "is_consent_form": self.is_consent_form,
+            "consent_type": self.consent_type,
+            "signed_date": self.signed_date.isoformat() if self.signed_date else None,
+            "patient_id": self.patient_id,
+            "patient_name": self.patient.name if self.patient else None,
+            "visit_id": self.visit_id,
+            "client_id": self.client_id,
+            "client_name": (
+                f"{self.client.first_name} {self.client.last_name}" if self.client else None
+            ),
+            "uploaded_by_id": self.uploaded_by_id,
+            "uploaded_by_name": self.uploaded_by.username if self.uploaded_by else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "is_archived": self.is_archived,
+        }
