@@ -1454,6 +1454,186 @@ class DocumentUpdateSchema(Schema):
     is_archived = fields.Bool()
 
 
+# ============================================================================
+# Phase 4.2: Treatment Plans & Protocols Schemas
+# ============================================================================
+
+
+class ProtocolStepSchema(Schema):
+    """Schema for protocol step (template step)"""
+    id = fields.Int(dump_only=True)
+    protocol_id = fields.Int(required=True)
+    step_number = fields.Int(required=True, validate=validate.Range(min=1))
+    title = fields.Str(required=True, validate=validate.Length(min=1, max=200))
+    description = fields.Str(allow_none=True)
+    day_offset = fields.Int(load_default=0, validate=validate.Range(min=0))
+    estimated_cost = fields.Decimal(as_string=True, allow_none=True, validate=validate.Range(min=0))
+    notes = fields.Str(allow_none=True)
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+
+
+class ProtocolSchema(Schema):
+    """Schema for protocol (treatment plan template)"""
+    id = fields.Int(dump_only=True)
+    name = fields.Str(required=True, validate=validate.Length(min=1, max=200))
+    description = fields.Str(allow_none=True)
+    category = fields.Str(allow_none=True, validate=validate.Length(max=100))
+    is_active = fields.Bool(load_default=True)
+    default_duration_days = fields.Int(allow_none=True, validate=validate.Range(min=1))
+    estimated_cost = fields.Decimal(as_string=True, allow_none=True, validate=validate.Range(min=0))
+    notes = fields.Str(allow_none=True)
+    created_by_id = fields.Int(dump_only=True)
+    created_by_name = fields.Str(dump_only=True)
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+    step_count = fields.Int(dump_only=True)
+    steps = fields.List(fields.Nested(ProtocolStepSchema), dump_only=True)
+
+
+class ProtocolCreateSchema(Schema):
+    """Schema for creating a new protocol"""
+    name = fields.Str(required=True, validate=validate.Length(min=1, max=200))
+    description = fields.Str(allow_none=True)
+    category = fields.Str(allow_none=True, validate=validate.Length(max=100))
+    is_active = fields.Bool(load_default=True)
+    default_duration_days = fields.Int(allow_none=True, validate=validate.Range(min=1))
+    estimated_cost = fields.Decimal(as_string=True, allow_none=True, validate=validate.Range(min=0))
+    notes = fields.Str(allow_none=True)
+    steps = fields.List(fields.Nested(lambda: ProtocolStepCreateSchema()), load_default=[])
+
+
+class ProtocolStepCreateSchema(Schema):
+    """Schema for creating a protocol step"""
+    step_number = fields.Int(required=True, validate=validate.Range(min=1))
+    title = fields.Str(required=True, validate=validate.Length(min=1, max=200))
+    description = fields.Str(allow_none=True)
+    day_offset = fields.Int(load_default=0, validate=validate.Range(min=0))
+    estimated_cost = fields.Decimal(as_string=True, allow_none=True, validate=validate.Range(min=0))
+    notes = fields.Str(allow_none=True)
+
+
+class ProtocolUpdateSchema(Schema):
+    """Schema for updating a protocol (all fields optional)"""
+    name = fields.Str(validate=validate.Length(min=1, max=200))
+    description = fields.Str(allow_none=True)
+    category = fields.Str(allow_none=True, validate=validate.Length(max=100))
+    is_active = fields.Bool()
+    default_duration_days = fields.Int(allow_none=True, validate=validate.Range(min=1))
+    estimated_cost = fields.Decimal(as_string=True, allow_none=True, validate=validate.Range(min=0))
+    notes = fields.Str(allow_none=True)
+
+
+class TreatmentPlanStepSchema(Schema):
+    """Schema for treatment plan step"""
+    id = fields.Int(dump_only=True)
+    treatment_plan_id = fields.Int(required=True)
+    step_number = fields.Int(required=True, validate=validate.Range(min=1))
+    title = fields.Str(required=True, validate=validate.Length(min=1, max=200))
+    description = fields.Str(allow_none=True)
+    status = fields.Str(
+        load_default="pending",
+        validate=validate.OneOf(["pending", "in_progress", "completed", "skipped", "cancelled"])
+    )
+    scheduled_date = fields.Date(allow_none=True)
+    completed_date = fields.Date(allow_none=True)
+    estimated_cost = fields.Decimal(as_string=True, allow_none=True, validate=validate.Range(min=0))
+    actual_cost = fields.Decimal(as_string=True, allow_none=True, validate=validate.Range(min=0))
+    notes = fields.Str(allow_none=True)
+    performed_by_id = fields.Int(allow_none=True)
+    performed_by_name = fields.Str(dump_only=True)
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+
+
+class TreatmentPlanSchema(Schema):
+    """Schema for treatment plan"""
+    id = fields.Int(dump_only=True)
+    name = fields.Str(required=True, validate=validate.Length(min=1, max=200))
+    description = fields.Str(allow_none=True)
+    patient_id = fields.Int(required=True)
+    patient_name = fields.Str(dump_only=True)
+    visit_id = fields.Int(allow_none=True)
+    protocol_id = fields.Int(allow_none=True)
+    protocol_name = fields.Str(dump_only=True)
+    status = fields.Str(
+        load_default="draft",
+        validate=validate.OneOf(["draft", "active", "completed", "cancelled"])
+    )
+    start_date = fields.Date(allow_none=True)
+    end_date = fields.Date(allow_none=True)
+    completed_date = fields.Date(allow_none=True)
+    total_estimated_cost = fields.Decimal(as_string=True, load_default="0", validate=validate.Range(min=0))
+    total_actual_cost = fields.Decimal(as_string=True, load_default="0", validate=validate.Range(min=0))
+    notes = fields.Str(allow_none=True)
+    cancellation_reason = fields.Str(allow_none=True)
+    created_by_id = fields.Int(dump_only=True)
+    created_by_name = fields.Str(dump_only=True)
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+    progress_percentage = fields.Int(dump_only=True)
+    step_count = fields.Int(dump_only=True)
+    steps = fields.List(fields.Nested(TreatmentPlanStepSchema), dump_only=True)
+
+
+class TreatmentPlanCreateSchema(Schema):
+    """Schema for creating a new treatment plan"""
+    name = fields.Str(required=True, validate=validate.Length(min=1, max=200))
+    description = fields.Str(allow_none=True)
+    patient_id = fields.Int(required=True)
+    visit_id = fields.Int(allow_none=True)
+    protocol_id = fields.Int(allow_none=True)
+    status = fields.Str(
+        load_default="draft",
+        validate=validate.OneOf(["draft", "active", "completed", "cancelled"])
+    )
+    start_date = fields.Date(allow_none=True)
+    end_date = fields.Date(allow_none=True)
+    notes = fields.Str(allow_none=True)
+    steps = fields.List(fields.Nested(lambda: TreatmentPlanStepCreateSchema()), load_default=[])
+
+
+class TreatmentPlanStepCreateSchema(Schema):
+    """Schema for creating a treatment plan step"""
+    step_number = fields.Int(required=True, validate=validate.Range(min=1))
+    title = fields.Str(required=True, validate=validate.Length(min=1, max=200))
+    description = fields.Str(allow_none=True)
+    status = fields.Str(
+        load_default="pending",
+        validate=validate.OneOf(["pending", "in_progress", "completed", "skipped", "cancelled"])
+    )
+    scheduled_date = fields.Date(allow_none=True)
+    estimated_cost = fields.Decimal(as_string=True, allow_none=True, validate=validate.Range(min=0))
+    notes = fields.Str(allow_none=True)
+
+
+class TreatmentPlanUpdateSchema(Schema):
+    """Schema for updating a treatment plan (all fields optional)"""
+    name = fields.Str(validate=validate.Length(min=1, max=200))
+    description = fields.Str(allow_none=True)
+    status = fields.Str(validate=validate.OneOf(["draft", "active", "completed", "cancelled"]))
+    start_date = fields.Date(allow_none=True)
+    end_date = fields.Date(allow_none=True)
+    completed_date = fields.Date(allow_none=True)
+    total_estimated_cost = fields.Decimal(as_string=True, allow_none=True, validate=validate.Range(min=0))
+    total_actual_cost = fields.Decimal(as_string=True, allow_none=True, validate=validate.Range(min=0))
+    notes = fields.Str(allow_none=True)
+    cancellation_reason = fields.Str(allow_none=True)
+
+
+class TreatmentPlanStepUpdateSchema(Schema):
+    """Schema for updating a treatment plan step (all fields optional)"""
+    title = fields.Str(validate=validate.Length(min=1, max=200))
+    description = fields.Str(allow_none=True)
+    status = fields.Str(validate=validate.OneOf(["pending", "in_progress", "completed", "skipped", "cancelled"]))
+    scheduled_date = fields.Date(allow_none=True)
+    completed_date = fields.Date(allow_none=True)
+    estimated_cost = fields.Decimal(as_string=True, allow_none=True, validate=validate.Range(min=0))
+    actual_cost = fields.Decimal(as_string=True, allow_none=True, validate=validate.Range(min=0))
+    notes = fields.Str(allow_none=True)
+    performed_by_id = fields.Int(allow_none=True)
+
+
 # Initialize reminder schema instances
 notification_template_schema = NotificationTemplateSchema()
 notification_templates_schema = NotificationTemplateSchema(many=True)
@@ -1478,3 +1658,18 @@ appointment_request_review_schema = AppointmentRequestReviewSchema()
 document_schema = DocumentSchema()
 documents_schema = DocumentSchema(many=True)
 document_update_schema = DocumentUpdateSchema()
+
+protocol_schema = ProtocolSchema()
+protocols_schema = ProtocolSchema(many=True)
+protocol_create_schema = ProtocolCreateSchema()
+protocol_update_schema = ProtocolUpdateSchema()
+protocol_step_schema = ProtocolStepSchema()
+protocol_steps_schema = ProtocolStepSchema(many=True)
+
+treatment_plan_schema = TreatmentPlanSchema()
+treatment_plans_schema = TreatmentPlanSchema(many=True)
+treatment_plan_create_schema = TreatmentPlanCreateSchema()
+treatment_plan_update_schema = TreatmentPlanUpdateSchema()
+treatment_plan_step_schema = TreatmentPlanStepSchema()
+treatment_plan_steps_schema = TreatmentPlanStepSchema(many=True)
+treatment_plan_step_update_schema = TreatmentPlanStepUpdateSchema()

@@ -31,6 +31,8 @@ import {
   Assessment as AssessmentIcon,
   Settings as SettingsIcon,
   Description as DocumentIcon,
+  LibraryBooks as ProtocolIcon,
+  Assignment as TreatmentPlanIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import logger from '../../utils/logger';
@@ -89,6 +91,7 @@ const Sidebar = ({ open, onClose }) => {
         { text: 'Medications', icon: <MedicationIcon />, path: '/medications' },
         { text: 'Services', icon: <InventoryIcon />, path: '/services' },
         { text: 'Documents', icon: <DocumentIcon />, path: '/documents' },
+        { text: 'Protocol Library', icon: <ProtocolIcon />, path: '/protocols' },
       ],
     },
     {
@@ -127,7 +130,10 @@ const Sidebar = ({ open, onClose }) => {
     },
     {
       section: 'Reports',
-      items: [{ text: 'Reports', icon: <AssessmentIcon />, path: '/reports' }],
+      items: [
+        { text: 'Financial Reports', icon: <AssessmentIcon />, path: '/reports' },
+        { text: 'Analytics', icon: <AssessmentIcon />, path: '/analytics' },
+      ],
     },
   ];
 

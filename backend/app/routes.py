@@ -1,14 +1,17 @@
 import os
 import uuid
+from io import BytesIO
 from werkzeug.utils import secure_filename
 from flask import jsonify, send_from_directory, send_file, request, Blueprint
 from flask import current_app as app
+from .pdf_generator import VaccinationCertificateGenerator, HealthCertificateGenerator, MedicalRecordSummaryGenerator
 from .models import (
     db, User, Patient, Pet, Appointment, AppointmentType, Client,
     Visit, VitalSigns, SOAPNote, Diagnosis, Vaccination,
     Medication, Prescription, Service, Invoice, InvoiceItem, Payment,
     Vendor, Product, PurchaseOrder, PurchaseOrderItem, InventoryTransaction,
-    ClientPortalUser, AppointmentRequest, Document
+    ClientPortalUser, AppointmentRequest, Document,
+    Protocol, ProtocolStep, TreatmentPlan, TreatmentPlanStep
 )
 from .schemas import (
     client_schema,
@@ -41,6 +44,15 @@ from .schemas import (
     document_schema,
     documents_schema,
     document_update_schema,
+    protocol_schema,
+    protocols_schema,
+    protocol_create_schema,
+    protocol_update_schema,
+    treatment_plan_schema,
+    treatment_plans_schema,
+    treatment_plan_create_schema,
+    treatment_plan_update_schema,
+    treatment_plan_step_update_schema,
 )
 from flask_login import login_user, logout_user, login_required, current_user
 from datetime import datetime, timedelta
@@ -2956,6 +2968,753 @@ def get_service_revenue_report():
         return jsonify({"error": str(e)}), 400
 
 
+# ============================================================================
+# ADVANCED ANALYTICS - Phase 4.3
+# ============================================================================
+
+@bp.route("/api/analytics/revenue-trends", methods=["GET"])
+@login_required
+def get_revenue_trends():
+    """
+    Get revenue trends over time for charting
+    Query params: period (day|week|month), start_date, end_date
+    Returns time-series data suitable for line/bar charts
+    """
+    try:
+        period = request.args.get("period", "month")  # day, week, month
+        start_date_str = request.args.get("start_date")
+        end_date_str = request.args.get("end_date")
+
+        # Default to last 12 months if not specified
+        if not end_date_str:
+            end_date = datetime.now()
+        else:
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
+
+        if not start_date_str:
+            if period == "day":
+                start_date = end_date - timedelta(days=30)
+            elif period == "week":
+                start_date = end_date - timedelta(weeks=12)
+            else:  # month
+                start_date = end_date - timedelta(days=365)
+        else:
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
+
+        # Build query based on period
+        if period == "day":
+            # Group by day
+            trend_data = (
+                db.session.query(
+                    func.date(Invoice.invoice_date).label("period"),
+                    func.sum(Invoice.total_amount).label("revenue"),
+                    func.count(Invoice.id).label("invoice_count"),
+                )
+                .filter(Invoice.invoice_date.between(start_date, end_date))
+                .filter(Invoice.status.in_(["paid", "partial_paid"]))
+                .group_by(func.date(Invoice.invoice_date))
+                .order_by(func.date(Invoice.invoice_date))
+                .all()
+            )
+        elif period == "week":
+            # Group by week
+            trend_data = (
+                db.session.query(
+                    func.strftime("%Y-W%W", Invoice.invoice_date).label("period"),
+                    func.sum(Invoice.total_amount).label("revenue"),
+                    func.count(Invoice.id).label("invoice_count"),
+                )
+                .filter(Invoice.invoice_date.between(start_date, end_date))
+                .filter(Invoice.status.in_(["paid", "partial_paid"]))
+                .group_by(func.strftime("%Y-W%W", Invoice.invoice_date))
+                .order_by(func.strftime("%Y-W%W", Invoice.invoice_date))
+                .all()
+            )
+        else:  # month
+            # Group by month
+            trend_data = (
+                db.session.query(
+                    func.strftime("%Y-%m", Invoice.invoice_date).label("period"),
+                    func.sum(Invoice.total_amount).label("revenue"),
+                    func.count(Invoice.id).label("invoice_count"),
+                )
+                .filter(Invoice.invoice_date.between(start_date, end_date))
+                .filter(Invoice.status.in_(["paid", "partial_paid"]))
+                .group_by(func.strftime("%Y-%m", Invoice.invoice_date))
+                .order_by(func.strftime("%Y-%m", Invoice.invoice_date))
+                .all()
+            )
+
+        data = [
+            {"period": str(row.period), "revenue": float(row.revenue or 0), "invoice_count": row.invoice_count}
+            for row in trend_data
+        ]
+
+        return jsonify({"data": data, "period": period}), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting revenue trends: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/analytics/client-retention", methods=["GET"])
+@login_required
+def get_client_retention():
+    """
+    Get client retention metrics
+    Returns: new clients, returning clients, retention rate, churn rate
+    """
+    try:
+        start_date_str = request.args.get("start_date")
+        end_date_str = request.args.get("end_date")
+
+        # Default to last 12 months
+        if not end_date_str:
+            end_date = datetime.now()
+        else:
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
+
+        if not start_date_str:
+            start_date = end_date - timedelta(days=365)
+        else:
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
+
+        # Get all clients created during the period
+        new_clients = Client.query.filter(Client.created_at.between(start_date, end_date)).count()
+
+        # Get returning clients (clients with appointments in this period who were created before this period)
+        returning_clients = (
+            db.session.query(func.count(func.distinct(Appointment.client_id)))
+            .join(Client)
+            .filter(Appointment.appointment_date.between(start_date, end_date))
+            .filter(Client.created_at < start_date)
+            .scalar()
+        )
+
+        # Total active clients with appointments in period
+        active_clients = (
+            db.session.query(func.count(func.distinct(Appointment.client_id)))
+            .filter(Appointment.appointment_date.between(start_date, end_date))
+            .scalar()
+        )
+
+        # Total clients at start of period
+        total_clients_at_start = Client.query.filter(Client.created_at < start_date).count()
+
+        # Calculate retention rate (returning clients / clients at start)
+        retention_rate = (returning_clients / total_clients_at_start * 100) if total_clients_at_start > 0 else 0
+
+        # Calculate churn rate
+        churn_rate = 100 - retention_rate
+
+        # Get monthly breakdown
+        monthly_breakdown = (
+            db.session.query(
+                func.strftime("%Y-%m", Client.created_at).label("month"), func.count(Client.id).label("count")
+            )
+            .filter(Client.created_at.between(start_date, end_date))
+            .group_by(func.strftime("%Y-%m", Client.created_at))
+            .order_by(func.strftime("%Y-%m", Client.created_at))
+            .all()
+        )
+
+        monthly_data = [{"month": str(row.month), "new_clients": row.count} for row in monthly_breakdown]
+
+        return (
+            jsonify(
+                {
+                    "new_clients": new_clients,
+                    "returning_clients": returning_clients,
+                    "active_clients": active_clients,
+                    "retention_rate": round(retention_rate, 2),
+                    "churn_rate": round(churn_rate, 2),
+                    "monthly_breakdown": monthly_data,
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        app.logger.error(f"Error getting client retention: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/analytics/appointment-trends", methods=["GET"])
+@login_required
+def get_appointment_trends():
+    """
+    Get appointment volume and trends
+    Returns: appointment counts by status, type, and over time
+    """
+    try:
+        start_date_str = request.args.get("start_date")
+        end_date_str = request.args.get("end_date")
+
+        # Default to last 90 days
+        if not end_date_str:
+            end_date = datetime.now()
+        else:
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
+
+        if not start_date_str:
+            start_date = end_date - timedelta(days=90)
+        else:
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
+
+        # Appointments by status
+        by_status = (
+            db.session.query(Appointment.status, func.count(Appointment.id).label("count"))
+            .filter(Appointment.appointment_date.between(start_date, end_date))
+            .group_by(Appointment.status)
+            .all()
+        )
+
+        status_data = [{"status": row.status, "count": row.count} for row in by_status]
+
+        # Appointments by type
+        by_type = (
+            db.session.query(
+                AppointmentType.name, AppointmentType.color, func.count(Appointment.id).label("count")
+            )
+            .join(Appointment, Appointment.appointment_type_id == AppointmentType.id)
+            .filter(Appointment.appointment_date.between(start_date, end_date))
+            .group_by(AppointmentType.id, AppointmentType.name, AppointmentType.color)
+            .order_by(func.count(Appointment.id).desc())
+            .all()
+        )
+
+        type_data = [{"type": row.name, "color": row.color, "count": row.count} for row in by_type]
+
+        # Daily appointment volume
+        daily_volume = (
+            db.session.query(
+                func.date(Appointment.appointment_date).label("date"), func.count(Appointment.id).label("count")
+            )
+            .filter(Appointment.appointment_date.between(start_date, end_date))
+            .group_by(func.date(Appointment.appointment_date))
+            .order_by(func.date(Appointment.appointment_date))
+            .all()
+        )
+
+        volume_data = [{"date": str(row.date), "count": row.count} for row in daily_volume]
+
+        # Completion rate
+        total_appointments = Appointment.query.filter(Appointment.appointment_date.between(start_date, end_date)).count()
+
+        completed_appointments = Appointment.query.filter(
+            Appointment.appointment_date.between(start_date, end_date), Appointment.status == "completed"
+        ).count()
+
+        completion_rate = (completed_appointments / total_appointments * 100) if total_appointments > 0 else 0
+
+        return (
+            jsonify(
+                {
+                    "by_status": status_data,
+                    "by_type": type_data,
+                    "daily_volume": volume_data,
+                    "total_appointments": total_appointments,
+                    "completed_appointments": completed_appointments,
+                    "completion_rate": round(completion_rate, 2),
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        app.logger.error(f"Error getting appointment trends: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/analytics/procedure-volume", methods=["GET"])
+@login_required
+def get_procedure_volume():
+    """
+    Get procedure/service volume and trends
+    Returns: top procedures, trends over time
+    """
+    try:
+        start_date_str = request.args.get("start_date")
+        end_date_str = request.args.get("end_date")
+        limit = request.args.get("limit", 10, type=int)
+
+        # Default to last 6 months
+        if not end_date_str:
+            end_date = datetime.now()
+        else:
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
+
+        if not start_date_str:
+            start_date = end_date - timedelta(days=180)
+        else:
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
+
+        # Top procedures by volume
+        top_procedures = (
+            db.session.query(
+                Service.name,
+                Service.service_type,
+                func.sum(InvoiceItem.quantity).label("total_quantity"),
+                func.sum(InvoiceItem.line_total).label("total_revenue"),
+                func.count(InvoiceItem.id).label("times_performed"),
+            )
+            .join(InvoiceItem, InvoiceItem.service_id == Service.id)
+            .join(Invoice, Invoice.id == InvoiceItem.invoice_id)
+            .filter(Invoice.invoice_date.between(start_date, end_date))
+            .group_by(Service.id, Service.name, Service.service_type)
+            .order_by(func.count(InvoiceItem.id).desc())
+            .limit(limit)
+            .all()
+        )
+
+        procedure_data = [
+            {
+                "name": row.name,
+                "type": row.service_type,
+                "quantity": float(row.total_quantity or 0),
+                "revenue": float(row.total_revenue or 0),
+                "times_performed": row.times_performed,
+            }
+            for row in top_procedures
+        ]
+
+        # Monthly trend for top 5 procedures
+        top_5_service_ids = (
+            db.session.query(Service.id)
+            .join(InvoiceItem, InvoiceItem.service_id == Service.id)
+            .join(Invoice, Invoice.id == InvoiceItem.invoice_id)
+            .filter(Invoice.invoice_date.between(start_date, end_date))
+            .group_by(Service.id)
+            .order_by(func.count(InvoiceItem.id).desc())
+            .limit(5)
+            .all()
+        )
+
+        monthly_trends = []
+        for (service_id,) in top_5_service_ids:
+            service = Service.query.get(service_id)
+            trend = (
+                db.session.query(
+                    func.strftime("%Y-%m", Invoice.invoice_date).label("month"),
+                    func.count(InvoiceItem.id).label("count"),
+                )
+                .join(Invoice, Invoice.id == InvoiceItem.invoice_id)
+                .filter(InvoiceItem.service_id == service_id)
+                .filter(Invoice.invoice_date.between(start_date, end_date))
+                .group_by(func.strftime("%Y-%m", Invoice.invoice_date))
+                .order_by(func.strftime("%Y-%m", Invoice.invoice_date))
+                .all()
+            )
+
+            monthly_trends.append(
+                {
+                    "service_name": service.name,
+                    "service_id": service_id,
+                    "trend": [{"month": str(row.month), "count": row.count} for row in trend],
+                }
+            )
+
+        return jsonify({"top_procedures": procedure_data, "monthly_trends": monthly_trends}), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting procedure volume: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/analytics/patient-demographics", methods=["GET"])
+@login_required
+def get_patient_demographics():
+    """
+    Get patient demographic breakdowns
+    Returns: age distribution, breed distribution, gender distribution
+    """
+    try:
+        # Get all active patients
+        active_patients = Patient.query.filter(Patient.status == "active").all()
+
+        # Calculate age distribution
+        age_groups = {"0-1 years": 0, "1-3 years": 0, "3-7 years": 0, "7-10 years": 0, "10+ years": 0}
+
+        for patient in active_patients:
+            if patient.date_of_birth:
+                age_years = (datetime.now().date() - patient.date_of_birth).days / 365.25
+                if age_years < 1:
+                    age_groups["0-1 years"] += 1
+                elif age_years < 3:
+                    age_groups["1-3 years"] += 1
+                elif age_years < 7:
+                    age_groups["3-7 years"] += 1
+                elif age_years < 10:
+                    age_groups["7-10 years"] += 1
+                else:
+                    age_groups["10+ years"] += 1
+
+        # Get breed distribution (top 10)
+        breed_counts = (
+            db.session.query(Patient.breed, func.count(Patient.id).label("count"))
+            .filter(Patient.status == "active")
+            .group_by(Patient.breed)
+            .order_by(func.count(Patient.id).desc())
+            .limit(10)
+            .all()
+        )
+
+        breed_data = [{"breed": row.breed or "Unknown", "count": row.count} for row in breed_counts]
+
+        # Get gender distribution
+        gender_counts = (
+            db.session.query(Patient.sex, func.count(Patient.id).label("count"))
+            .filter(Patient.status == "active")
+            .group_by(Patient.sex)
+            .all()
+        )
+
+        gender_data = [{"gender": row.sex or "Unknown", "count": row.count} for row in gender_counts]
+
+        # Get reproductive status
+        spay_neuter_count = Patient.query.filter(
+            Patient.status == "active", Patient.reproductive_status.in_(["spayed", "neutered"])
+        ).count()
+
+        total_patients = len(active_patients)
+        spay_neuter_rate = (spay_neuter_count / total_patients * 100) if total_patients > 0 else 0
+
+        return (
+            jsonify(
+                {
+                    "age_distribution": [{"age_group": k, "count": v} for k, v in age_groups.items()],
+                    "breed_distribution": breed_data,
+                    "gender_distribution": gender_data,
+                    "total_patients": total_patients,
+                    "spay_neuter_rate": round(spay_neuter_rate, 2),
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        app.logger.error(f"Error getting patient demographics: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/analytics/dashboard-summary", methods=["GET"])
+@login_required
+def get_dashboard_summary():
+    """
+    Get high-level KPIs for analytics dashboard
+    Returns: key metrics for display on dashboard
+    """
+    try:
+        # Get today's date and calculate time ranges
+        today = datetime.now().date()
+        this_month_start = today.replace(day=1)
+        last_month_start = (this_month_start - timedelta(days=1)).replace(day=1)
+        last_month_end = this_month_start - timedelta(days=1)
+        this_year_start = today.replace(month=1, day=1)
+
+        # Revenue this month
+        revenue_this_month = (
+            db.session.query(func.sum(Invoice.total_amount))
+            .filter(Invoice.invoice_date >= this_month_start)
+            .filter(Invoice.status.in_(["paid", "partial_paid"]))
+            .scalar()
+            or 0
+        )
+
+        # Revenue last month
+        revenue_last_month = (
+            db.session.query(func.sum(Invoice.total_amount))
+            .filter(Invoice.invoice_date.between(last_month_start, last_month_end))
+            .filter(Invoice.status.in_(["paid", "partial_paid"]))
+            .scalar()
+            or 0
+        )
+
+        # Revenue growth percentage
+        revenue_growth = (
+            ((revenue_this_month - revenue_last_month) / revenue_last_month * 100) if revenue_last_month > 0 else 0
+        )
+
+        # Active patients
+        active_patients = Patient.query.filter(Patient.status == "active").count()
+
+        # New patients this month
+        new_patients_this_month = Patient.query.filter(Patient.created_at >= this_month_start).count()
+
+        # Appointments this month
+        appointments_this_month = Appointment.query.filter(Appointment.appointment_date >= this_month_start).count()
+
+        # Completed appointments this month
+        completed_appointments = Appointment.query.filter(
+            Appointment.appointment_date >= this_month_start, Appointment.status == "completed"
+        ).count()
+
+        # Average revenue per appointment
+        avg_revenue_per_appointment = (
+            (revenue_this_month / completed_appointments) if completed_appointments > 0 else 0
+        )
+
+        # Outstanding balance
+        outstanding_balance = (
+            db.session.query(func.sum(Invoice.balance_due))
+            .filter(Invoice.status.in_(["sent", "partial_paid", "overdue"]))
+            .scalar()
+            or 0
+        )
+
+        return (
+            jsonify(
+                {
+                    "revenue_this_month": float(revenue_this_month),
+                    "revenue_last_month": float(revenue_last_month),
+                    "revenue_growth": round(revenue_growth, 2),
+                    "active_patients": active_patients,
+                    "new_patients_this_month": new_patients_this_month,
+                    "appointments_this_month": appointments_this_month,
+                    "completed_appointments": completed_appointments,
+                    "avg_revenue_per_appointment": round(float(avg_revenue_per_appointment), 2),
+                    "outstanding_balance": float(outstanding_balance),
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        app.logger.error(f"Error getting dashboard summary: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+# ============================================================================
+# PDF DOCUMENT GENERATION - Phase 4.4
+# ============================================================================
+
+@bp.route("/api/pdf/vaccination-certificate/<int:vaccination_id>", methods=["GET"])
+@login_required
+def generate_vaccination_certificate(vaccination_id):
+    """
+    Generate a vaccination certificate PDF
+    Returns PDF file for download
+    """
+    try:
+        # Get vaccination record
+        vaccination = Vaccination.query.get_or_404(vaccination_id)
+        patient = Patient.query.get_or_404(vaccination.patient_id)
+        owner = Client.query.get_or_404(patient.owner_id)
+
+        # Prepare data for PDF
+        patient_data = {
+            "name": patient.name,
+            "breed": patient.breed,
+            "color": patient.color,
+            "sex": patient.sex,
+            "date_of_birth": patient.date_of_birth.strftime("%m/%d/%Y") if patient.date_of_birth else "N/A",
+            "microchip_number": patient.microchip_number or "N/A",
+            "weight": patient.weight or "N/A",
+        }
+
+        vaccination_data = {
+            "id": vaccination.id,
+            "vaccine_name": vaccination.vaccine_name,
+            "manufacturer": vaccination.manufacturer or "N/A",
+            "lot_number": vaccination.lot_number or "N/A",
+            "administered_date": vaccination.administered_date.strftime("%m/%d/%Y") if vaccination.administered_date else "N/A",
+            "expiration_date": vaccination.expiration_date.strftime("%m/%d/%Y") if vaccination.expiration_date else "N/A",
+            "next_due_date": vaccination.next_due_date.strftime("%m/%d/%Y") if vaccination.next_due_date else "N/A",
+            "administered_by": vaccination.administered_by or "N/A",
+            "notes": vaccination.notes or "",
+        }
+
+        owner_data = {
+            "name": f"{owner.first_name} {owner.last_name}",
+            "phone": owner.phone_primary,
+            "email": owner.email or "N/A",
+            "address": f"{owner.address_line1 or ''}, {owner.city or ''}, {owner.state or ''} {owner.zip_code or ''}".strip(", "),
+        }
+
+        # Generate PDF
+        generator = VaccinationCertificateGenerator()
+        pdf_buffer = generator.generate(patient_data, vaccination_data, owner_data)
+
+        # Return PDF file
+        return send_file(
+            pdf_buffer,
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=f"vaccination_certificate_{patient.name}_{vaccination.id}.pdf",
+        )
+
+    except Exception as e:
+        app.logger.error(f"Error generating vaccination certificate: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/pdf/health-certificate/<int:patient_id>", methods=["POST"])
+@login_required
+def generate_health_certificate(patient_id):
+    """
+    Generate a health certificate PDF
+    Expects JSON body with exam data
+    Returns PDF file for download
+    """
+    try:
+        # Get patient and owner
+        patient = Patient.query.get_or_404(patient_id)
+        owner = Client.query.get_or_404(patient.owner_id)
+
+        # Get exam data from request
+        exam_data = request.get_json() or {}
+
+        # Calculate age if date_of_birth exists
+        age = "N/A"
+        if patient.date_of_birth:
+            from datetime import datetime
+
+            today = datetime.now().date()
+            age_years = (today - patient.date_of_birth).days // 365
+            age = f"{age_years} years"
+
+        # Prepare data for PDF
+        patient_data = {
+            "name": patient.name,
+            "breed": patient.breed,
+            "color": patient.color,
+            "sex": patient.sex,
+            "age": age,
+            "microchip_number": patient.microchip_number or "N/A",
+            "weight": patient.weight or "N/A",
+        }
+
+        # Generate certificate number
+        cert_number = f"HC-{patient_id}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
+        exam_data_formatted = {
+            "certificate_number": cert_number,
+            "purpose": exam_data.get("purpose", "General Health Assessment"),
+            "exam_date": exam_data.get("exam_date", datetime.now().strftime("%m/%d/%Y")),
+            "temperature": exam_data.get("temperature", "N/A"),
+            "heart_rate": exam_data.get("heart_rate", "N/A"),
+            "respiratory_rate": exam_data.get("respiratory_rate", "N/A"),
+            "weight": exam_data.get("weight", patient.weight or "N/A"),
+            "findings": exam_data.get("findings", "Patient appears healthy with no abnormalities detected."),
+            "health_status": exam_data.get("health_status", "HEALTHY"),
+            "examined_by": exam_data.get("examined_by", "Dr. " + (request.user.username if hasattr(request, "user") else "N/A")),
+        }
+
+        owner_data = {
+            "name": f"{owner.first_name} {owner.last_name}",
+            "phone": owner.phone_primary,
+            "email": owner.email or "N/A",
+            "address": f"{owner.address_line1 or ''}, {owner.city or ''}, {owner.state or ''} {owner.zip_code or ''}".strip(", "),
+        }
+
+        # Generate PDF
+        generator = HealthCertificateGenerator()
+        pdf_buffer = generator.generate(patient_data, exam_data_formatted, owner_data)
+
+        # Return PDF file
+        return send_file(
+            pdf_buffer,
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=f"health_certificate_{patient.name}_{cert_number}.pdf",
+        )
+
+    except Exception as e:
+        app.logger.error(f"Error generating health certificate: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/pdf/medical-record-summary/<int:patient_id>", methods=["GET"])
+@login_required
+def generate_medical_record_summary(patient_id):
+    """
+    Generate a comprehensive medical record summary PDF
+    Returns PDF file for download
+    """
+    try:
+        # Get patient and owner
+        patient = Patient.query.get_or_404(patient_id)
+        owner = Client.query.get_or_404(patient.owner_id)
+
+        # Calculate age
+        age = "N/A"
+        if patient.date_of_birth:
+            from datetime import datetime
+
+            today = datetime.now().date()
+            age_years = (today - patient.date_of_birth).days // 365
+            age = f"{age_years} years"
+
+        # Prepare patient data
+        patient_data = {
+            "id": patient.id,
+            "name": patient.name,
+            "breed": patient.breed,
+            "color": patient.color,
+            "sex": patient.sex,
+            "reproductive_status": patient.reproductive_status or "N/A",
+            "date_of_birth": patient.date_of_birth.strftime("%m/%d/%Y") if patient.date_of_birth else "N/A",
+            "age": age,
+            "microchip_number": patient.microchip_number or "N/A",
+            "weight": patient.weight or "N/A",
+            "allergies": patient.allergies or "None",
+            "medical_conditions": patient.special_needs or "None",
+        }
+
+        owner_data = {
+            "name": f"{owner.first_name} {owner.last_name}",
+            "phone": owner.phone_primary,
+            "email": owner.email or "N/A",
+            "address": f"{owner.address_line1 or ''}, {owner.city or ''}, {owner.state or ''} {owner.zip_code or ''}".strip(", "),
+        }
+
+        # Get vaccination history (most recent 10)
+        vaccinations = Vaccination.query.filter_by(patient_id=patient_id).order_by(Vaccination.administered_date.desc()).limit(10).all()
+
+        vaccinations_data = [
+            {
+                "administered_date": v.administered_date.strftime("%m/%d/%Y") if v.administered_date else "N/A",
+                "vaccine_name": v.vaccine_name,
+                "manufacturer": v.manufacturer or "N/A",
+                "next_due_date": v.next_due_date.strftime("%m/%d/%Y") if v.next_due_date else "N/A",
+            }
+            for v in vaccinations
+        ]
+
+        # Get visit history (most recent 5)
+        visits = Visit.query.filter_by(patient_id=patient_id).order_by(Visit.visit_date.desc()).limit(5).all()
+
+        visits_data = []
+        for visit in visits:
+            soap_note = SOAPNote.query.filter_by(visit_id=visit.id).first()
+
+            visits_data.append(
+                {
+                    "visit_date": visit.visit_date.strftime("%m/%d/%Y") if visit.visit_date else "N/A",
+                    "visit_type": visit.visit_type or "N/A",
+                    "chief_complaint": soap_note.subjective if soap_note else "N/A",
+                    "diagnosis": soap_note.assessment if soap_note else "N/A",
+                    "treatment": soap_note.plan if soap_note else "N/A",
+                }
+            )
+
+        # Generate PDF
+        generator = MedicalRecordSummaryGenerator()
+        pdf_buffer = generator.generate(patient_data, owner_data, visits_data, vaccinations_data)
+
+        # Return PDF file
+        return send_file(
+            pdf_buffer,
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=f"medical_record_summary_{patient.name}_{patient.id}.pdf",
+        )
+
+    except Exception as e:
+        app.logger.error(f"Error generating medical record summary: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
 
 # ============================================================================
 # INVENTORY MANAGEMENT - Phase 3.1
@@ -5769,6 +6528,498 @@ def delete_document(document_id):
         app.logger.error(f"Error deleting document {document_id}: {str(e)}", exc_info=True)
         if "not found" in str(e).lower():
             return jsonify({"error": "Document not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+# ============================================================================
+# Phase 4.2: Treatment Plans & Protocols API Endpoints
+# ============================================================================
+
+
+@bp.route("/api/protocols", methods=["GET"])
+@login_required
+def get_protocols():
+    """Get list of all protocols with optional filtering"""
+    try:
+        # Query parameters
+        category = request.args.get("category")
+        is_active = request.args.get("is_active")
+        search = request.args.get("search")
+
+        query = Protocol.query
+
+        # Apply filters
+        if category:
+            query = query.filter(Protocol.category == category)
+
+        if is_active is not None:
+            active_bool = is_active.lower() == "true"
+            query = query.filter(Protocol.is_active == active_bool)
+
+        if search:
+            search_term = f"%{search}%"
+            query = query.filter(
+                db.or_(
+                    Protocol.name.ilike(search_term),
+                    Protocol.description.ilike(search_term)
+                )
+            )
+
+        protocols = query.order_by(Protocol.name).all()
+        return jsonify([p.to_dict() for p in protocols]), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching protocols: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/protocols/<int:protocol_id>", methods=["GET"])
+@login_required
+def get_protocol(protocol_id):
+    """Get a single protocol with steps"""
+    try:
+        protocol = Protocol.query.get_or_404(protocol_id)
+        return jsonify(protocol.to_dict(include_steps=True)), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching protocol {protocol_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Protocol not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/protocols", methods=["POST"])
+@login_required
+def create_protocol():
+    """Create a new protocol with steps"""
+    try:
+        data = protocol_create_schema.load(request.json)
+
+        # Create protocol
+        protocol = Protocol(
+            name=data["name"],
+            description=data.get("description"),
+            category=data.get("category"),
+            is_active=data.get("is_active", True),
+            default_duration_days=data.get("default_duration_days"),
+            estimated_cost=data.get("estimated_cost"),
+            notes=data.get("notes"),
+            created_by_id=current_user.id
+        )
+
+        db.session.add(protocol)
+        db.session.flush()  # Get protocol ID
+
+        # Create protocol steps
+        steps_data = data.get("steps", [])
+        for step_data in steps_data:
+            step = ProtocolStep(
+                protocol_id=protocol.id,
+                step_number=step_data["step_number"],
+                title=step_data["title"],
+                description=step_data.get("description"),
+                day_offset=step_data.get("day_offset", 0),
+                estimated_cost=step_data.get("estimated_cost"),
+                notes=step_data.get("notes")
+            )
+            db.session.add(step)
+
+        db.session.commit()
+
+        app.logger.info(f"Protocol created: {protocol.name} (ID: {protocol.id}) by {current_user.username}")
+
+        return jsonify(protocol.to_dict(include_steps=True)), 201
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating protocol: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/protocols/<int:protocol_id>", methods=["PUT"])
+@login_required
+def update_protocol(protocol_id):
+    """Update a protocol (does not update steps - use separate endpoint)"""
+    try:
+        protocol = Protocol.query.get_or_404(protocol_id)
+        data = protocol_update_schema.load(request.json)
+
+        # Update fields
+        if "name" in data:
+            protocol.name = data["name"]
+        if "description" in data:
+            protocol.description = data["description"]
+        if "category" in data:
+            protocol.category = data["category"]
+        if "is_active" in data:
+            protocol.is_active = data["is_active"]
+        if "default_duration_days" in data:
+            protocol.default_duration_days = data["default_duration_days"]
+        if "estimated_cost" in data:
+            protocol.estimated_cost = data["estimated_cost"]
+        if "notes" in data:
+            protocol.notes = data["notes"]
+
+        db.session.commit()
+
+        app.logger.info(f"Protocol updated: {protocol.name} (ID: {protocol_id}) by {current_user.username}")
+
+        return jsonify(protocol.to_dict(include_steps=True)), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating protocol {protocol_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Protocol not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/protocols/<int:protocol_id>", methods=["DELETE"])
+@login_required
+def delete_protocol(protocol_id):
+    """Delete a protocol (soft delete by default, hard delete with ?permanent=true)"""
+    try:
+        protocol = Protocol.query.get_or_404(protocol_id)
+        permanent = request.args.get("permanent", "false").lower() == "true"
+
+        if permanent:
+            # Hard delete - remove from database
+            db.session.delete(protocol)
+            db.session.commit()
+
+            app.logger.info(f"Protocol permanently deleted: {protocol.name} (ID: {protocol_id}) by {current_user.username}")
+
+            return jsonify({"message": "Protocol permanently deleted"}), 200
+        else:
+            # Soft delete - mark as inactive
+            protocol.is_active = False
+            db.session.commit()
+
+            app.logger.info(f"Protocol deactivated: {protocol.name} (ID: {protocol_id}) by {current_user.username}")
+
+            return jsonify({"message": "Protocol deactivated", "protocol": protocol.to_dict()}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting protocol {protocol_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Protocol not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/protocols/<int:protocol_id>/apply", methods=["POST"])
+@login_required
+def apply_protocol_to_patient(protocol_id):
+    """Apply a protocol to a patient, creating a new treatment plan"""
+    try:
+        data = request.json
+        patient_id = data.get("patient_id")
+        visit_id = data.get("visit_id")
+        start_date = data.get("start_date")
+
+        if not patient_id:
+            return jsonify({"error": "patient_id is required"}), 400
+
+        # Get protocol with steps
+        protocol = Protocol.query.get_or_404(protocol_id)
+        patient = Patient.query.get_or_404(patient_id)
+
+        # Create treatment plan from protocol
+        treatment_plan = TreatmentPlan(
+            name=f"{protocol.name} - {patient.name}",
+            description=protocol.description,
+            patient_id=patient_id,
+            visit_id=visit_id,
+            protocol_id=protocol_id,
+            status="draft",
+            start_date=datetime.strptime(start_date, "%Y-%m-%d").date() if start_date else None,
+            total_estimated_cost=protocol.estimated_cost or 0,
+            created_by_id=current_user.id
+        )
+
+        # Calculate end date from protocol duration
+        if treatment_plan.start_date and protocol.default_duration_days:
+            treatment_plan.end_date = treatment_plan.start_date + timedelta(days=protocol.default_duration_days)
+
+        db.session.add(treatment_plan)
+        db.session.flush()  # Get treatment plan ID
+
+        # Copy protocol steps to treatment plan steps
+        protocol_steps = protocol.steps.order_by(ProtocolStep.step_number).all()
+        for proto_step in protocol_steps:
+            step = TreatmentPlanStep(
+                treatment_plan_id=treatment_plan.id,
+                step_number=proto_step.step_number,
+                title=proto_step.title,
+                description=proto_step.description,
+                status="pending",
+                estimated_cost=proto_step.estimated_cost,
+                notes=proto_step.notes
+            )
+
+            # Calculate scheduled date from day offset
+            if treatment_plan.start_date:
+                step.scheduled_date = treatment_plan.start_date + timedelta(days=proto_step.day_offset)
+
+            db.session.add(step)
+
+        db.session.commit()
+
+        app.logger.info(f"Protocol {protocol.name} applied to patient {patient.name} (Treatment Plan ID: {treatment_plan.id}) by {current_user.username}")
+
+        return jsonify(treatment_plan.to_dict(include_steps=True)), 201
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error applying protocol {protocol_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Protocol or patient not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+# ============================================================================
+# Treatment Plan Endpoints
+# ============================================================================
+
+
+@bp.route("/api/treatment-plans", methods=["GET"])
+@login_required
+def get_treatment_plans():
+    """Get list of treatment plans with optional filtering"""
+    try:
+        # Query parameters
+        patient_id = request.args.get("patient_id", type=int)
+        status = request.args.get("status")
+        search = request.args.get("search")
+
+        query = TreatmentPlan.query
+
+        # Apply filters
+        if patient_id:
+            query = query.filter(TreatmentPlan.patient_id == patient_id)
+
+        if status:
+            query = query.filter(TreatmentPlan.status == status)
+
+        if search:
+            search_term = f"%{search}%"
+            query = query.filter(
+                db.or_(
+                    TreatmentPlan.name.ilike(search_term),
+                    TreatmentPlan.description.ilike(search_term)
+                )
+            )
+
+        treatment_plans = query.order_by(TreatmentPlan.created_at.desc()).all()
+        return jsonify([tp.to_dict() for tp in treatment_plans]), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching treatment plans: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/treatment-plans/<int:plan_id>", methods=["GET"])
+@login_required
+def get_treatment_plan(plan_id):
+    """Get a single treatment plan with steps"""
+    try:
+        treatment_plan = TreatmentPlan.query.get_or_404(plan_id)
+        return jsonify(treatment_plan.to_dict(include_steps=True)), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching treatment plan {plan_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Treatment plan not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/treatment-plans", methods=["POST"])
+@login_required
+def create_treatment_plan():
+    """Create a new treatment plan with steps"""
+    try:
+        data = treatment_plan_create_schema.load(request.json)
+
+        # Create treatment plan
+        treatment_plan = TreatmentPlan(
+            name=data["name"],
+            description=data.get("description"),
+            patient_id=data["patient_id"],
+            visit_id=data.get("visit_id"),
+            protocol_id=data.get("protocol_id"),
+            status=data.get("status", "draft"),
+            start_date=data.get("start_date"),
+            end_date=data.get("end_date"),
+            notes=data.get("notes"),
+            created_by_id=current_user.id
+        )
+
+        db.session.add(treatment_plan)
+        db.session.flush()  # Get treatment plan ID
+
+        # Create treatment plan steps
+        steps_data = data.get("steps", [])
+        total_estimated = 0
+        for step_data in steps_data:
+            step = TreatmentPlanStep(
+                treatment_plan_id=treatment_plan.id,
+                step_number=step_data["step_number"],
+                title=step_data["title"],
+                description=step_data.get("description"),
+                status=step_data.get("status", "pending"),
+                scheduled_date=step_data.get("scheduled_date"),
+                estimated_cost=step_data.get("estimated_cost"),
+                notes=step_data.get("notes")
+            )
+            db.session.add(step)
+
+            if step.estimated_cost:
+                total_estimated += float(step.estimated_cost)
+
+        # Update total estimated cost
+        treatment_plan.total_estimated_cost = total_estimated
+
+        db.session.commit()
+
+        app.logger.info(f"Treatment plan created: {treatment_plan.name} (ID: {treatment_plan.id}) by {current_user.username}")
+
+        return jsonify(treatment_plan.to_dict(include_steps=True)), 201
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating treatment plan: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/treatment-plans/<int:plan_id>", methods=["PUT"])
+@login_required
+def update_treatment_plan(plan_id):
+    """Update a treatment plan (does not update steps - use separate endpoint)"""
+    try:
+        treatment_plan = TreatmentPlan.query.get_or_404(plan_id)
+        data = treatment_plan_update_schema.load(request.json)
+
+        # Update fields
+        if "name" in data:
+            treatment_plan.name = data["name"]
+        if "description" in data:
+            treatment_plan.description = data["description"]
+        if "status" in data:
+            treatment_plan.status = data["status"]
+
+            # If marking as completed, set completed_date
+            if data["status"] == "completed" and not treatment_plan.completed_date:
+                treatment_plan.completed_date = datetime.utcnow().date()
+        if "start_date" in data:
+            treatment_plan.start_date = data["start_date"]
+        if "end_date" in data:
+            treatment_plan.end_date = data["end_date"]
+        if "completed_date" in data:
+            treatment_plan.completed_date = data["completed_date"]
+        if "total_estimated_cost" in data:
+            treatment_plan.total_estimated_cost = data["total_estimated_cost"]
+        if "total_actual_cost" in data:
+            treatment_plan.total_actual_cost = data["total_actual_cost"]
+        if "notes" in data:
+            treatment_plan.notes = data["notes"]
+        if "cancellation_reason" in data:
+            treatment_plan.cancellation_reason = data["cancellation_reason"]
+
+        db.session.commit()
+
+        app.logger.info(f"Treatment plan updated: {treatment_plan.name} (ID: {plan_id}) by {current_user.username}")
+
+        return jsonify(treatment_plan.to_dict(include_steps=True)), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating treatment plan {plan_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Treatment plan not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/treatment-plans/<int:plan_id>", methods=["DELETE"])
+@login_required
+def delete_treatment_plan(plan_id):
+    """Delete a treatment plan"""
+    try:
+        treatment_plan = TreatmentPlan.query.get_or_404(plan_id)
+
+        # Delete treatment plan (cascade will delete steps)
+        db.session.delete(treatment_plan)
+        db.session.commit()
+
+        app.logger.info(f"Treatment plan deleted: {treatment_plan.name} (ID: {plan_id}) by {current_user.username}")
+
+        return jsonify({"message": "Treatment plan deleted"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting treatment plan {plan_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Treatment plan not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/treatment-plans/<int:plan_id>/steps/<int:step_id>", methods=["PATCH"])
+@login_required
+def update_treatment_plan_step(plan_id, step_id):
+    """Update a single treatment plan step"""
+    try:
+        treatment_plan = TreatmentPlan.query.get_or_404(plan_id)
+        step = TreatmentPlanStep.query.get_or_404(step_id)
+
+        # Verify step belongs to this treatment plan
+        if step.treatment_plan_id != plan_id:
+            return jsonify({"error": "Step does not belong to this treatment plan"}), 400
+
+        data = treatment_plan_step_update_schema.load(request.json)
+
+        # Update fields
+        if "title" in data:
+            step.title = data["title"]
+        if "description" in data:
+            step.description = data["description"]
+        if "status" in data:
+            step.status = data["status"]
+
+            # If marking as completed, set completed_date and performed_by
+            if data["status"] == "completed" and not step.completed_date:
+                step.completed_date = datetime.utcnow().date()
+                if not step.performed_by_id:
+                    step.performed_by_id = current_user.id
+        if "scheduled_date" in data:
+            step.scheduled_date = data["scheduled_date"]
+        if "completed_date" in data:
+            step.completed_date = data["completed_date"]
+        if "estimated_cost" in data:
+            step.estimated_cost = data["estimated_cost"]
+        if "actual_cost" in data:
+            step.actual_cost = data["actual_cost"]
+        if "notes" in data:
+            step.notes = data["notes"]
+        if "performed_by_id" in data:
+            step.performed_by_id = data["performed_by_id"]
+
+        # Recalculate treatment plan total costs
+        if "actual_cost" in data:
+            total_actual = sum(
+                float(s.actual_cost) for s in treatment_plan.steps if s.actual_cost
+            )
+            treatment_plan.total_actual_cost = total_actual
+
+        db.session.commit()
+
+        app.logger.info(f"Treatment plan step updated: {step.title} (ID: {step_id}) by {current_user.username}")
+
+        return jsonify(step.to_dict()), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating treatment plan step {step_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Treatment plan or step not found"}), 404
         return jsonify({"error": str(e)}), 400
 
 
