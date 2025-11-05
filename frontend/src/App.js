@@ -44,6 +44,8 @@ const LabResults = lazy(() => import('./components/LabResults'));
 const Reminders = lazy(() => import('./components/Reminders'));
 const NotificationTemplates = lazy(() => import('./components/NotificationTemplates'));
 const Documents = lazy(() => import('./components/Documents'));
+const ProtocolLibrary = lazy(() => import('./components/ProtocolLibrary'));
+const TreatmentPlanBuilder = lazy(() => import('./components/TreatmentPlanBuilder'));
 const Settings = lazy(() => import('./components/Settings'));
 const ClientPortalLayout = lazy(() => import('./components/ClientPortalLayout'));
 const ClientPortalDashboard = lazy(() => import('./components/ClientPortalDashboard'));
@@ -268,6 +270,8 @@ function App() {
                         <Route path="/reminders" element={<Reminders />} />
                         <Route path="/notification-templates" element={<NotificationTemplates />} />
                         <Route path="/documents" element={<Documents />} />
+                        <Route path="/protocols" element={<ProtocolLibrary />} />
+                        <Route path="/treatment-plans/:patientId" element={<TreatmentPlanBuilder />} />
                         <Route path="/settings" element={<Settings user={user} />} />
                         <Route
                           path="/profile"
