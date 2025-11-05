@@ -2376,3 +2376,284 @@ class Document(db.Model):
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "is_archived": self.is_archived,
         }
+
+
+# ============================================================================
+# Phase 4.2: Treatment Plans & Protocols
+# ============================================================================
+
+
+class Protocol(db.Model):
+    """
+    Protocol Model - Reusable treatment plan templates
+
+    Protocols are standardized treatment plans that can be applied to multiple
+    patients. They define a sequence of steps for common procedures or conditions
+    (e.g., dental cleaning protocol, post-surgery care protocol).
+    """
+
+    __tablename__ = "protocol"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Basic Information
+    name = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    category = db.Column(db.String(100), nullable=True)  # dental, surgical, wellness, chronic_care, etc.
+
+    # Settings
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    default_duration_days = db.Column(db.Integer, nullable=True)  # Expected duration in days
+    estimated_cost = db.Column(db.Numeric(10, 2), nullable=True)  # Total estimated cost
+
+    # Additional Information
+    notes = db.Column(db.Text, nullable=True)
+
+    # Metadata
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships
+    created_by = db.relationship("User", backref="protocols_created")
+    steps = db.relationship("ProtocolStep", backref="protocol", cascade="all, delete-orphan", lazy="dynamic")
+    treatment_plans = db.relationship("TreatmentPlan", backref="protocol", lazy="dynamic")
+
+    def __repr__(self):
+        return f"<Protocol {self.id} - {self.name}>"
+
+    def to_dict(self, include_steps=False):
+        """Convert protocol to dictionary for API responses"""
+        data = {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "category": self.category,
+            "is_active": self.is_active,
+            "default_duration_days": self.default_duration_days,
+            "estimated_cost": float(self.estimated_cost) if self.estimated_cost else None,
+            "notes": self.notes,
+            "created_by_id": self.created_by_id,
+            "created_by_name": self.created_by.username if self.created_by else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "step_count": self.steps.count(),
+        }
+
+        if include_steps:
+            data["steps"] = [step.to_dict() for step in self.steps.order_by("step_number")]
+
+        return data
+
+
+class ProtocolStep(db.Model):
+    """
+    ProtocolStep Model - Individual steps within a protocol template
+
+    Defines the sequence of actions to be taken as part of a protocol.
+    These are templates that get copied to TreatmentPlanSteps when a protocol
+    is applied to a patient.
+    """
+
+    __tablename__ = "protocol_step"
+
+    id = db.Column(db.Integer, primary_key=True)
+    protocol_id = db.Column(db.Integer, db.ForeignKey("protocol.id"), nullable=False)
+
+    # Step Details
+    step_number = db.Column(db.Integer, nullable=False)  # Order of the step
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+
+    # Timing
+    day_offset = db.Column(db.Integer, default=0, nullable=False)  # Days from treatment start (0 = day 1)
+
+    # Cost
+    estimated_cost = db.Column(db.Numeric(10, 2), nullable=True)
+
+    # Additional Information
+    notes = db.Column(db.Text, nullable=True)
+
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    def __repr__(self):
+        return f"<ProtocolStep {self.id} - {self.title}>"
+
+    def to_dict(self):
+        """Convert protocol step to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "protocol_id": self.protocol_id,
+            "step_number": self.step_number,
+            "title": self.title,
+            "description": self.description,
+            "day_offset": self.day_offset,
+            "estimated_cost": float(self.estimated_cost) if self.estimated_cost else None,
+            "notes": self.notes,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class TreatmentPlan(db.Model):
+    """
+    TreatmentPlan Model - Patient-specific treatment plans
+
+    Represents a comprehensive treatment plan for a patient. Can be created
+    from scratch or based on a protocol template. Tracks progress through
+    multiple treatment steps.
+    """
+
+    __tablename__ = "treatment_plan"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Basic Information
+    name = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+
+    # Relationships
+    patient_id = db.Column(db.Integer, db.ForeignKey("patient.id"), nullable=False)
+    visit_id = db.Column(db.Integer, db.ForeignKey("visit.id"), nullable=True)  # Initial visit that created plan
+    protocol_id = db.Column(db.Integer, db.ForeignKey("protocol.id"), nullable=True)  # If based on protocol
+
+    # Status & Timeline
+    status = db.Column(
+        db.String(50),
+        default="draft",
+        nullable=False
+    )  # draft, active, completed, cancelled
+    start_date = db.Column(db.Date, nullable=True)
+    end_date = db.Column(db.Date, nullable=True)  # Estimated completion date
+    completed_date = db.Column(db.Date, nullable=True)  # Actual completion date
+
+    # Cost Tracking
+    total_estimated_cost = db.Column(db.Numeric(10, 2), default=0, nullable=False)
+    total_actual_cost = db.Column(db.Numeric(10, 2), default=0, nullable=False)
+
+    # Additional Information
+    notes = db.Column(db.Text, nullable=True)
+    cancellation_reason = db.Column(db.Text, nullable=True)
+
+    # Metadata
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships
+    patient = db.relationship("Patient", backref="treatment_plans")
+    visit = db.relationship("Visit", backref="treatment_plans")
+    created_by = db.relationship("User", backref="treatment_plans_created")
+    steps = db.relationship("TreatmentPlanStep", backref="treatment_plan", cascade="all, delete-orphan", lazy="dynamic")
+
+    def __repr__(self):
+        return f"<TreatmentPlan {self.id} - {self.name}>"
+
+    def calculate_progress(self):
+        """Calculate completion percentage based on steps"""
+        total_steps = self.steps.count()
+        if total_steps == 0:
+            return 0
+        completed_steps = self.steps.filter_by(status="completed").count()
+        return round((completed_steps / total_steps) * 100)
+
+    def to_dict(self, include_steps=False):
+        """Convert treatment plan to dictionary for API responses"""
+        data = {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "patient_id": self.patient_id,
+            "patient_name": self.patient.name if self.patient else None,
+            "visit_id": self.visit_id,
+            "protocol_id": self.protocol_id,
+            "protocol_name": self.protocol.name if self.protocol else None,
+            "status": self.status,
+            "start_date": self.start_date.isoformat() if self.start_date else None,
+            "end_date": self.end_date.isoformat() if self.end_date else None,
+            "completed_date": self.completed_date.isoformat() if self.completed_date else None,
+            "total_estimated_cost": float(self.total_estimated_cost) if self.total_estimated_cost else 0,
+            "total_actual_cost": float(self.total_actual_cost) if self.total_actual_cost else 0,
+            "notes": self.notes,
+            "cancellation_reason": self.cancellation_reason,
+            "created_by_id": self.created_by_id,
+            "created_by_name": self.created_by.username if self.created_by else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "progress_percentage": self.calculate_progress(),
+            "step_count": self.steps.count(),
+        }
+
+        if include_steps:
+            data["steps"] = [step.to_dict() for step in self.steps.order_by("step_number")]
+
+        return data
+
+
+class TreatmentPlanStep(db.Model):
+    """
+    TreatmentPlanStep Model - Individual steps within a patient's treatment plan
+
+    Represents specific actions or procedures to be performed as part of a
+    treatment plan. Each step can be tracked independently with its own
+    status, dates, and costs.
+    """
+
+    __tablename__ = "treatment_plan_step"
+
+    id = db.Column(db.Integer, primary_key=True)
+    treatment_plan_id = db.Column(db.Integer, db.ForeignKey("treatment_plan.id"), nullable=False)
+
+    # Step Details
+    step_number = db.Column(db.Integer, nullable=False)  # Order of the step
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+
+    # Status & Timeline
+    status = db.Column(
+        db.String(50),
+        default="pending",
+        nullable=False
+    )  # pending, in_progress, completed, skipped, cancelled
+    scheduled_date = db.Column(db.Date, nullable=True)
+    completed_date = db.Column(db.Date, nullable=True)
+
+    # Cost Tracking
+    estimated_cost = db.Column(db.Numeric(10, 2), nullable=True)
+    actual_cost = db.Column(db.Numeric(10, 2), nullable=True)
+
+    # Additional Information
+    notes = db.Column(db.Text, nullable=True)
+    performed_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)  # Staff who performed step
+
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships
+    performed_by = db.relationship("User", backref="treatment_steps_performed")
+
+    def __repr__(self):
+        return f"<TreatmentPlanStep {self.id} - {self.title}>"
+
+    def to_dict(self):
+        """Convert treatment plan step to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "treatment_plan_id": self.treatment_plan_id,
+            "step_number": self.step_number,
+            "title": self.title,
+            "description": self.description,
+            "status": self.status,
+            "scheduled_date": self.scheduled_date.isoformat() if self.scheduled_date else None,
+            "completed_date": self.completed_date.isoformat() if self.completed_date else None,
+            "estimated_cost": float(self.estimated_cost) if self.estimated_cost else None,
+            "actual_cost": float(self.actual_cost) if self.actual_cost else None,
+            "notes": self.notes,
+            "performed_by_id": self.performed_by_id,
+            "performed_by_name": self.performed_by.username if self.performed_by else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
