@@ -46,6 +46,7 @@ const NotificationTemplates = lazy(() => import('./components/NotificationTempla
 const Documents = lazy(() => import('./components/Documents'));
 const ProtocolLibrary = lazy(() => import('./components/ProtocolLibrary'));
 const TreatmentPlanBuilder = lazy(() => import('./components/TreatmentPlanBuilder'));
+const AnalyticsDashboard = lazy(() => import('./components/AnalyticsDashboard'));
 const Settings = lazy(() => import('./components/Settings'));
 const ClientPortalLayout = lazy(() => import('./components/ClientPortalLayout'));
 const ClientPortalDashboard = lazy(() => import('./components/ClientPortalDashboard'));
@@ -272,6 +273,7 @@ function App() {
                         <Route path="/documents" element={<Documents />} />
                         <Route path="/protocols" element={<ProtocolLibrary />} />
                         <Route path="/treatment-plans/:patientId" element={<TreatmentPlanBuilder />} />
+                        <Route path="/analytics" element={<AnalyticsDashboard />} />
                         <Route path="/settings" element={<Settings user={user} />} />
                         <Route
                           path="/profile"

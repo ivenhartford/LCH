@@ -130,7 +130,10 @@ const Sidebar = ({ open, onClose }) => {
     },
     {
       section: 'Reports',
-      items: [{ text: 'Reports', icon: <AssessmentIcon />, path: '/reports' }],
+      items: [
+        { text: 'Financial Reports', icon: <AssessmentIcon />, path: '/reports' },
+        { text: 'Analytics', icon: <AssessmentIcon />, path: '/analytics' },
+      ],
     },
   ];
 
