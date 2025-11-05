@@ -8,7 +8,8 @@ from .models import (
     Visit, VitalSigns, SOAPNote, Diagnosis, Vaccination,
     Medication, Prescription, Service, Invoice, InvoiceItem, Payment,
     Vendor, Product, PurchaseOrder, PurchaseOrderItem, InventoryTransaction,
-    ClientPortalUser, AppointmentRequest, Document
+    ClientPortalUser, AppointmentRequest, Document,
+    Protocol, ProtocolStep, TreatmentPlan, TreatmentPlanStep
 )
 from .schemas import (
     client_schema,
@@ -41,6 +42,15 @@ from .schemas import (
     document_schema,
     documents_schema,
     document_update_schema,
+    protocol_schema,
+    protocols_schema,
+    protocol_create_schema,
+    protocol_update_schema,
+    treatment_plan_schema,
+    treatment_plans_schema,
+    treatment_plan_create_schema,
+    treatment_plan_update_schema,
+    treatment_plan_step_update_schema,
 )
 from flask_login import login_user, logout_user, login_required, current_user
 from datetime import datetime, timedelta
@@ -5769,6 +5779,498 @@ def delete_document(document_id):
         app.logger.error(f"Error deleting document {document_id}: {str(e)}", exc_info=True)
         if "not found" in str(e).lower():
             return jsonify({"error": "Document not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+# ============================================================================
+# Phase 4.2: Treatment Plans & Protocols API Endpoints
+# ============================================================================
+
+
+@bp.route("/api/protocols", methods=["GET"])
+@login_required
+def get_protocols():
+    """Get list of all protocols with optional filtering"""
+    try:
+        # Query parameters
+        category = request.args.get("category")
+        is_active = request.args.get("is_active")
+        search = request.args.get("search")
+
+        query = Protocol.query
+
+        # Apply filters
+        if category:
+            query = query.filter(Protocol.category == category)
+
+        if is_active is not None:
+            active_bool = is_active.lower() == "true"
+            query = query.filter(Protocol.is_active == active_bool)
+
+        if search:
+            search_term = f"%{search}%"
+            query = query.filter(
+                db.or_(
+                    Protocol.name.ilike(search_term),
+                    Protocol.description.ilike(search_term)
+                )
+            )
+
+        protocols = query.order_by(Protocol.name).all()
+        return jsonify([p.to_dict() for p in protocols]), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching protocols: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/protocols/<int:protocol_id>", methods=["GET"])
+@login_required
+def get_protocol(protocol_id):
+    """Get a single protocol with steps"""
+    try:
+        protocol = Protocol.query.get_or_404(protocol_id)
+        return jsonify(protocol.to_dict(include_steps=True)), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching protocol {protocol_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Protocol not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/protocols", methods=["POST"])
+@login_required
+def create_protocol():
+    """Create a new protocol with steps"""
+    try:
+        data = protocol_create_schema.load(request.json)
+
+        # Create protocol
+        protocol = Protocol(
+            name=data["name"],
+            description=data.get("description"),
+            category=data.get("category"),
+            is_active=data.get("is_active", True),
+            default_duration_days=data.get("default_duration_days"),
+            estimated_cost=data.get("estimated_cost"),
+            notes=data.get("notes"),
+            created_by_id=current_user.id
+        )
+
+        db.session.add(protocol)
+        db.session.flush()  # Get protocol ID
+
+        # Create protocol steps
+        steps_data = data.get("steps", [])
+        for step_data in steps_data:
+            step = ProtocolStep(
+                protocol_id=protocol.id,
+                step_number=step_data["step_number"],
+                title=step_data["title"],
+                description=step_data.get("description"),
+                day_offset=step_data.get("day_offset", 0),
+                estimated_cost=step_data.get("estimated_cost"),
+                notes=step_data.get("notes")
+            )
+            db.session.add(step)
+
+        db.session.commit()
+
+        app.logger.info(f"Protocol created: {protocol.name} (ID: {protocol.id}) by {current_user.username}")
+
+        return jsonify(protocol.to_dict(include_steps=True)), 201
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating protocol: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/protocols/<int:protocol_id>", methods=["PUT"])
+@login_required
+def update_protocol(protocol_id):
+    """Update a protocol (does not update steps - use separate endpoint)"""
+    try:
+        protocol = Protocol.query.get_or_404(protocol_id)
+        data = protocol_update_schema.load(request.json)
+
+        # Update fields
+        if "name" in data:
+            protocol.name = data["name"]
+        if "description" in data:
+            protocol.description = data["description"]
+        if "category" in data:
+            protocol.category = data["category"]
+        if "is_active" in data:
+            protocol.is_active = data["is_active"]
+        if "default_duration_days" in data:
+            protocol.default_duration_days = data["default_duration_days"]
+        if "estimated_cost" in data:
+            protocol.estimated_cost = data["estimated_cost"]
+        if "notes" in data:
+            protocol.notes = data["notes"]
+
+        db.session.commit()
+
+        app.logger.info(f"Protocol updated: {protocol.name} (ID: {protocol_id}) by {current_user.username}")
+
+        return jsonify(protocol.to_dict(include_steps=True)), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating protocol {protocol_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Protocol not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/protocols/<int:protocol_id>", methods=["DELETE"])
+@login_required
+def delete_protocol(protocol_id):
+    """Delete a protocol (soft delete by default, hard delete with ?permanent=true)"""
+    try:
+        protocol = Protocol.query.get_or_404(protocol_id)
+        permanent = request.args.get("permanent", "false").lower() == "true"
+
+        if permanent:
+            # Hard delete - remove from database
+            db.session.delete(protocol)
+            db.session.commit()
+
+            app.logger.info(f"Protocol permanently deleted: {protocol.name} (ID: {protocol_id}) by {current_user.username}")
+
+            return jsonify({"message": "Protocol permanently deleted"}), 200
+        else:
+            # Soft delete - mark as inactive
+            protocol.is_active = False
+            db.session.commit()
+
+            app.logger.info(f"Protocol deactivated: {protocol.name} (ID: {protocol_id}) by {current_user.username}")
+
+            return jsonify({"message": "Protocol deactivated", "protocol": protocol.to_dict()}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting protocol {protocol_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Protocol not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/protocols/<int:protocol_id>/apply", methods=["POST"])
+@login_required
+def apply_protocol_to_patient(protocol_id):
+    """Apply a protocol to a patient, creating a new treatment plan"""
+    try:
+        data = request.json
+        patient_id = data.get("patient_id")
+        visit_id = data.get("visit_id")
+        start_date = data.get("start_date")
+
+        if not patient_id:
+            return jsonify({"error": "patient_id is required"}), 400
+
+        # Get protocol with steps
+        protocol = Protocol.query.get_or_404(protocol_id)
+        patient = Patient.query.get_or_404(patient_id)
+
+        # Create treatment plan from protocol
+        treatment_plan = TreatmentPlan(
+            name=f"{protocol.name} - {patient.name}",
+            description=protocol.description,
+            patient_id=patient_id,
+            visit_id=visit_id,
+            protocol_id=protocol_id,
+            status="draft",
+            start_date=datetime.strptime(start_date, "%Y-%m-%d").date() if start_date else None,
+            total_estimated_cost=protocol.estimated_cost or 0,
+            created_by_id=current_user.id
+        )
+
+        # Calculate end date from protocol duration
+        if treatment_plan.start_date and protocol.default_duration_days:
+            treatment_plan.end_date = treatment_plan.start_date + timedelta(days=protocol.default_duration_days)
+
+        db.session.add(treatment_plan)
+        db.session.flush()  # Get treatment plan ID
+
+        # Copy protocol steps to treatment plan steps
+        protocol_steps = protocol.steps.order_by(ProtocolStep.step_number).all()
+        for proto_step in protocol_steps:
+            step = TreatmentPlanStep(
+                treatment_plan_id=treatment_plan.id,
+                step_number=proto_step.step_number,
+                title=proto_step.title,
+                description=proto_step.description,
+                status="pending",
+                estimated_cost=proto_step.estimated_cost,
+                notes=proto_step.notes
+            )
+
+            # Calculate scheduled date from day offset
+            if treatment_plan.start_date:
+                step.scheduled_date = treatment_plan.start_date + timedelta(days=proto_step.day_offset)
+
+            db.session.add(step)
+
+        db.session.commit()
+
+        app.logger.info(f"Protocol {protocol.name} applied to patient {patient.name} (Treatment Plan ID: {treatment_plan.id}) by {current_user.username}")
+
+        return jsonify(treatment_plan.to_dict(include_steps=True)), 201
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error applying protocol {protocol_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Protocol or patient not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+# ============================================================================
+# Treatment Plan Endpoints
+# ============================================================================
+
+
+@bp.route("/api/treatment-plans", methods=["GET"])
+@login_required
+def get_treatment_plans():
+    """Get list of treatment plans with optional filtering"""
+    try:
+        # Query parameters
+        patient_id = request.args.get("patient_id", type=int)
+        status = request.args.get("status")
+        search = request.args.get("search")
+
+        query = TreatmentPlan.query
+
+        # Apply filters
+        if patient_id:
+            query = query.filter(TreatmentPlan.patient_id == patient_id)
+
+        if status:
+            query = query.filter(TreatmentPlan.status == status)
+
+        if search:
+            search_term = f"%{search}%"
+            query = query.filter(
+                db.or_(
+                    TreatmentPlan.name.ilike(search_term),
+                    TreatmentPlan.description.ilike(search_term)
+                )
+            )
+
+        treatment_plans = query.order_by(TreatmentPlan.created_at.desc()).all()
+        return jsonify([tp.to_dict() for tp in treatment_plans]), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching treatment plans: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/treatment-plans/<int:plan_id>", methods=["GET"])
+@login_required
+def get_treatment_plan(plan_id):
+    """Get a single treatment plan with steps"""
+    try:
+        treatment_plan = TreatmentPlan.query.get_or_404(plan_id)
+        return jsonify(treatment_plan.to_dict(include_steps=True)), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching treatment plan {plan_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Treatment plan not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/treatment-plans", methods=["POST"])
+@login_required
+def create_treatment_plan():
+    """Create a new treatment plan with steps"""
+    try:
+        data = treatment_plan_create_schema.load(request.json)
+
+        # Create treatment plan
+        treatment_plan = TreatmentPlan(
+            name=data["name"],
+            description=data.get("description"),
+            patient_id=data["patient_id"],
+            visit_id=data.get("visit_id"),
+            protocol_id=data.get("protocol_id"),
+            status=data.get("status", "draft"),
+            start_date=data.get("start_date"),
+            end_date=data.get("end_date"),
+            notes=data.get("notes"),
+            created_by_id=current_user.id
+        )
+
+        db.session.add(treatment_plan)
+        db.session.flush()  # Get treatment plan ID
+
+        # Create treatment plan steps
+        steps_data = data.get("steps", [])
+        total_estimated = 0
+        for step_data in steps_data:
+            step = TreatmentPlanStep(
+                treatment_plan_id=treatment_plan.id,
+                step_number=step_data["step_number"],
+                title=step_data["title"],
+                description=step_data.get("description"),
+                status=step_data.get("status", "pending"),
+                scheduled_date=step_data.get("scheduled_date"),
+                estimated_cost=step_data.get("estimated_cost"),
+                notes=step_data.get("notes")
+            )
+            db.session.add(step)
+
+            if step.estimated_cost:
+                total_estimated += float(step.estimated_cost)
+
+        # Update total estimated cost
+        treatment_plan.total_estimated_cost = total_estimated
+
+        db.session.commit()
+
+        app.logger.info(f"Treatment plan created: {treatment_plan.name} (ID: {treatment_plan.id}) by {current_user.username}")
+
+        return jsonify(treatment_plan.to_dict(include_steps=True)), 201
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating treatment plan: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/treatment-plans/<int:plan_id>", methods=["PUT"])
+@login_required
+def update_treatment_plan(plan_id):
+    """Update a treatment plan (does not update steps - use separate endpoint)"""
+    try:
+        treatment_plan = TreatmentPlan.query.get_or_404(plan_id)
+        data = treatment_plan_update_schema.load(request.json)
+
+        # Update fields
+        if "name" in data:
+            treatment_plan.name = data["name"]
+        if "description" in data:
+            treatment_plan.description = data["description"]
+        if "status" in data:
+            treatment_plan.status = data["status"]
+
+            # If marking as completed, set completed_date
+            if data["status"] == "completed" and not treatment_plan.completed_date:
+                treatment_plan.completed_date = datetime.utcnow().date()
+        if "start_date" in data:
+            treatment_plan.start_date = data["start_date"]
+        if "end_date" in data:
+            treatment_plan.end_date = data["end_date"]
+        if "completed_date" in data:
+            treatment_plan.completed_date = data["completed_date"]
+        if "total_estimated_cost" in data:
+            treatment_plan.total_estimated_cost = data["total_estimated_cost"]
+        if "total_actual_cost" in data:
+            treatment_plan.total_actual_cost = data["total_actual_cost"]
+        if "notes" in data:
+            treatment_plan.notes = data["notes"]
+        if "cancellation_reason" in data:
+            treatment_plan.cancellation_reason = data["cancellation_reason"]
+
+        db.session.commit()
+
+        app.logger.info(f"Treatment plan updated: {treatment_plan.name} (ID: {plan_id}) by {current_user.username}")
+
+        return jsonify(treatment_plan.to_dict(include_steps=True)), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating treatment plan {plan_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Treatment plan not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/treatment-plans/<int:plan_id>", methods=["DELETE"])
+@login_required
+def delete_treatment_plan(plan_id):
+    """Delete a treatment plan"""
+    try:
+        treatment_plan = TreatmentPlan.query.get_or_404(plan_id)
+
+        # Delete treatment plan (cascade will delete steps)
+        db.session.delete(treatment_plan)
+        db.session.commit()
+
+        app.logger.info(f"Treatment plan deleted: {treatment_plan.name} (ID: {plan_id}) by {current_user.username}")
+
+        return jsonify({"message": "Treatment plan deleted"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting treatment plan {plan_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Treatment plan not found"}), 404
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/treatment-plans/<int:plan_id>/steps/<int:step_id>", methods=["PATCH"])
+@login_required
+def update_treatment_plan_step(plan_id, step_id):
+    """Update a single treatment plan step"""
+    try:
+        treatment_plan = TreatmentPlan.query.get_or_404(plan_id)
+        step = TreatmentPlanStep.query.get_or_404(step_id)
+
+        # Verify step belongs to this treatment plan
+        if step.treatment_plan_id != plan_id:
+            return jsonify({"error": "Step does not belong to this treatment plan"}), 400
+
+        data = treatment_plan_step_update_schema.load(request.json)
+
+        # Update fields
+        if "title" in data:
+            step.title = data["title"]
+        if "description" in data:
+            step.description = data["description"]
+        if "status" in data:
+            step.status = data["status"]
+
+            # If marking as completed, set completed_date and performed_by
+            if data["status"] == "completed" and not step.completed_date:
+                step.completed_date = datetime.utcnow().date()
+                if not step.performed_by_id:
+                    step.performed_by_id = current_user.id
+        if "scheduled_date" in data:
+            step.scheduled_date = data["scheduled_date"]
+        if "completed_date" in data:
+            step.completed_date = data["completed_date"]
+        if "estimated_cost" in data:
+            step.estimated_cost = data["estimated_cost"]
+        if "actual_cost" in data:
+            step.actual_cost = data["actual_cost"]
+        if "notes" in data:
+            step.notes = data["notes"]
+        if "performed_by_id" in data:
+            step.performed_by_id = data["performed_by_id"]
+
+        # Recalculate treatment plan total costs
+        if "actual_cost" in data:
+            total_actual = sum(
+                float(s.actual_cost) for s in treatment_plan.steps if s.actual_cost
+            )
+            treatment_plan.total_actual_cost = total_actual
+
+        db.session.commit()
+
+        app.logger.info(f"Treatment plan step updated: {step.title} (ID: {step_id}) by {current_user.username}")
+
+        return jsonify(step.to_dict()), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating treatment plan step {step_id}: {str(e)}", exc_info=True)
+        if "not found" in str(e).lower():
+            return jsonify({"error": "Treatment plan or step not found"}), 404
         return jsonify({"error": str(e)}), 400
 
 
