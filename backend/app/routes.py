@@ -2966,6 +2966,522 @@ def get_service_revenue_report():
         return jsonify({"error": str(e)}), 400
 
 
+# ============================================================================
+# ADVANCED ANALYTICS - Phase 4.3
+# ============================================================================
+
+@bp.route("/api/analytics/revenue-trends", methods=["GET"])
+@login_required
+def get_revenue_trends():
+    """
+    Get revenue trends over time for charting
+    Query params: period (day|week|month), start_date, end_date
+    Returns time-series data suitable for line/bar charts
+    """
+    try:
+        period = request.args.get("period", "month")  # day, week, month
+        start_date_str = request.args.get("start_date")
+        end_date_str = request.args.get("end_date")
+
+        # Default to last 12 months if not specified
+        if not end_date_str:
+            end_date = datetime.now()
+        else:
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
+
+        if not start_date_str:
+            if period == "day":
+                start_date = end_date - timedelta(days=30)
+            elif period == "week":
+                start_date = end_date - timedelta(weeks=12)
+            else:  # month
+                start_date = end_date - timedelta(days=365)
+        else:
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
+
+        # Build query based on period
+        if period == "day":
+            # Group by day
+            trend_data = (
+                db.session.query(
+                    func.date(Invoice.invoice_date).label("period"),
+                    func.sum(Invoice.total_amount).label("revenue"),
+                    func.count(Invoice.id).label("invoice_count"),
+                )
+                .filter(Invoice.invoice_date.between(start_date, end_date))
+                .filter(Invoice.status.in_(["paid", "partial_paid"]))
+                .group_by(func.date(Invoice.invoice_date))
+                .order_by(func.date(Invoice.invoice_date))
+                .all()
+            )
+        elif period == "week":
+            # Group by week
+            trend_data = (
+                db.session.query(
+                    func.strftime("%Y-W%W", Invoice.invoice_date).label("period"),
+                    func.sum(Invoice.total_amount).label("revenue"),
+                    func.count(Invoice.id).label("invoice_count"),
+                )
+                .filter(Invoice.invoice_date.between(start_date, end_date))
+                .filter(Invoice.status.in_(["paid", "partial_paid"]))
+                .group_by(func.strftime("%Y-W%W", Invoice.invoice_date))
+                .order_by(func.strftime("%Y-W%W", Invoice.invoice_date))
+                .all()
+            )
+        else:  # month
+            # Group by month
+            trend_data = (
+                db.session.query(
+                    func.strftime("%Y-%m", Invoice.invoice_date).label("period"),
+                    func.sum(Invoice.total_amount).label("revenue"),
+                    func.count(Invoice.id).label("invoice_count"),
+                )
+                .filter(Invoice.invoice_date.between(start_date, end_date))
+                .filter(Invoice.status.in_(["paid", "partial_paid"]))
+                .group_by(func.strftime("%Y-%m", Invoice.invoice_date))
+                .order_by(func.strftime("%Y-%m", Invoice.invoice_date))
+                .all()
+            )
+
+        data = [
+            {"period": str(row.period), "revenue": float(row.revenue or 0), "invoice_count": row.invoice_count}
+            for row in trend_data
+        ]
+
+        return jsonify({"data": data, "period": period}), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting revenue trends: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/analytics/client-retention", methods=["GET"])
+@login_required
+def get_client_retention():
+    """
+    Get client retention metrics
+    Returns: new clients, returning clients, retention rate, churn rate
+    """
+    try:
+        start_date_str = request.args.get("start_date")
+        end_date_str = request.args.get("end_date")
+
+        # Default to last 12 months
+        if not end_date_str:
+            end_date = datetime.now()
+        else:
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
+
+        if not start_date_str:
+            start_date = end_date - timedelta(days=365)
+        else:
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
+
+        # Get all clients created during the period
+        new_clients = Client.query.filter(Client.created_at.between(start_date, end_date)).count()
+
+        # Get returning clients (clients with appointments in this period who were created before this period)
+        returning_clients = (
+            db.session.query(func.count(func.distinct(Appointment.client_id)))
+            .join(Client)
+            .filter(Appointment.appointment_date.between(start_date, end_date))
+            .filter(Client.created_at < start_date)
+            .scalar()
+        )
+
+        # Total active clients with appointments in period
+        active_clients = (
+            db.session.query(func.count(func.distinct(Appointment.client_id)))
+            .filter(Appointment.appointment_date.between(start_date, end_date))
+            .scalar()
+        )
+
+        # Total clients at start of period
+        total_clients_at_start = Client.query.filter(Client.created_at < start_date).count()
+
+        # Calculate retention rate (returning clients / clients at start)
+        retention_rate = (returning_clients / total_clients_at_start * 100) if total_clients_at_start > 0 else 0
+
+        # Calculate churn rate
+        churn_rate = 100 - retention_rate
+
+        # Get monthly breakdown
+        monthly_breakdown = (
+            db.session.query(
+                func.strftime("%Y-%m", Client.created_at).label("month"), func.count(Client.id).label("count")
+            )
+            .filter(Client.created_at.between(start_date, end_date))
+            .group_by(func.strftime("%Y-%m", Client.created_at))
+            .order_by(func.strftime("%Y-%m", Client.created_at))
+            .all()
+        )
+
+        monthly_data = [{"month": str(row.month), "new_clients": row.count} for row in monthly_breakdown]
+
+        return (
+            jsonify(
+                {
+                    "new_clients": new_clients,
+                    "returning_clients": returning_clients,
+                    "active_clients": active_clients,
+                    "retention_rate": round(retention_rate, 2),
+                    "churn_rate": round(churn_rate, 2),
+                    "monthly_breakdown": monthly_data,
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        app.logger.error(f"Error getting client retention: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/analytics/appointment-trends", methods=["GET"])
+@login_required
+def get_appointment_trends():
+    """
+    Get appointment volume and trends
+    Returns: appointment counts by status, type, and over time
+    """
+    try:
+        start_date_str = request.args.get("start_date")
+        end_date_str = request.args.get("end_date")
+
+        # Default to last 90 days
+        if not end_date_str:
+            end_date = datetime.now()
+        else:
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
+
+        if not start_date_str:
+            start_date = end_date - timedelta(days=90)
+        else:
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
+
+        # Appointments by status
+        by_status = (
+            db.session.query(Appointment.status, func.count(Appointment.id).label("count"))
+            .filter(Appointment.appointment_date.between(start_date, end_date))
+            .group_by(Appointment.status)
+            .all()
+        )
+
+        status_data = [{"status": row.status, "count": row.count} for row in by_status]
+
+        # Appointments by type
+        by_type = (
+            db.session.query(
+                AppointmentType.name, AppointmentType.color, func.count(Appointment.id).label("count")
+            )
+            .join(Appointment, Appointment.appointment_type_id == AppointmentType.id)
+            .filter(Appointment.appointment_date.between(start_date, end_date))
+            .group_by(AppointmentType.id, AppointmentType.name, AppointmentType.color)
+            .order_by(func.count(Appointment.id).desc())
+            .all()
+        )
+
+        type_data = [{"type": row.name, "color": row.color, "count": row.count} for row in by_type]
+
+        # Daily appointment volume
+        daily_volume = (
+            db.session.query(
+                func.date(Appointment.appointment_date).label("date"), func.count(Appointment.id).label("count")
+            )
+            .filter(Appointment.appointment_date.between(start_date, end_date))
+            .group_by(func.date(Appointment.appointment_date))
+            .order_by(func.date(Appointment.appointment_date))
+            .all()
+        )
+
+        volume_data = [{"date": str(row.date), "count": row.count} for row in daily_volume]
+
+        # Completion rate
+        total_appointments = Appointment.query.filter(Appointment.appointment_date.between(start_date, end_date)).count()
+
+        completed_appointments = Appointment.query.filter(
+            Appointment.appointment_date.between(start_date, end_date), Appointment.status == "completed"
+        ).count()
+
+        completion_rate = (completed_appointments / total_appointments * 100) if total_appointments > 0 else 0
+
+        return (
+            jsonify(
+                {
+                    "by_status": status_data,
+                    "by_type": type_data,
+                    "daily_volume": volume_data,
+                    "total_appointments": total_appointments,
+                    "completed_appointments": completed_appointments,
+                    "completion_rate": round(completion_rate, 2),
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        app.logger.error(f"Error getting appointment trends: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/analytics/procedure-volume", methods=["GET"])
+@login_required
+def get_procedure_volume():
+    """
+    Get procedure/service volume and trends
+    Returns: top procedures, trends over time
+    """
+    try:
+        start_date_str = request.args.get("start_date")
+        end_date_str = request.args.get("end_date")
+        limit = request.args.get("limit", 10, type=int)
+
+        # Default to last 6 months
+        if not end_date_str:
+            end_date = datetime.now()
+        else:
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
+
+        if not start_date_str:
+            start_date = end_date - timedelta(days=180)
+        else:
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
+
+        # Top procedures by volume
+        top_procedures = (
+            db.session.query(
+                Service.name,
+                Service.service_type,
+                func.sum(InvoiceItem.quantity).label("total_quantity"),
+                func.sum(InvoiceItem.line_total).label("total_revenue"),
+                func.count(InvoiceItem.id).label("times_performed"),
+            )
+            .join(InvoiceItem, InvoiceItem.service_id == Service.id)
+            .join(Invoice, Invoice.id == InvoiceItem.invoice_id)
+            .filter(Invoice.invoice_date.between(start_date, end_date))
+            .group_by(Service.id, Service.name, Service.service_type)
+            .order_by(func.count(InvoiceItem.id).desc())
+            .limit(limit)
+            .all()
+        )
+
+        procedure_data = [
+            {
+                "name": row.name,
+                "type": row.service_type,
+                "quantity": float(row.total_quantity or 0),
+                "revenue": float(row.total_revenue or 0),
+                "times_performed": row.times_performed,
+            }
+            for row in top_procedures
+        ]
+
+        # Monthly trend for top 5 procedures
+        top_5_service_ids = (
+            db.session.query(Service.id)
+            .join(InvoiceItem, InvoiceItem.service_id == Service.id)
+            .join(Invoice, Invoice.id == InvoiceItem.invoice_id)
+            .filter(Invoice.invoice_date.between(start_date, end_date))
+            .group_by(Service.id)
+            .order_by(func.count(InvoiceItem.id).desc())
+            .limit(5)
+            .all()
+        )
+
+        monthly_trends = []
+        for (service_id,) in top_5_service_ids:
+            service = Service.query.get(service_id)
+            trend = (
+                db.session.query(
+                    func.strftime("%Y-%m", Invoice.invoice_date).label("month"),
+                    func.count(InvoiceItem.id).label("count"),
+                )
+                .join(Invoice, Invoice.id == InvoiceItem.invoice_id)
+                .filter(InvoiceItem.service_id == service_id)
+                .filter(Invoice.invoice_date.between(start_date, end_date))
+                .group_by(func.strftime("%Y-%m", Invoice.invoice_date))
+                .order_by(func.strftime("%Y-%m", Invoice.invoice_date))
+                .all()
+            )
+
+            monthly_trends.append(
+                {
+                    "service_name": service.name,
+                    "service_id": service_id,
+                    "trend": [{"month": str(row.month), "count": row.count} for row in trend],
+                }
+            )
+
+        return jsonify({"top_procedures": procedure_data, "monthly_trends": monthly_trends}), 200
+
+    except Exception as e:
+        app.logger.error(f"Error getting procedure volume: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/analytics/patient-demographics", methods=["GET"])
+@login_required
+def get_patient_demographics():
+    """
+    Get patient demographic breakdowns
+    Returns: age distribution, breed distribution, gender distribution
+    """
+    try:
+        # Get all active patients
+        active_patients = Patient.query.filter(Patient.status == "active").all()
+
+        # Calculate age distribution
+        age_groups = {"0-1 years": 0, "1-3 years": 0, "3-7 years": 0, "7-10 years": 0, "10+ years": 0}
+
+        for patient in active_patients:
+            if patient.date_of_birth:
+                age_years = (datetime.now().date() - patient.date_of_birth).days / 365.25
+                if age_years < 1:
+                    age_groups["0-1 years"] += 1
+                elif age_years < 3:
+                    age_groups["1-3 years"] += 1
+                elif age_years < 7:
+                    age_groups["3-7 years"] += 1
+                elif age_years < 10:
+                    age_groups["7-10 years"] += 1
+                else:
+                    age_groups["10+ years"] += 1
+
+        # Get breed distribution (top 10)
+        breed_counts = (
+            db.session.query(Patient.breed, func.count(Patient.id).label("count"))
+            .filter(Patient.status == "active")
+            .group_by(Patient.breed)
+            .order_by(func.count(Patient.id).desc())
+            .limit(10)
+            .all()
+        )
+
+        breed_data = [{"breed": row.breed or "Unknown", "count": row.count} for row in breed_counts]
+
+        # Get gender distribution
+        gender_counts = (
+            db.session.query(Patient.sex, func.count(Patient.id).label("count"))
+            .filter(Patient.status == "active")
+            .group_by(Patient.sex)
+            .all()
+        )
+
+        gender_data = [{"gender": row.sex or "Unknown", "count": row.count} for row in gender_counts]
+
+        # Get reproductive status
+        spay_neuter_count = Patient.query.filter(
+            Patient.status == "active", Patient.reproductive_status.in_(["spayed", "neutered"])
+        ).count()
+
+        total_patients = len(active_patients)
+        spay_neuter_rate = (spay_neuter_count / total_patients * 100) if total_patients > 0 else 0
+
+        return (
+            jsonify(
+                {
+                    "age_distribution": [{"age_group": k, "count": v} for k, v in age_groups.items()],
+                    "breed_distribution": breed_data,
+                    "gender_distribution": gender_data,
+                    "total_patients": total_patients,
+                    "spay_neuter_rate": round(spay_neuter_rate, 2),
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        app.logger.error(f"Error getting patient demographics: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/analytics/dashboard-summary", methods=["GET"])
+@login_required
+def get_dashboard_summary():
+    """
+    Get high-level KPIs for analytics dashboard
+    Returns: key metrics for display on dashboard
+    """
+    try:
+        # Get today's date and calculate time ranges
+        today = datetime.now().date()
+        this_month_start = today.replace(day=1)
+        last_month_start = (this_month_start - timedelta(days=1)).replace(day=1)
+        last_month_end = this_month_start - timedelta(days=1)
+        this_year_start = today.replace(month=1, day=1)
+
+        # Revenue this month
+        revenue_this_month = (
+            db.session.query(func.sum(Invoice.total_amount))
+            .filter(Invoice.invoice_date >= this_month_start)
+            .filter(Invoice.status.in_(["paid", "partial_paid"]))
+            .scalar()
+            or 0
+        )
+
+        # Revenue last month
+        revenue_last_month = (
+            db.session.query(func.sum(Invoice.total_amount))
+            .filter(Invoice.invoice_date.between(last_month_start, last_month_end))
+            .filter(Invoice.status.in_(["paid", "partial_paid"]))
+            .scalar()
+            or 0
+        )
+
+        # Revenue growth percentage
+        revenue_growth = (
+            ((revenue_this_month - revenue_last_month) / revenue_last_month * 100) if revenue_last_month > 0 else 0
+        )
+
+        # Active patients
+        active_patients = Patient.query.filter(Patient.status == "active").count()
+
+        # New patients this month
+        new_patients_this_month = Patient.query.filter(Patient.created_at >= this_month_start).count()
+
+        # Appointments this month
+        appointments_this_month = Appointment.query.filter(Appointment.appointment_date >= this_month_start).count()
+
+        # Completed appointments this month
+        completed_appointments = Appointment.query.filter(
+            Appointment.appointment_date >= this_month_start, Appointment.status == "completed"
+        ).count()
+
+        # Average revenue per appointment
+        avg_revenue_per_appointment = (
+            (revenue_this_month / completed_appointments) if completed_appointments > 0 else 0
+        )
+
+        # Outstanding balance
+        outstanding_balance = (
+            db.session.query(func.sum(Invoice.balance_due))
+            .filter(Invoice.status.in_(["sent", "partial_paid", "overdue"]))
+            .scalar()
+            or 0
+        )
+
+        return (
+            jsonify(
+                {
+                    "revenue_this_month": float(revenue_this_month),
+                    "revenue_last_month": float(revenue_last_month),
+                    "revenue_growth": round(revenue_growth, 2),
+                    "active_patients": active_patients,
+                    "new_patients_this_month": new_patients_this_month,
+                    "appointments_this_month": appointments_this_month,
+                    "completed_appointments": completed_appointments,
+                    "avg_revenue_per_appointment": round(float(avg_revenue_per_appointment), 2),
+                    "outstanding_balance": float(outstanding_balance),
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        app.logger.error(f"Error getting dashboard summary: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
 
 # ============================================================================
 # INVENTORY MANAGEMENT - Phase 3.1
