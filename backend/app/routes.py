@@ -1,8 +1,10 @@
 import os
 import uuid
+from io import BytesIO
 from werkzeug.utils import secure_filename
 from flask import jsonify, send_from_directory, send_file, request, Blueprint
 from flask import current_app as app
+from .pdf_generator import VaccinationCertificateGenerator, HealthCertificateGenerator, MedicalRecordSummaryGenerator
 from .models import (
     db, User, Patient, Pet, Appointment, AppointmentType, Client,
     Visit, VitalSigns, SOAPNote, Diagnosis, Vaccination,
@@ -3479,6 +3481,237 @@ def get_dashboard_summary():
 
     except Exception as e:
         app.logger.error(f"Error getting dashboard summary: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+# ============================================================================
+# PDF DOCUMENT GENERATION - Phase 4.4
+# ============================================================================
+
+@bp.route("/api/pdf/vaccination-certificate/<int:vaccination_id>", methods=["GET"])
+@login_required
+def generate_vaccination_certificate(vaccination_id):
+    """
+    Generate a vaccination certificate PDF
+    Returns PDF file for download
+    """
+    try:
+        # Get vaccination record
+        vaccination = Vaccination.query.get_or_404(vaccination_id)
+        patient = Patient.query.get_or_404(vaccination.patient_id)
+        owner = Client.query.get_or_404(patient.owner_id)
+
+        # Prepare data for PDF
+        patient_data = {
+            "name": patient.name,
+            "breed": patient.breed,
+            "color": patient.color,
+            "sex": patient.sex,
+            "date_of_birth": patient.date_of_birth.strftime("%m/%d/%Y") if patient.date_of_birth else "N/A",
+            "microchip_number": patient.microchip_number or "N/A",
+            "weight": patient.weight or "N/A",
+        }
+
+        vaccination_data = {
+            "id": vaccination.id,
+            "vaccine_name": vaccination.vaccine_name,
+            "manufacturer": vaccination.manufacturer or "N/A",
+            "lot_number": vaccination.lot_number or "N/A",
+            "administered_date": vaccination.administered_date.strftime("%m/%d/%Y") if vaccination.administered_date else "N/A",
+            "expiration_date": vaccination.expiration_date.strftime("%m/%d/%Y") if vaccination.expiration_date else "N/A",
+            "next_due_date": vaccination.next_due_date.strftime("%m/%d/%Y") if vaccination.next_due_date else "N/A",
+            "administered_by": vaccination.administered_by or "N/A",
+            "notes": vaccination.notes or "",
+        }
+
+        owner_data = {
+            "name": f"{owner.first_name} {owner.last_name}",
+            "phone": owner.phone_primary,
+            "email": owner.email or "N/A",
+            "address": f"{owner.address_line1 or ''}, {owner.city or ''}, {owner.state or ''} {owner.zip_code or ''}".strip(", "),
+        }
+
+        # Generate PDF
+        generator = VaccinationCertificateGenerator()
+        pdf_buffer = generator.generate(patient_data, vaccination_data, owner_data)
+
+        # Return PDF file
+        return send_file(
+            pdf_buffer,
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=f"vaccination_certificate_{patient.name}_{vaccination.id}.pdf",
+        )
+
+    except Exception as e:
+        app.logger.error(f"Error generating vaccination certificate: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/pdf/health-certificate/<int:patient_id>", methods=["POST"])
+@login_required
+def generate_health_certificate(patient_id):
+    """
+    Generate a health certificate PDF
+    Expects JSON body with exam data
+    Returns PDF file for download
+    """
+    try:
+        # Get patient and owner
+        patient = Patient.query.get_or_404(patient_id)
+        owner = Client.query.get_or_404(patient.owner_id)
+
+        # Get exam data from request
+        exam_data = request.get_json() or {}
+
+        # Calculate age if date_of_birth exists
+        age = "N/A"
+        if patient.date_of_birth:
+            from datetime import datetime
+
+            today = datetime.now().date()
+            age_years = (today - patient.date_of_birth).days // 365
+            age = f"{age_years} years"
+
+        # Prepare data for PDF
+        patient_data = {
+            "name": patient.name,
+            "breed": patient.breed,
+            "color": patient.color,
+            "sex": patient.sex,
+            "age": age,
+            "microchip_number": patient.microchip_number or "N/A",
+            "weight": patient.weight or "N/A",
+        }
+
+        # Generate certificate number
+        cert_number = f"HC-{patient_id}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
+        exam_data_formatted = {
+            "certificate_number": cert_number,
+            "purpose": exam_data.get("purpose", "General Health Assessment"),
+            "exam_date": exam_data.get("exam_date", datetime.now().strftime("%m/%d/%Y")),
+            "temperature": exam_data.get("temperature", "N/A"),
+            "heart_rate": exam_data.get("heart_rate", "N/A"),
+            "respiratory_rate": exam_data.get("respiratory_rate", "N/A"),
+            "weight": exam_data.get("weight", patient.weight or "N/A"),
+            "findings": exam_data.get("findings", "Patient appears healthy with no abnormalities detected."),
+            "health_status": exam_data.get("health_status", "HEALTHY"),
+            "examined_by": exam_data.get("examined_by", "Dr. " + (request.user.username if hasattr(request, "user") else "N/A")),
+        }
+
+        owner_data = {
+            "name": f"{owner.first_name} {owner.last_name}",
+            "phone": owner.phone_primary,
+            "email": owner.email or "N/A",
+            "address": f"{owner.address_line1 or ''}, {owner.city or ''}, {owner.state or ''} {owner.zip_code or ''}".strip(", "),
+        }
+
+        # Generate PDF
+        generator = HealthCertificateGenerator()
+        pdf_buffer = generator.generate(patient_data, exam_data_formatted, owner_data)
+
+        # Return PDF file
+        return send_file(
+            pdf_buffer,
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=f"health_certificate_{patient.name}_{cert_number}.pdf",
+        )
+
+    except Exception as e:
+        app.logger.error(f"Error generating health certificate: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 400
+
+
+@bp.route("/api/pdf/medical-record-summary/<int:patient_id>", methods=["GET"])
+@login_required
+def generate_medical_record_summary(patient_id):
+    """
+    Generate a comprehensive medical record summary PDF
+    Returns PDF file for download
+    """
+    try:
+        # Get patient and owner
+        patient = Patient.query.get_or_404(patient_id)
+        owner = Client.query.get_or_404(patient.owner_id)
+
+        # Calculate age
+        age = "N/A"
+        if patient.date_of_birth:
+            from datetime import datetime
+
+            today = datetime.now().date()
+            age_years = (today - patient.date_of_birth).days // 365
+            age = f"{age_years} years"
+
+        # Prepare patient data
+        patient_data = {
+            "id": patient.id,
+            "name": patient.name,
+            "breed": patient.breed,
+            "color": patient.color,
+            "sex": patient.sex,
+            "reproductive_status": patient.reproductive_status or "N/A",
+            "date_of_birth": patient.date_of_birth.strftime("%m/%d/%Y") if patient.date_of_birth else "N/A",
+            "age": age,
+            "microchip_number": patient.microchip_number or "N/A",
+            "weight": patient.weight or "N/A",
+            "allergies": patient.allergies or "None",
+            "medical_conditions": patient.special_needs or "None",
+        }
+
+        owner_data = {
+            "name": f"{owner.first_name} {owner.last_name}",
+            "phone": owner.phone_primary,
+            "email": owner.email or "N/A",
+            "address": f"{owner.address_line1 or ''}, {owner.city or ''}, {owner.state or ''} {owner.zip_code or ''}".strip(", "),
+        }
+
+        # Get vaccination history (most recent 10)
+        vaccinations = Vaccination.query.filter_by(patient_id=patient_id).order_by(Vaccination.administered_date.desc()).limit(10).all()
+
+        vaccinations_data = [
+            {
+                "administered_date": v.administered_date.strftime("%m/%d/%Y") if v.administered_date else "N/A",
+                "vaccine_name": v.vaccine_name,
+                "manufacturer": v.manufacturer or "N/A",
+                "next_due_date": v.next_due_date.strftime("%m/%d/%Y") if v.next_due_date else "N/A",
+            }
+            for v in vaccinations
+        ]
+
+        # Get visit history (most recent 5)
+        visits = Visit.query.filter_by(patient_id=patient_id).order_by(Visit.visit_date.desc()).limit(5).all()
+
+        visits_data = []
+        for visit in visits:
+            soap_note = SOAPNote.query.filter_by(visit_id=visit.id).first()
+
+            visits_data.append(
+                {
+                    "visit_date": visit.visit_date.strftime("%m/%d/%Y") if visit.visit_date else "N/A",
+                    "visit_type": visit.visit_type or "N/A",
+                    "chief_complaint": soap_note.subjective if soap_note else "N/A",
+                    "diagnosis": soap_note.assessment if soap_note else "N/A",
+                    "treatment": soap_note.plan if soap_note else "N/A",
+                }
+            )
+
+        # Generate PDF
+        generator = MedicalRecordSummaryGenerator()
+        pdf_buffer = generator.generate(patient_data, owner_data, visits_data, vaccinations_data)
+
+        # Return PDF file
+        return send_file(
+            pdf_buffer,
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=f"medical_record_summary_{patient.name}_{patient.id}.pdf",
+        )
+
+    except Exception as e:
+        app.logger.error(f"Error generating medical record summary: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 400
 
 
