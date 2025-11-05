@@ -948,91 +948,186 @@ class Document(db.Model):
 
 ---
 
-### TreatmentPlan
-**Purpose:** Multi-visit treatment planning
+### TreatmentPlan ✅
+**Purpose:** Patient-specific treatment plans
+**Status:** IMPLEMENTED (Phase 4.2)
 
 ```python
 class TreatmentPlan(db.Model):
     id = Integer, PK
 
+    # Links
     patient_id = Integer, FK(Patient.id), not null
+    protocol_id = Integer, FK(Protocol.id), nullable  # If created from protocol
     created_by_id = Integer, FK(User.id), not null
 
+    # Plan Info
     title = String(200), not null
     description = Text
 
     # Dates
     start_date = Date, not null
-    end_date = Date
+    end_date = Date, nullable  # Auto-calculated or manually set
 
-    # Cost
-    estimated_cost = Decimal(10, 2)
-    actual_cost = Decimal(10, 2)
+    # Cost Tracking
+    total_estimated_cost = Decimal(10, 2), default=0.00
+    total_actual_cost = Decimal(10, 2), default=0.00  # Auto-calculated from steps
 
-    # Status
-    status = String(50), default='Active'  # Active, Completed, Cancelled
-    progress_percentage = Integer, default=0
+    # Status & Progress
+    status = String(50), default='draft'  # draft, active, completed, cancelled
+    progress_percentage = Integer, default=0  # Auto-calculated from completed steps
 
+    # Notes
     notes = Text
     created_at = DateTime, default=now
     updated_at = DateTime, onupdate=now
 
     # Relationships
-    patient = relationship('Patient')
+    patient = relationship('Patient', back_populates='treatment_plans')
+    protocol = relationship('Protocol', back_populates='treatment_plans')
     created_by = relationship('User')
-    steps = relationship('TreatmentPlanStep', back_populates='plan')
+    steps = relationship('TreatmentPlanStep', back_populates='treatment_plan', cascade='all, delete-orphan')
+
+    # Methods
+    def calculate_progress(self):
+        """Calculate completion percentage based on completed steps"""
+        total_steps = self.steps.count()
+        if total_steps == 0:
+            return 0
+        completed_steps = self.steps.filter_by(status='completed').count()
+        return round((completed_steps / total_steps) * 100)
 ```
+
+**Indexes:**
+- idx_treatment_plan_patient
+- idx_treatment_plan_status
+- idx_treatment_plan_protocol
 
 ---
 
-### TreatmentPlanStep
-**Purpose:** Individual steps in treatment plan
+### TreatmentPlanStep ✅
+**Purpose:** Individual steps in a patient's treatment plan
+**Status:** IMPLEMENTED (Phase 4.2)
 
 ```python
 class TreatmentPlanStep(db.Model):
     id = Integer, PK
-    plan_id = Integer, FK(TreatmentPlan.id), not null
+    treatment_plan_id = Integer, FK(TreatmentPlan.id), not null
 
+    # Step Info
     step_number = Integer, not null
-    description = Text, not null
-    estimated_cost = Decimal(10, 2)
+    title = String(500), not null
+    description = Text
 
-    scheduled_date = Date
-    completed_date = Date
-    status = String(50), default='Pending'  # Pending, Completed, Skipped
+    # Scheduling
+    scheduled_date = Date, nullable
+    completed_date = Date, nullable  # Auto-set when marked as completed
 
+    # Duration
+    estimated_duration_minutes = Integer, nullable
+
+    # Cost Tracking
+    estimated_cost = Decimal(10, 2), nullable
+    actual_cost = Decimal(10, 2), nullable
+
+    # Status
+    status = String(50), default='pending'  # pending, in_progress, completed, skipped
+
+    # Links
     visit_id = Integer, FK(Visit.id), nullable
+
+    # Notes
     notes = Text
 
+    # Metadata
+    created_at = DateTime, default=now
+    updated_at = DateTime, onupdate=now
+
     # Relationships
-    plan = relationship('TreatmentPlan', back_populates='steps')
+    treatment_plan = relationship('TreatmentPlan', back_populates='steps')
     visit = relationship('Visit')
 ```
 
+**Indexes:**
+- idx_treatment_plan_step_plan
+- idx_treatment_plan_step_status
+- idx_treatment_plan_step_number
+
 ---
 
-### Protocol
-**Purpose:** Standard protocols and templates
+### Protocol ✅
+**Purpose:** Reusable treatment plan templates
+**Status:** IMPLEMENTED (Phase 4.2)
 
 ```python
 class Protocol(db.Model):
     id = Integer, PK
 
+    # Basic Info
     name = String(200), not null
-    protocol_type = String(50)  # Surgical, Treatment, Exam, Emergency
+    category = String(100), nullable  # general, dental, surgical, emergency, chronic_care, preventive, diagnostic
     description = Text
 
-    # Template Content
-    content = Text  # JSON or structured content
+    # Treatment Details
+    indications = Text  # When to use this protocol
+    contraindications = Text  # When NOT to use this protocol
 
+    # Planning
+    default_duration_days = Integer, nullable  # Expected treatment duration
+    estimated_cost = Decimal(10, 2), nullable  # Total estimated cost
+
+    # Status
     is_active = Boolean, default=True
+
+    # Metadata
     created_by_id = Integer, FK(User.id)
     created_at = DateTime, default=now
     updated_at = DateTime, onupdate=now
 
     # Relationships
     created_by = relationship('User')
+    steps = relationship('ProtocolStep', back_populates='protocol', cascade='all, delete-orphan')
+    treatment_plans = relationship('TreatmentPlan', back_populates='protocol')
 ```
+
+**Indexes:**
+- idx_protocol_category
+- idx_protocol_active
+
+---
+
+### ProtocolStep ✅
+**Purpose:** Individual steps in a protocol template
+**Status:** IMPLEMENTED (Phase 4.2)
+
+```python
+class ProtocolStep(db.Model):
+    id = Integer, PK
+    protocol_id = Integer, FK(Protocol.id), not null
+
+    # Step Info
+    step_number = Integer, not null
+    title = String(500), not null
+    description = Text
+
+    # Scheduling
+    day_offset = Integer, default=0  # Days from protocol start
+
+    # Cost & Duration
+    estimated_duration_minutes = Integer, nullable
+    estimated_cost = Decimal(10, 2), nullable
+
+    # Metadata
+    created_at = DateTime, default=now
+    updated_at = DateTime, onupdate=now
+
+    # Relationships
+    protocol = relationship('Protocol', back_populates='steps')
+```
+
+**Indexes:**
+- idx_protocol_step_protocol
+- idx_protocol_step_number
 
 ---
 
