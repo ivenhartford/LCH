@@ -156,7 +156,11 @@
 ---
 
 ## Test Summary
-- **Total Tests:** 366
-- **Passed:** 314 (85.8%)
-- **Failed:** 58 (15.8%)
-- **Errors:** 35 (9.6%)
+- **Total Tests:** 407
+- **Passed:** 375 (92.1%)
+- **Failed:** 32 (7.9%)
+
+### Progress Since Session Start
+- **Tests Fixed:** 26 tests
+- **Reduction in Failures:** 45% (from 58 to 32 failures)
+- **Success Rate Improvement:** +6.3% (from 85.8% to 92.1%)
