@@ -26,7 +26,7 @@ const renderWithProviders = (component, { appointmentId = null } = {}) => {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[route]}>
+      <MemoryRouter future={{ v7_startTransition: true }} initialEntries={[route]}>
         <NotificationProvider>
           <Routes>
             <Route path={path} element={component} />

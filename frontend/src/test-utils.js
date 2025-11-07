@@ -42,7 +42,7 @@ function AllTheProviders({ children }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true }}>
         <NotificationProvider>{children}</NotificationProvider>
       </MemoryRouter>
     </QueryClientProvider>
