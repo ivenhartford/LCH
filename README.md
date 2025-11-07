@@ -684,36 +684,40 @@ npm install
 - Automated reminders (email/SMS)
 - Client portal (Phase 1)
 
-See **ROADMAP.md** for complete development plan.
+See **[docs/ROADMAP.md](./docs/ROADMAP.md)** for complete development plan.
 
-## Documentation
+## 📚 Documentation
+
+**All documentation is now organized in the [`docs/`](./docs/) folder.**
 
 ### Deployment and Operations
-- **[DOCKER_GUIDE.md](./DOCKER_GUIDE.md)** - Complete Docker deployment guide with logging and audit trail access
-- **[ENV_README.md](./ENV_README.md)** - Environment variable configuration (60+ options)
-- **[DEPLOYMENT.md](./DEPLOYMENT.md)** - General deployment instructions
+- **[DOCKER_GUIDE.md](./docs/DOCKER_GUIDE.md)** - Complete Docker deployment guide with logging and audit trail access
+- **[ENV_README.md](./docs/ENV_README.md)** - Environment variable configuration (60+ options)
+- **[DEPLOYMENT.md](./docs/DEPLOYMENT.md)** - General deployment instructions
 
 ### Development and Planning
-- **[FEATURES.md](./FEATURES.md)** - Complete feature list and capabilities
-- **[ROADMAP.md](./ROADMAP.md)** - Development roadmap and future plans
-- **[DATA_MODELS.md](./DATA_MODELS.md)** - Database schema and relationships
-- **[DEVELOPMENT_STATUS.md](./DEVELOPMENT_STATUS.md)** - Current development status
-- **[UI-UX-ROADMAP.md](./UI-UX-ROADMAP.md)** - UI/UX improvements roadmap
+- **[FEATURES.md](./docs/FEATURES.md)** - Complete feature list and capabilities
+- **[ROADMAP.md](./docs/ROADMAP.md)** - Development roadmap (Phases 1-5)
+- **[ROADMAP_Part_2.md](./docs/ROADMAP_Part_2.md)** - Enhancement roadmap (Phases 6-14)
+- **[DATA_MODELS.md](./docs/DATA_MODELS.md)** - Database schema and relationships
+- **[DEVELOPMENT_STATUS.md](./docs/DEVELOPMENT_STATUS.md)** - Current development status
+- **[UI-UX-ROADMAP.md](./docs/UI-UX-ROADMAP.md)** - UI/UX improvements roadmap
 
 ### Testing and Quality
-- **[TESTING_GUIDE.md](./TESTING_GUIDE.md)** - Testing strategies and coverage
-- **[LOGGING_AND_TESTING_REPORT.md](./LOGGING_AND_TESTING_REPORT.md)** - Comprehensive analysis (404 tests, 90-95% coverage)
+- **[TESTING_GUIDE.md](./docs/TESTING_GUIDE.md)** - Testing strategies and coverage
+- **[LOGGING_AND_TESTING_REPORT.md](./docs/LOGGING_AND_TESTING_REPORT.md)** - Comprehensive analysis (404 tests, 90-95% coverage)
 
 ### Logging and Audit Trail
-- **[LOGGING_IMPLEMENTATION_GUIDE.md](./LOGGING_IMPLEMENTATION_GUIDE.md)** - Complete logging and audit trail guide
-- **[LOGGING_COMPLETION_SUMMARY.md](./LOGGING_COMPLETION_SUMMARY.md)** - Implementation summary and statistics
+- **[LOGGING_IMPLEMENTATION_GUIDE.md](./docs/LOGGING_IMPLEMENTATION_GUIDE.md)** - Complete logging and audit trail guide
+- **[LOGGING_COMPLETION_SUMMARY.md](./docs/LOGGING_COMPLETION_SUMMARY.md)** - Implementation summary and statistics
+- **[DOCUMENTATION_UPDATE_SUMMARY.md](./docs/DOCUMENTATION_UPDATE_SUMMARY.md)** - Documentation organization and updates
 
 ### Security and Performance
-- **[SECURITY.md](./SECURITY.md)** - Security features and best practices
-- **[PERFORMANCE-BEST-PRACTICES.md](./PERFORMANCE-BEST-PRACTICES.md)** - Performance optimization guide
+- **[SECURITY.md](./docs/SECURITY.md)** - Security features and best practices
+- **[PERFORMANCE-BEST-PRACTICES.md](./docs/PERFORMANCE-BEST-PRACTICES.md)** - Performance optimization guide
 
 ### User Guide
-- **[USER_GUIDE.md](./USER_GUIDE.md)** - End-user documentation
+- **[USER_GUIDE.md](./docs/USER_GUIDE.md)** - End-user documentation
 
 ## Contributing
 
