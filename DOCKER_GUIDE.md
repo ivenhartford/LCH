@@ -13,6 +13,8 @@ This guide provides comprehensive instructions for running the Lenox Cat Hospita
 - [Production Deployment](#production-deployment)
 - [Troubleshooting](#troubleshooting)
 - [Maintenance](#maintenance)
+- [Logging and Audit Trail](#logging-and-audit-trail)
+- [Advanced Topics](#advanced-topics)
 
 ## Prerequisites
 
@@ -669,6 +671,245 @@ docker stats
 
 # Detailed container info
 docker compose exec backend top
+```
+
+## Logging and Audit Trail
+
+### Overview
+
+The application includes **comprehensive audit logging** for compliance and debugging:
+
+- ✅ **HIPAA-compliant** medical record access tracking
+- ✅ **Financial audit** trail for invoices and payments
+- ✅ **User accountability** on all critical operations
+- ✅ **Performance monitoring** with automatic slow request detection
+
+### Audit Log Features
+
+**Every critical operation logs:**
+1. **WHO**: User ID, username, role
+2. **WHAT**: Entity type, ID, changed fields only
+3. **WHEN**: ISO 8601 timestamp + request duration
+4. **WHERE**: IP address, HTTP method, endpoint
+5. **WHY**: Business context (status changes, payment processing)
+
+**Operations logged (23 total):**
+- Patient CRUD (create, update, delete)
+- Appointment workflow (scheduling, status changes, completion)
+- Invoice management (creation, modifications, deletion)
+- Payment processing (payments and refunds)
+- Visit records (HIPAA-sensitive medical records)
+- Client management
+
+📖 **Complete documentation:** See [LOGGING_IMPLEMENTATION_GUIDE.md](./LOGGING_IMPLEMENTATION_GUIDE.md)
+
+### Accessing Audit Logs
+
+**View live logs:**
+```bash
+# All application logs (includes audit trail)
+docker compose logs -f backend
+
+# View logs from the persistent volume
+docker compose exec backend tail -f /app/logs/vet_clinic.log
+
+# Access log files directly (on host)
+docker run --rm -v lch-backend-logs:/logs alpine cat /logs/vet_clinic.log
+```
+
+**Filter specific events:**
+```bash
+# Payment processing
+docker compose exec backend grep "payment_processed" /app/logs/vet_clinic.log
+
+# Invoice status changes
+docker compose exec backend grep "invoice_status_change" /app/logs/vet_clinic.log
+
+# Medical record access (HIPAA)
+docker compose exec backend grep "visit_" /app/logs/vet_clinic.log
+
+# Slow requests (>1 second)
+docker compose exec backend grep "SLOW Request" /app/logs/vet_clinic.log
+
+# All audit events for a specific user
+docker compose exec backend grep '"username": "admin"' /app/logs/vet_clinic.log
+```
+
+### Log File Management
+
+**Location:**
+- Container path: `/app/logs/vet_clinic.log`
+- Volume: `lch-backend-logs`
+- Rotated logs: `vet_clinic.log.1`, `vet_clinic.log.2`, etc.
+
+**Rotation configuration** (in `backend/app/__init__.py`):
+```python
+# Default settings:
+max_bytes = 10MB per file
+backup_count = 10 files
+total_max = 100MB
+```
+
+**Manual log rotation:**
+```bash
+# Force log rotation
+docker compose exec backend python -c "from app import app; app.logger.handlers[0].doRollover()"
+
+# View rotated logs
+docker compose exec backend ls -lh /app/logs/
+```
+
+**Export logs for analysis:**
+```bash
+# Copy all logs to host
+docker cp $(docker compose ps -q backend):/app/logs ./exported-logs
+
+# Create compressed archive
+docker compose exec backend tar czf /tmp/logs.tar.gz /app/logs
+docker cp $(docker compose ps -q backend):/tmp/logs.tar.gz ./logs-backup-$(date +%Y%m%d).tar.gz
+```
+
+### Performance Monitoring
+
+**View request timing:**
+```bash
+# All performance metrics
+docker compose exec backend grep "Request processed in" /app/logs/vet_clinic.log
+
+# Slow requests only (>1000ms)
+docker compose exec backend grep "SLOW Request" /app/logs/vet_clinic.log
+
+# Average request time (requires jq)
+docker compose exec backend cat /app/logs/vet_clinic.log | \
+  grep "duration_ms" | \
+  jq -r '.duration_ms' | \
+  awk '{sum+=$1; count++} END {print "Average:", sum/count, "ms"}'
+```
+
+**Tune performance based on logs:**
+```bash
+# If you see many slow requests, increase workers in .env:
+GUNICORN_WORKERS=8          # Increase from 4
+GUNICORN_TIMEOUT=180        # Increase timeout if needed
+
+# Then restart
+docker compose up -d --force-recreate backend
+```
+
+### Compliance and Security
+
+**HIPAA Compliance:**
+```bash
+# View all medical record access
+docker compose exec backend grep '"entity_type": "visit"' /app/logs/vet_clinic.log
+
+# Track specific patient record access
+docker compose exec backend grep '"patient_id": 123' /app/logs/vet_clinic.log
+
+# View who accessed/modified medical records
+docker compose exec backend grep -E '(visit_|patient_)' /app/logs/vet_clinic.log | \
+  jq -r '[.timestamp, .user.username, .action, .entity_type] | @csv'
+```
+
+**Financial Audit:**
+```bash
+# All payment transactions
+docker compose exec backend grep '"entity_type": "payment"' /app/logs/vet_clinic.log
+
+# Invoice status changes
+docker compose exec backend grep 'invoice_status_change' /app/logs/vet_clinic.log
+
+# Track refunds
+docker compose exec backend grep 'payment_refunded' /app/logs/vet_clinic.log
+```
+
+### Integration with SIEM/Monitoring
+
+**Export for Splunk:**
+```bash
+# Stream logs to Splunk forwarder
+docker compose exec backend tail -f /app/logs/vet_clinic.log | \
+  /opt/splunkforwarder/bin/splunk add oneshot /app/logs/vet_clinic.log
+```
+
+**Export for ELK Stack:**
+```bash
+# Configure Filebeat to read from volume
+# In filebeat.yml:
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /var/lib/docker/volumes/lch-backend-logs/_data/*.log
+  json.keys_under_root: true
+  json.add_error_key: true
+```
+
+**Example Elasticsearch query:**
+```json
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "match": { "entity_type": "payment" }},
+        { "range": { "timestamp": { "gte": "now-24h" }}}
+      ]
+    }
+  }
+}
+```
+
+### Log Cleanup
+
+**Automatic cleanup:**
+Logs automatically rotate when they reach 10MB, keeping last 10 files (100MB total).
+
+**Manual cleanup:**
+```bash
+# Remove old rotated logs
+docker compose exec backend find /app/logs -name "*.log.*" -mtime +30 -delete
+
+# Keep only last N days
+docker compose exec backend find /app/logs -name "*.log.*" -mtime +7 -delete
+
+# Clear all logs (WARNING: deletes audit trail)
+docker compose exec backend sh -c "rm -f /app/logs/*.log*"
+docker compose restart backend
+```
+
+### Troubleshooting Logging Issues
+
+**No logs appearing:**
+```bash
+# Check log directory permissions
+docker compose exec backend ls -la /app/logs/
+
+# Check logging configuration
+docker compose exec backend python -c "from app import app; print(app.logger.handlers)"
+
+# Verify log level
+docker compose exec backend env | grep LOG_LEVEL
+```
+
+**Logs filling up disk:**
+```bash
+# Check volume size
+docker system df -v | grep lch-backend-logs
+
+# Adjust rotation in .env:
+LOG_MAX_BYTES=5242880        # 5MB per file
+LOG_BACKUP_COUNT=5           # Keep 5 files = 25MB total
+
+# Restart to apply
+docker compose up -d --force-recreate backend
+```
+
+**Performance degradation from logging:**
+```bash
+# Reduce log level (less verbose)
+LOG_LEVEL=WARNING            # Only warnings and errors
+
+# Or adjust what gets logged in backend/app/audit_logger.py
 ```
 
 ## Advanced Topics
