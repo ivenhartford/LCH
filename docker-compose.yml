@@ -1,0 +1,146 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:${POSTGRES_VERSION:-15-alpine}
+    container_name: ${POSTGRES_CONTAINER_NAME:-lch-postgres}
+    restart: ${RESTART_POLICY:-unless-stopped}
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-vet_clinic_db}
+      POSTGRES_USER: ${POSTGRES_USER:-vet_clinic_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      PGDATA: ${PGDATA:-/var/lib/postgresql/data/pgdata}
+      TZ: ${POSTGRES_TIMEZONE:-America/New_York}
+    ports:
+      - "${POSTGRES_PORT:-5432}:${POSTGRES_INTERNAL_PORT:-5432}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vet_clinic_user} -d ${POSTGRES_DB:-vet_clinic_db}"]
+      interval: ${DB_HEALTH_CHECK_INTERVAL:-10s}
+      timeout: ${DB_HEALTH_CHECK_TIMEOUT:-5s}
+      retries: ${DB_HEALTH_CHECK_RETRIES:-5}
+      start_period: ${DB_HEALTH_CHECK_START_PERIOD:-10s}
+    networks:
+      - lch-network
+
+  # Flask Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.11-slim}
+        APP_DIR_PERMISSIONS: ${APP_DIR_PERMISSIONS:-755}
+    container_name: ${BACKEND_CONTAINER_NAME:-lch-backend}
+    restart: ${RESTART_POLICY:-unless-stopped}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Flask Configuration
+      FLASK_APP: app:create_app
+      FLASK_ENV: ${FLASK_ENV:-production}
+      FLASK_DEBUG: ${FLASK_DEBUG:-false}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+
+      # Database Configuration
+      DATABASE_URL: postgresql://${POSTGRES_USER:-vet_clinic_user}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_INTERNAL_PORT:-5432}/${POSTGRES_DB:-vet_clinic_db}
+      SQLALCHEMY_ECHO: ${SQLALCHEMY_ECHO:-false}
+
+      # Server Configuration
+      FLASK_RUN_HOST: ${BACKEND_HOST:-0.0.0.0}
+      FLASK_RUN_PORT: ${BACKEND_INTERNAL_PORT:-5000}
+
+      # Gunicorn Configuration
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-4}
+      GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-120}
+      GUNICORN_WORKER_CLASS: ${GUNICORN_WORKER_CLASS:-sync}
+      GUNICORN_MAX_REQUESTS: ${GUNICORN_MAX_REQUESTS:-1000}
+      GUNICORN_MAX_REQUESTS_JITTER: ${GUNICORN_MAX_REQUESTS_JITTER:-50}
+      GUNICORN_ACCESS_LOG: ${GUNICORN_ACCESS_LOG:--}
+      GUNICORN_ERROR_LOG: ${GUNICORN_ERROR_LOG:--}
+
+      # Application Configuration
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      TZ: ${TZ:-America/New_York}
+
+      # Startup Configuration
+      DB_WAIT_TIME: ${DB_WAIT_TIME:-5}
+
+      # Session Configuration
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      SESSION_COOKIE_HTTPONLY: ${SESSION_COOKIE_HTTPONLY:-true}
+      SESSION_COOKIE_SAMESITE: ${SESSION_COOKIE_SAMESITE:-Lax}
+      PERMANENT_SESSION_LIFETIME: ${PERMANENT_SESSION_LIFETIME:-3600}
+    ports:
+      - "${BACKEND_PORT:-5000}:${BACKEND_INTERNAL_PORT:-5000}"
+    volumes:
+      - backend_logs:/app/logs
+      - backend_uploads:/app/uploads
+      - backend_instance:/app/instance
+    command: /app/docker-entrypoint.sh
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:${BACKEND_INTERNAL_PORT:-5000}/api/health').read()"]
+      interval: ${BACKEND_HEALTH_CHECK_INTERVAL:-30s}
+      timeout: ${BACKEND_HEALTH_CHECK_TIMEOUT:-10s}
+      retries: ${BACKEND_HEALTH_CHECK_RETRIES:-3}
+      start_period: ${BACKEND_HEALTH_CHECK_START_PERIOD:-40s}
+    networks:
+      - lch-network
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NODE_VERSION: ${NODE_VERSION:-18-alpine}
+    container_name: ${FRONTEND_CONTAINER_NAME:-lch-frontend}
+    restart: ${RESTART_POLICY:-unless-stopped}
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      # Backend connection
+      BACKEND_HOST: ${POSTGRES_HOST:-backend}
+      BACKEND_PORT: ${BACKEND_INTERNAL_PORT:-5000}
+
+      # Nginx configuration
+      NGINX_WORKER_PROCESSES: ${NGINX_WORKER_PROCESSES:-auto}
+      NGINX_WORKER_CONNECTIONS: ${NGINX_WORKER_CONNECTIONS:-1024}
+      NGINX_GZIP_MIN_LENGTH: ${NGINX_GZIP_MIN_LENGTH:-1024}
+      NGINX_PROXY_TIMEOUT: ${NGINX_PROXY_TIMEOUT:-120}
+      NGINX_STATIC_CACHE_TIME: ${NGINX_STATIC_CACHE_TIME:-1y}
+      FRONTEND_INTERNAL_PORT: ${FRONTEND_INTERNAL_PORT:-80}
+    ports:
+      - "${FRONTEND_PORT:-80}:${FRONTEND_INTERNAL_PORT:-80}"
+    networks:
+      - lch-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:${FRONTEND_INTERNAL_PORT:-80}/"]
+      interval: ${FRONTEND_HEALTH_CHECK_INTERVAL:-30s}
+      timeout: ${FRONTEND_HEALTH_CHECK_TIMEOUT:-10s}
+      retries: ${FRONTEND_HEALTH_CHECK_RETRIES:-3}
+      start_period: ${FRONTEND_HEALTH_CHECK_START_PERIOD:-10s}
+
+networks:
+  lch-network:
+    driver: ${NETWORK_DRIVER:-bridge}
+    name: ${NETWORK_NAME:-lch-network}
+    ipam:
+      config:
+        - subnet: ${NETWORK_SUBNET:-172.28.0.0/16}
+
+volumes:
+  postgres_data:
+    name: ${POSTGRES_VOLUME_NAME:-lch-postgres-data}
+  backend_logs:
+    name: ${BACKEND_LOGS_VOLUME_NAME:-lch-backend-logs}
+  backend_uploads:
+    name: ${BACKEND_UPLOADS_VOLUME_NAME:-lch-backend-uploads}
+  backend_instance:
+    name: ${BACKEND_INSTANCE_VOLUME_NAME:-lch-backend-instance}

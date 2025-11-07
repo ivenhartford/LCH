@@ -1,0 +1,117 @@
+# Nginx Configuration Template for Lenox Cat Hospital
+# Environment variables are substituted by the entrypoint script
+
+# Worker configuration
+worker_processes ${NGINX_WORKER_PROCESSES};
+
+events {
+    worker_connections ${NGINX_WORKER_CONNECTIONS};
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    # Logging
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for"';
+
+    access_log /var/log/nginx/access.log main;
+    error_log /var/log/nginx/error.log warn;
+
+    # Performance settings
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+    types_hash_max_size 2048;
+
+    # Gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_min_length ${NGINX_GZIP_MIN_LENGTH};
+    gzip_types text/plain text/css text/xml text/javascript
+               application/x-javascript application/xml+rss application/json
+               application/javascript;
+    gzip_comp_level 6;
+    gzip_buffers 16 8k;
+    gzip_http_version 1.1;
+
+    server {
+        listen ${FRONTEND_INTERNAL_PORT};
+        server_name localhost;
+        root /usr/share/nginx/html;
+        index index.html;
+
+        # Security headers
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+        add_header Referrer-Policy "no-referrer-when-downgrade" always;
+
+        # API proxy - routes all /api requests to the backend
+        location /api {
+            proxy_pass http://${BACKEND_HOST}:${BACKEND_PORT};
+            proxy_http_version 1.1;
+
+            # WebSocket support
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection 'upgrade';
+
+            # Forward headers
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+
+            # Timeouts
+            proxy_read_timeout ${NGINX_PROXY_TIMEOUT}s;
+            proxy_connect_timeout ${NGINX_PROXY_TIMEOUT}s;
+            proxy_send_timeout ${NGINX_PROXY_TIMEOUT}s;
+
+            # Caching
+            proxy_cache_bypass $http_upgrade;
+
+            # Buffer settings
+            proxy_buffering off;
+            proxy_request_buffering off;
+        }
+
+        # Serve static files with aggressive caching
+        location /static {
+            expires ${NGINX_STATIC_CACHE_TIME};
+            add_header Cache-Control "public, immutable";
+            access_log off;
+        }
+
+        # Serve uploaded files
+        location /uploads {
+            alias /usr/share/nginx/html/uploads;
+            expires 1M;
+            add_header Cache-Control "public";
+        }
+
+        # Handle React Router - all routes should serve index.html
+        location / {
+            try_files $uri $uri/ /index.html;
+            add_header Cache-Control "no-cache, no-store, must-revalidate";
+            add_header Pragma "no-cache";
+            add_header Expires "0";
+        }
+
+        # Error pages
+        error_page 404 /index.html;
+        error_page 500 502 503 504 /50x.html;
+        location = /50x.html {
+            root /usr/share/nginx/html;
+        }
+
+        # Health check endpoint
+        location /health {
+            access_log off;
+            return 200 "healthy\n";
+            add_header Content-Type text/plain;
+        }
+    }
+}

@@ -63,6 +63,12 @@ from sqlalchemy.exc import IntegrityError
 from .auth import generate_portal_token, portal_auth_required
 from .email_verification import generate_verification_token, send_verification_email, is_token_valid
 from . import limiter
+from .audit_logger import (
+    log_audit_event,
+    log_business_operation,
+    log_performance_decorator,
+    get_changed_fields
+)
 
 bp = Blueprint("main", __name__)
 
@@ -75,6 +81,26 @@ def admin_required(f):
         return f(*args, **kwargs)
 
     return decorated_function
+
+
+@bp.route("/api/health", methods=["GET"])
+def health_check():
+    """Health check endpoint for Docker and monitoring."""
+    try:
+        # Check database connection
+        db.session.execute("SELECT 1")
+        return jsonify({
+            "status": "healthy",
+            "service": "Lenox Cat Hospital API",
+            "database": "connected"
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "status": "unhealthy",
+            "service": "Lenox Cat Hospital API",
+            "database": "disconnected",
+            "error": str(e)
+        }), 503
 
 
 @bp.route("/api/register", methods=["POST"])
@@ -319,6 +345,7 @@ def get_appointment(appointment_id):
 
 @bp.route("/api/appointments", methods=["POST"])
 @login_required
+@log_performance_decorator
 def create_appointment():
     """Create a new appointment"""
     try:
@@ -354,6 +381,21 @@ def create_appointment():
         db.session.add(appointment)
         db.session.commit()
 
+        # Audit log: Appointment created
+        log_audit_event(
+            action='create',
+            entity_type='appointment',
+            entity_id=appointment.id,
+            entity_data={
+                'title': appointment.title,
+                'client_id': appointment.client_id,
+                'patient_id': appointment.patient_id,
+                'start_time': appointment.start_time.isoformat() if appointment.start_time else None,
+                'status': appointment.status,
+                'appointment_type_id': appointment.appointment_type_id
+            }
+        )
+
         app.logger.info(f"Created appointment {appointment.id}")
         return jsonify(appointment.to_dict()), 201
 
@@ -368,6 +410,7 @@ def create_appointment():
 
 @bp.route("/api/appointments/<int:appointment_id>", methods=["PUT", "PATCH"])
 @login_required
+@log_performance_decorator
 def update_appointment(appointment_id):
     """Update an appointment"""
     try:
@@ -375,24 +418,68 @@ def update_appointment(appointment_id):
         data = request.get_json()
         validated_data = appointment_schema.load(data, partial=True)
 
+        # Capture old values for audit trail
+        old_values = {}
+        for key in validated_data.keys():
+            if hasattr(appointment, key):
+                old_value = getattr(appointment, key)
+                # Convert datetime to ISO format for JSON serialization
+                if isinstance(old_value, datetime):
+                    old_value = old_value.isoformat()
+                old_values[key] = old_value
+
+        # Track old status for business operation logging
+        old_status = appointment.status
+
         # Update fields
+        new_values = {}
         for key, value in validated_data.items():
             if hasattr(appointment, key) and key not in ["id", "created_at", "created_by_id"]:
                 setattr(appointment, key, value)
+                # Convert datetime to ISO format for logging
+                if isinstance(value, datetime):
+                    value = value.isoformat()
+                new_values[key] = value
 
         # Handle status workflow timestamps
         if "status" in validated_data:
-            if validated_data["status"] == "checked_in" and not appointment.check_in_time:
+            new_status = validated_data["status"]
+            if new_status == "checked_in" and not appointment.check_in_time:
                 appointment.check_in_time = datetime.utcnow()
-            elif validated_data["status"] == "in_progress" and not appointment.actual_start_time:
+            elif new_status == "in_progress" and not appointment.actual_start_time:
                 appointment.actual_start_time = datetime.utcnow()
-            elif validated_data["status"] == "completed" and not appointment.actual_end_time:
+            elif new_status == "completed" and not appointment.actual_end_time:
                 appointment.actual_end_time = datetime.utcnow()
-            elif validated_data["status"] == "cancelled" and not appointment.cancelled_at:
+            elif new_status == "cancelled" and not appointment.cancelled_at:
                 appointment.cancelled_at = datetime.utcnow()
                 appointment.cancelled_by_id = current_user.id
 
         db.session.commit()
+
+        # Audit log: Appointment updated (only changed fields)
+        changed_old, changed_new = get_changed_fields(old_values, new_values)
+        if changed_old:
+            log_audit_event(
+                action='update',
+                entity_type='appointment',
+                entity_id=appointment_id,
+                old_values=changed_old,
+                new_values=changed_new
+            )
+
+        # Business operation log: Status change
+        if "status" in validated_data and old_status != validated_data["status"]:
+            log_business_operation(
+                operation='appointment_status_change',
+                entity_type='appointment',
+                entity_id=appointment_id,
+                details={
+                    'old_status': old_status,
+                    'new_status': validated_data["status"],
+                    'changed_by': current_user.username
+                }
+            )
+
         app.logger.info(f"Updated appointment {appointment_id}")
         return jsonify(appointment.to_dict()), 200
 
@@ -409,12 +496,37 @@ def update_appointment(appointment_id):
 @bp.route("/api/appointments/<int:appointment_id>", methods=["DELETE"])
 @login_required
 @admin_required
+@log_performance_decorator
 def delete_appointment(appointment_id):
     """Delete an appointment (admin only)"""
     try:
         appointment = Appointment.query.get_or_404(appointment_id)
+
+        # Capture appointment data for audit trail
+        appointment_data = {
+            'title': appointment.title,
+            'client_id': appointment.client_id,
+            'patient_id': appointment.patient_id,
+            'start_time': appointment.start_time.isoformat() if appointment.start_time else None,
+            'status': appointment.status
+        }
+
         db.session.delete(appointment)
         db.session.commit()
+
+        # Audit log: Appointment deleted
+        log_audit_event(
+            action='delete',
+            entity_type='appointment',
+            entity_id=appointment_id,
+            entity_data=appointment_data
+        )
+        log_business_operation(
+            operation='appointment_deleted',
+            entity_type='appointment',
+            entity_id=appointment_id,
+            details={'deleted_by': current_user.username, 'title': appointment_data['title']}
+        )
 
         app.logger.info(f"Deleted appointment {appointment_id}")
         return jsonify({"message": "Appointment deleted"}), 200
@@ -661,6 +773,7 @@ def get_client(client_id):
 
 @bp.route("/api/clients", methods=["POST"])
 @login_required
+@log_performance_decorator
 def create_client():
     """Create a new client"""
     try:
@@ -691,6 +804,19 @@ def create_client():
 
         app.logger.info(f"Created client {new_client.id}: {new_client.first_name} {new_client.last_name}")
 
+        # Audit log: Client created
+        log_audit_event(
+            action='create',
+            entity_type='client',
+            entity_id=new_client.id,
+            entity_data={
+                'first_name': new_client.first_name,
+                'last_name': new_client.last_name,
+                'email': new_client.email,
+                'phone_primary': new_client.phone_primary
+            }
+        )
+
         result = client_schema.dump(new_client)
         return jsonify(result), 201
 
@@ -707,6 +833,7 @@ def create_client():
 
 @bp.route("/api/clients/<int:client_id>", methods=["PUT"])
 @login_required
+@log_performance_decorator
 def update_client(client_id):
     """Update an existing client"""
     try:
@@ -715,6 +842,12 @@ def update_client(client_id):
         app.logger.info(f"PUT /api/clients/{client_id} - User: {current_user.username}")
 
         client = Client.query.get_or_404(client_id)
+
+        # Capture old values for audit trail
+        old_values = {}
+        for key in data.keys():
+            if hasattr(client, key):
+                old_values[key] = getattr(client, key)
 
         # Validate request data
         try:
@@ -734,12 +867,25 @@ def update_client(client_id):
                     return jsonify({"error": "Email already exists"}), 409
 
         # Update client fields
+        new_values = {}
         for key, value in validated_data.items():
             setattr(client, key, value)
+            new_values[key] = value
 
         db.session.commit()
 
         app.logger.info(f"Updated client {client_id}: {client.first_name} {client.last_name}")
+
+        # Audit log: Client updated
+        changed_old, changed_new = get_changed_fields(old_values, new_values)
+        if changed_old:  # Only log if there were actual changes
+            log_audit_event(
+                action='update',
+                entity_type='client',
+                entity_id=client_id,
+                old_values=changed_old,
+                new_values=changed_new
+            )
 
         result = client_schema.dump(client)
         return jsonify(result), 200
@@ -759,6 +905,7 @@ def update_client(client_id):
 
 @bp.route("/api/clients/<int:client_id>", methods=["DELETE"])
 @login_required
+@log_performance_decorator
 def delete_client(client_id):
     """
     Soft delete a client (sets is_active to False)
@@ -771,6 +918,14 @@ def delete_client(client_id):
 
         client = Client.query.get_or_404(client_id)
 
+        # Capture client data for audit trail
+        client_data = {
+            'first_name': client.first_name,
+            'last_name': client.last_name,
+            'email': client.email,
+            'phone_primary': client.phone_primary
+        }
+
         if hard_delete:
             # Hard delete requires admin role
             if current_user.role != "administrator":
@@ -782,12 +937,36 @@ def delete_client(client_id):
             db.session.delete(client)
             db.session.commit()
             app.logger.info(f"Hard deleted client {client_id}: {client.first_name} {client.last_name}")
+
+            # Audit log: Hard delete
+            log_audit_event(
+                action='delete',
+                entity_type='client',
+                entity_id=client_id,
+                entity_data=client_data
+            )
+            log_business_operation(
+                operation='client_hard_delete',
+                entity_type='client',
+                entity_id=client_id,
+                details={'admin': current_user.username}
+            )
+
             return jsonify({"message": "Client permanently deleted"}), 200
         else:
             # Soft delete
             client.is_active = False
             db.session.commit()
             app.logger.info(f"Soft deleted (deactivated) client {client_id}: {client.first_name} {client.last_name}")
+
+            # Audit log: Soft delete
+            log_business_operation(
+                operation='client_deactivated',
+                entity_type='client',
+                entity_id=client_id,
+                details={'deactivated_by': current_user.username}
+            )
+
             return jsonify({"message": "Client deactivated"}), 200
 
     except Exception as e:
@@ -916,6 +1095,7 @@ def get_patient(patient_id):
 
 @bp.route("/api/patients", methods=["POST"])
 @login_required
+@log_performance_decorator
 def create_patient():
     """Create a new patient (cat)"""
     try:
@@ -954,6 +1134,20 @@ def create_patient():
             f"Created patient {new_patient.id}: {new_patient.name} (owner: {owner.first_name} {owner.last_name})"
         )
 
+        # Audit log: Patient created
+        log_audit_event(
+            action='create',
+            entity_type='patient',
+            entity_id=new_patient.id,
+            entity_data={
+                'name': new_patient.name,
+                'species': new_patient.species,
+                'breed': new_patient.breed,
+                'owner_id': new_patient.owner_id,
+                'microchip_number': new_patient.microchip_number
+            }
+        )
+
         result = patient_schema.dump(new_patient)
         return jsonify(result), 201
 
@@ -970,6 +1164,7 @@ def create_patient():
 
 @bp.route("/api/patients/<int:patient_id>", methods=["PUT"])
 @login_required
+@log_performance_decorator
 def update_patient(patient_id):
     """Update an existing patient"""
     try:
@@ -978,6 +1173,12 @@ def update_patient(patient_id):
         app.logger.info(f"PUT /api/patients/{patient_id} - User: {current_user.username}")
 
         patient = Patient.query.get_or_404(patient_id)
+
+        # Capture old values for audit trail
+        old_values = {}
+        for key in data.keys():
+            if hasattr(patient, key):
+                old_values[key] = getattr(patient, key)
 
         # Validate request data
         try:
@@ -1006,11 +1207,24 @@ def update_patient(patient_id):
                 )
                 return jsonify({"error": "Owner (client) not found"}), 404
 
-        # Update patient fields
+        # Update patient fields and track new values
+        new_values = {}
         for key, value in validated_data.items():
             setattr(patient, key, value)
+            new_values[key] = value
 
         db.session.commit()
+
+        # Audit log: Patient updated (only changed fields)
+        changed_old, changed_new = get_changed_fields(old_values, new_values)
+        if changed_old:
+            log_audit_event(
+                action='update',
+                entity_type='patient',
+                entity_id=patient_id,
+                old_values=changed_old,
+                new_values=changed_new
+            )
 
         app.logger.info(f"Updated patient {patient_id}: {patient.name}")
 
@@ -1032,6 +1246,7 @@ def update_patient(patient_id):
 
 @bp.route("/api/patients/<int:patient_id>", methods=["DELETE"])
 @login_required
+@log_performance_decorator
 def delete_patient(patient_id):
     """
     Delete a patient
@@ -1045,6 +1260,16 @@ def delete_patient(patient_id):
 
         patient = Patient.query.get_or_404(patient_id)
 
+        # Capture patient data for audit trail
+        patient_data = {
+            'name': patient.name,
+            'species': patient.species,
+            'breed': patient.breed,
+            'owner_id': patient.owner_id,
+            'microchip_number': patient.microchip_number,
+            'status': patient.status
+        }
+
         if hard_delete:
             # Hard delete requires admin role
             if current_user.role != "administrator":
@@ -1055,12 +1280,40 @@ def delete_patient(patient_id):
 
             db.session.delete(patient)
             db.session.commit()
-            app.logger.info(f"Hard deleted patient {patient_id}: {patient.name}")
+
+            # Audit log: Patient hard deleted
+            log_audit_event(
+                action='delete',
+                entity_type='patient',
+                entity_id=patient_id,
+                entity_data=patient_data
+            )
+            log_business_operation(
+                operation='patient_hard_delete',
+                entity_type='patient',
+                entity_id=patient_id,
+                details={'deleted_by': current_user.username, 'patient_name': patient_data['name']}
+            )
+
+            app.logger.info(f"Hard deleted patient {patient_id}: {patient_data['name']}")
             return jsonify({"message": "Patient permanently deleted"}), 200
         else:
             # Soft delete - set to inactive
             patient.status = "Inactive"
             db.session.commit()
+
+            # Business operation log: Patient deactivated
+            log_business_operation(
+                operation='patient_deactivated',
+                entity_type='patient',
+                entity_id=patient_id,
+                details={
+                    'deactivated_by': current_user.username,
+                    'patient_name': patient.name,
+                    'previous_status': patient_data['status']
+                }
+            )
+
             app.logger.info(f"Soft deleted (deactivated) patient {patient_id}: {patient.name}")
             return (
                 jsonify(
@@ -1160,6 +1413,7 @@ def get_visit(visit_id):
 
 @bp.route("/api/visits", methods=["POST"])
 @login_required
+@log_performance_decorator
 def create_visit():
     """Create a new visit"""
     try:
@@ -1192,6 +1446,21 @@ def create_visit():
         db.session.add(visit)
         db.session.commit()
 
+        # Audit log: Visit created (HIPAA-sensitive medical record)
+        log_audit_event(
+            action='create',
+            entity_type='visit',
+            entity_id=visit.id,
+            entity_data={
+                'patient_id': visit.patient_id,
+                'visit_type': visit.visit_type,
+                'visit_date': visit.visit_date.isoformat() if visit.visit_date else None,
+                'veterinarian_id': visit.veterinarian_id,
+                'appointment_id': visit.appointment_id,
+                'status': visit.status
+            }
+        )
+
         app.logger.info(f"Created visit {visit.id} for patient {patient.name}")
         return jsonify(visit.to_dict()), 201
 
@@ -1203,6 +1472,7 @@ def create_visit():
 
 @bp.route("/api/visits/<int:visit_id>", methods=["PUT"])
 @login_required
+@log_performance_decorator
 def update_visit(visit_id):
     """Update a visit"""
     try:
@@ -1217,17 +1487,57 @@ def update_visit(visit_id):
         # Validate data (partial update allowed)
         validated_data = visit_schema.load(data, partial=True)
 
+        # Capture old values for audit trail
+        old_values = {}
+        for key in validated_data.keys():
+            if hasattr(visit, key):
+                old_value = getattr(visit, key)
+                if isinstance(old_value, datetime):
+                    old_value = old_value.isoformat()
+                old_values[key] = old_value
+
+        # Track old status for business operation logging
+        old_status = visit.status
+
         # Update fields
+        new_values = {}
         for key, value in validated_data.items():
             if hasattr(visit, key):
                 setattr(visit, key, value)
+                if isinstance(value, datetime):
+                    value = value.isoformat()
+                new_values[key] = value
 
         # If marking as completed, set completed_at
         if validated_data.get("status") == "completed" and not visit.completed_at:
-
             visit.completed_at = datetime.utcnow()
 
         db.session.commit()
+
+        # Audit log: Visit updated (only changed fields)
+        changed_old, changed_new = get_changed_fields(old_values, new_values)
+        if changed_old:
+            log_audit_event(
+                action='update',
+                entity_type='visit',
+                entity_id=visit_id,
+                old_values=changed_old,
+                new_values=changed_new
+            )
+
+        # Business operation log: Status change
+        if "status" in validated_data and old_status != validated_data["status"]:
+            log_business_operation(
+                operation='visit_status_change',
+                entity_type='visit',
+                entity_id=visit_id,
+                details={
+                    'old_status': old_status,
+                    'new_status': validated_data["status"],
+                    'patient_id': visit.patient_id,
+                    'changed_by': current_user.username
+                }
+            )
 
         app.logger.info(f"Updated visit {visit_id}")
         return jsonify(visit.to_dict()), 200
@@ -1242,6 +1552,7 @@ def update_visit(visit_id):
 
 @bp.route("/api/visits/<int:visit_id>", methods=["DELETE"])
 @login_required
+@log_performance_decorator
 def delete_visit(visit_id):
     """Delete a visit"""
     try:
@@ -1251,8 +1562,36 @@ def delete_visit(visit_id):
 
         app.logger.info(f"DELETE /api/visits/{visit_id} - User: {current_user.username}")
 
+        # Capture visit data for audit trail (HIPAA-sensitive)
+        visit_data = {
+            'patient_id': visit.patient_id,
+            'visit_type': visit.visit_type,
+            'visit_date': visit.visit_date.isoformat() if visit.visit_date else None,
+            'veterinarian_id': visit.veterinarian_id,
+            'appointment_id': visit.appointment_id,
+            'status': visit.status
+        }
+
         db.session.delete(visit)
         db.session.commit()
+
+        # Audit log: Visit deleted (HIPAA-sensitive medical record)
+        log_audit_event(
+            action='delete',
+            entity_type='visit',
+            entity_id=visit_id,
+            entity_data=visit_data
+        )
+        log_business_operation(
+            operation='visit_deleted',
+            entity_type='visit',
+            entity_id=visit_id,
+            details={
+                'deleted_by': current_user.username,
+                'patient_id': visit_data['patient_id'],
+                'visit_type': visit_data['visit_type']
+            }
+        )
 
         app.logger.info(f"Deleted visit {visit_id}")
         return jsonify({"message": "Visit deleted"}), 200
@@ -2372,6 +2711,7 @@ def get_invoice(invoice_id):
 
 @bp.route("/api/invoices", methods=["POST"])
 @login_required
+@log_performance_decorator
 def create_invoice():
     """Create a new invoice with line items"""
     try:
@@ -2446,6 +2786,31 @@ def create_invoice():
 
         db.session.commit()
 
+        # Audit log: Invoice created
+        log_audit_event(
+            action='create',
+            entity_type='invoice',
+            entity_id=invoice.id,
+            entity_data={
+                'invoice_number': invoice.invoice_number,
+                'client_id': invoice.client_id,
+                'patient_id': invoice.patient_id,
+                'total_amount': float(invoice.total_amount),
+                'status': invoice.status,
+                'item_count': len(items_data)
+            }
+        )
+        log_business_operation(
+            operation='invoice_generated',
+            entity_type='invoice',
+            entity_id=invoice.id,
+            details={
+                'invoice_number': invoice.invoice_number,
+                'total_amount': float(invoice.total_amount),
+                'created_by': current_user.username
+            }
+        )
+
         # Return invoice with items
         invoice_dict = invoice.to_dict()
         invoice_dict["items"] = [item.to_dict() for item in invoice.items]
@@ -2461,6 +2826,7 @@ def create_invoice():
 
 @bp.route("/api/invoices/<int:invoice_id>", methods=["PUT"])
 @login_required
+@log_performance_decorator
 def update_invoice(invoice_id):
     """Update an invoice"""
     try:
@@ -2472,10 +2838,32 @@ def update_invoice(invoice_id):
         data = request.get_json()
         validated_data = invoice_schema.load(data, partial=True)
 
+        # Capture old values for audit trail
+        old_values = {}
+        for key in validated_data.keys():
+            if hasattr(invoice, key):
+                old_value = getattr(invoice, key)
+                # Convert Decimal to float for JSON serialization
+                if isinstance(old_value, Decimal):
+                    old_value = float(old_value)
+                elif isinstance(old_value, datetime):
+                    old_value = old_value.isoformat()
+                old_values[key] = old_value
+
+        # Track old status for business operation logging
+        old_status = invoice.status
+
         # Update basic fields
+        new_values = {}
         for key in ["patient_id", "visit_id", "invoice_date", "due_date", "status", "notes", "discount_amount"]:
             if key in validated_data:
                 setattr(invoice, key, validated_data[key])
+                value = validated_data[key]
+                if isinstance(value, Decimal):
+                    value = float(value)
+                elif isinstance(value, datetime):
+                    value = value.isoformat()
+                new_values[key] = value
 
         # If items are provided, update them
         if "items" in validated_data:
@@ -2518,6 +2906,31 @@ def update_invoice(invoice_id):
 
         db.session.commit()
 
+        # Audit log: Invoice updated (only changed fields)
+        changed_old, changed_new = get_changed_fields(old_values, new_values)
+        if changed_old:
+            log_audit_event(
+                action='update',
+                entity_type='invoice',
+                entity_id=invoice_id,
+                old_values=changed_old,
+                new_values=changed_new
+            )
+
+        # Business operation log: Status change
+        if "status" in validated_data and old_status != validated_data["status"]:
+            log_business_operation(
+                operation='invoice_status_change',
+                entity_type='invoice',
+                entity_id=invoice_id,
+                details={
+                    'old_status': old_status,
+                    'new_status': validated_data["status"],
+                    'invoice_number': invoice.invoice_number,
+                    'changed_by': current_user.username
+                }
+            )
+
         # Return invoice with items
         invoice_dict = invoice.to_dict()
         invoice_dict["items"] = [item.to_dict() for item in invoice.items]
@@ -2535,14 +2948,45 @@ def update_invoice(invoice_id):
 
 @bp.route("/api/invoices/<int:invoice_id>", methods=["DELETE"])
 @login_required
+@log_performance_decorator
 def delete_invoice(invoice_id):
     """Delete an invoice"""
     try:
         from .models import Invoice
+        from decimal import Decimal
 
         invoice = Invoice.query.get_or_404(invoice_id)
+
+        # Capture invoice data for audit trail
+        invoice_data = {
+            'invoice_number': invoice.invoice_number,
+            'client_id': invoice.client_id,
+            'patient_id': invoice.patient_id,
+            'total_amount': float(invoice.total_amount) if isinstance(invoice.total_amount, Decimal) else invoice.total_amount,
+            'status': invoice.status,
+            'amount_paid': float(invoice.amount_paid) if isinstance(invoice.amount_paid, Decimal) else invoice.amount_paid
+        }
+
         db.session.delete(invoice)
         db.session.commit()
+
+        # Audit log: Invoice deleted
+        log_audit_event(
+            action='delete',
+            entity_type='invoice',
+            entity_id=invoice_id,
+            entity_data=invoice_data
+        )
+        log_business_operation(
+            operation='invoice_deleted',
+            entity_type='invoice',
+            entity_id=invoice_id,
+            details={
+                'deleted_by': current_user.username,
+                'invoice_number': invoice_data['invoice_number'],
+                'total_amount': invoice_data['total_amount']
+            }
+        )
 
         app.logger.info(f"Deleted invoice {invoice_id}")
         return jsonify({"message": "Invoice deleted"}), 200
@@ -2605,6 +3049,7 @@ def get_payment(payment_id):
 
 @bp.route("/api/payments", methods=["POST"])
 @login_required
+@log_performance_decorator
 def create_payment():
     """Create a new payment and update invoice"""
     try:
@@ -2619,6 +3064,9 @@ def create_payment():
         invoice = Invoice.query.get(validated_data["invoice_id"])
         if not invoice:
             return jsonify({"error": "Invoice not found"}), 404
+
+        # Track old invoice status for business operation logging
+        old_invoice_status = invoice.status
 
         # Create payment
         payment = Payment(
@@ -2646,6 +3094,36 @@ def create_payment():
 
         db.session.commit()
 
+        # Audit log: Payment created
+        log_audit_event(
+            action='create',
+            entity_type='payment',
+            entity_id=payment.id,
+            entity_data={
+                'invoice_id': payment.invoice_id,
+                'client_id': payment.client_id,
+                'amount': float(payment.amount),
+                'payment_method': payment.payment_method,
+                'reference_number': payment.reference_number
+            }
+        )
+
+        # Business operation log: Payment processed
+        log_business_operation(
+            operation='payment_processed',
+            entity_type='payment',
+            entity_id=payment.id,
+            details={
+                'amount': float(payment.amount),
+                'payment_method': payment.payment_method,
+                'invoice_id': payment.invoice_id,
+                'invoice_number': invoice.invoice_number,
+                'processed_by': current_user.username,
+                'old_invoice_status': old_invoice_status,
+                'new_invoice_status': invoice.status
+            }
+        )
+
         app.logger.info(f"Created payment {payment.id} for invoice {invoice.invoice_number}")
         return jsonify(payment.to_dict()), 201
 
@@ -2657,6 +3135,7 @@ def create_payment():
 
 @bp.route("/api/payments/<int:payment_id>", methods=["DELETE"])
 @login_required
+@log_performance_decorator
 def delete_payment(payment_id):
     """Delete a payment and update invoice"""
     try:
@@ -2665,6 +3144,19 @@ def delete_payment(payment_id):
 
         payment = Payment.query.get_or_404(payment_id)
         invoice = payment.invoice
+
+        # Capture payment data for audit trail
+        payment_data = {
+            'invoice_id': payment.invoice_id,
+            'client_id': payment.client_id,
+            'amount': float(payment.amount),
+            'payment_method': payment.payment_method,
+            'reference_number': payment.reference_number,
+            'payment_date': payment.payment_date.isoformat() if payment.payment_date else None
+        }
+
+        # Track old invoice status
+        old_invoice_status = invoice.status
 
         # Update invoice amounts
         invoice.amount_paid -= payment.amount
@@ -2680,6 +3172,30 @@ def delete_payment(payment_id):
 
         db.session.delete(payment)
         db.session.commit()
+
+        # Audit log: Payment deleted (refund/reversal)
+        log_audit_event(
+            action='delete',
+            entity_type='payment',
+            entity_id=payment_id,
+            entity_data=payment_data
+        )
+
+        # Business operation log: Payment refund/reversal
+        log_business_operation(
+            operation='payment_refunded',
+            entity_type='payment',
+            entity_id=payment_id,
+            details={
+                'amount': payment_data['amount'],
+                'payment_method': payment_data['payment_method'],
+                'invoice_id': payment_data['invoice_id'],
+                'invoice_number': invoice.invoice_number,
+                'processed_by': current_user.username,
+                'old_invoice_status': old_invoice_status,
+                'new_invoice_status': invoice.status
+            }
+        )
 
         app.logger.info(f"Deleted payment {payment_id}")
         return jsonify({"message": "Payment deleted"}), 200
