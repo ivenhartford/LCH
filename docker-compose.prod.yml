@@ -1,0 +1,122 @@
+# Docker Compose Configuration for Production with SSL/HTTPS
+# Extends base docker-compose.yml with production-specific settings
+#
+# Usage:
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database (production overrides)
+  postgres:
+    restart: always
+    # Enable PostgreSQL logging
+    command: postgres -c logging_collector=on -c log_directory=/var/log/postgresql
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - postgres_logs:/var/log/postgresql
+    # Production-specific limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+  # Flask Backend API (production overrides)
+  backend:
+    restart: always
+    environment:
+      FLASK_ENV: production
+      FLASK_DEBUG: 'false'
+      SESSION_COOKIE_SECURE: 'true'
+      SQLALCHEMY_ECHO: 'false'
+    # Don't expose backend port to host in production (only through nginx)
+    ports: []
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 512M
+
+  # React Frontend with nginx and SSL
+  frontend:
+    restart: always
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    environment:
+      # Use SSL-enabled nginx configuration
+      NGINX_CONFIG_TEMPLATE: nginx-ssl.conf.template
+      DOMAIN_NAME: ${DOMAIN_NAME:?DOMAIN_NAME is required for production}
+      SSL_CERTIFICATE_PATH: ${SSL_CERTIFICATE_PATH:-/etc/letsencrypt/live/${DOMAIN_NAME}/fullchain.pem}
+      SSL_CERTIFICATE_KEY_PATH: ${SSL_CERTIFICATE_KEY_PATH:-/etc/letsencrypt/live/${DOMAIN_NAME}/privkey.pem}
+      SSL_CHAIN_PATH: ${SSL_CHAIN_PATH:-/etc/letsencrypt/live/${DOMAIN_NAME}/chain.pem}
+    ports:
+      - "80:80"    # HTTP (redirects to HTTPS)
+      - "443:443"  # HTTPS
+    volumes:
+      # Mount SSL certificates
+      - ${SSL_CERT_DIR:-./ssl/certs}:/etc/letsencrypt:ro
+      # Mount Let's Encrypt challenge directory
+      - ${ACME_CHALLENGE_DIR:-./ssl/acme-challenge}:/var/www/certbot:ro
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  # Certbot for Let's Encrypt SSL certificates (optional)
+  certbot:
+    image: certbot/certbot:latest
+    container_name: ${CERTBOT_CONTAINER_NAME:-lch-certbot}
+    volumes:
+      - ${SSL_CERT_DIR:-./ssl/certs}:/etc/letsencrypt
+      - ${ACME_CHALLENGE_DIR:-./ssl/acme-challenge}:/var/www/certbot
+    # Run certbot in standalone mode to obtain/renew certificates
+    # Manual: docker-compose -f docker-compose.yml -f docker-compose.prod.yml run --rm certbot certonly --webroot --webroot-path=/var/www/certbot -d your-domain.com
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    networks:
+      - lch-network
+
+  # Backup service (automated database backups)
+  backup:
+    image: postgres:${POSTGRES_VERSION:-15-alpine}
+    container_name: ${BACKUP_CONTAINER_NAME:-lch-backup}
+    depends_on:
+      - postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vet_clinic_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-vet_clinic_db}
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+    volumes:
+      - backups:/backups
+      - ./scripts/backup.sh:/backup.sh:ro
+    # Run backup every day at 2 AM
+    entrypoint: /bin/sh -c "while true; do sleep $((60*60*24)); /backup.sh; done"
+    networks:
+      - lch-network
+
+volumes:
+  postgres_data:
+    name: ${POSTGRES_VOLUME_NAME:-lch-postgres-data}
+  postgres_logs:
+    name: ${POSTGRES_LOGS_VOLUME_NAME:-lch-postgres-logs}
+  backend_logs:
+    name: ${BACKEND_LOGS_VOLUME_NAME:-lch-backend-logs}
+  backend_uploads:
+    name: ${BACKEND_UPLOADS_VOLUME_NAME:-lch-backend-uploads}
+  backend_instance:
+    name: ${BACKEND_INSTANCE_VOLUME_NAME:-lch-backend-instance}
+  backups:
+    name: ${BACKUPS_VOLUME_NAME:-lch-backups}

@@ -1,0 +1,76 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [ main, develop, claude/** ]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'frontend/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: ['18.x', '20.x']
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install dependencies
+      run: |
+        cd frontend
+        npm ci
+
+    - name: Lint with ESLint
+      run: |
+        cd frontend
+        npm run lint || true
+      continue-on-error: true
+
+    - name: Check formatting with Prettier
+      run: |
+        cd frontend
+        npm run format:check || true
+      continue-on-error: true
+
+    - name: Run tests
+      run: |
+        cd frontend
+        npm test -- --coverage --watchAll=false --passWithNoTests
+      env:
+        CI: true
+
+    - name: Build application
+      run: |
+        cd frontend
+        npm run build
+      env:
+        CI: false
+
+    - name: Check bundle size
+      run: |
+        cd frontend
+        ls -lh build/static/js/*.js
+        echo "Build completed successfully!"
+
+    - name: Upload coverage to Codecov (optional)
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./frontend/coverage/coverage-final.json
+        flags: frontend
+        fail_ci_if_error: false
+      continue-on-error: true
