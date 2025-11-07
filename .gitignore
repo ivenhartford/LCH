@@ -48,3 +48,6 @@ backend/instance/
 postgres_data/
 backend_logs/
 backend_uploads/
+
+# Test uploads directory
+backend/uploads/

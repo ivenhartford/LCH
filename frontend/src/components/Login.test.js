@@ -12,7 +12,7 @@ jest.mock('react-router-dom', () => ({
 
 // Helper to render component with router
 const renderWithRouter = (component) => {
-  return render(<MemoryRouter future={{ v7_startTransition: true }}>{component}</MemoryRouter>);
+  return render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>{component}</MemoryRouter>);
 };
 
 // Mock fetch

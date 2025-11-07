@@ -38,7 +38,7 @@ const renderWithProviders = () => {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter future={{ v7_startTransition: true }}>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <NotificationProvider>
           <PatientForm />
         </NotificationProvider>

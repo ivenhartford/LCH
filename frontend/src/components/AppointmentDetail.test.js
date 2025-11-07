@@ -26,7 +26,7 @@ const renderWithProviders = (component, { appointmentId = '1' } = {}) => {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter future={{ v7_startTransition: true }} initialEntries={[`/appointments/${appointmentId}`]}>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={[`/appointments/${appointmentId}`]}>
         <NotificationProvider>
           <Routes>
             <Route path="/appointments/:id" element={component} />
