@@ -28,7 +28,12 @@ def app():
 
     with app.app_context():
         db.create_all()
-        yield app
+
+    yield app
+
+    # Clean up database after test
+    with app.app_context():
+        db.session.remove()
         db.drop_all()
 
     shutil.rmtree(static_folder)
@@ -38,3 +43,16 @@ def app():
 def client(app):
     """A test client for the app."""
     return app.test_client()
+
+
+@pytest.fixture(autouse=True)
+def reset_db(app):
+    """
+    Automatically reset database session after each test.
+    This prevents "Working outside of application context" errors
+    during fixture teardown.
+    """
+    yield
+    # Clean up any remaining database sessions
+    with app.app_context():
+        db.session.remove()
