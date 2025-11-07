@@ -78,7 +78,7 @@ def sample_patient_and_visit(app, authenticated_client):
 class TestVitalSignsList:
     """Tests for GET /api/vital-signs"""
 
-    def test_get_vital_signs_without_auth(self, client):
+    def test_get_vital_signs_without_auth(self, app, client):
         """Should return 401 for unauthenticated request"""
         response = client.get("/api/vital-signs")
         assert response.status_code == 401
@@ -89,7 +89,9 @@ class TestVitalSignsList:
         assert response.status_code == 200
         assert len(response.json) == 0
 
-    def test_get_vital_signs_filter_by_visit(self, authenticated_client, sample_patient_and_visit):
+    def test_get_vital_signs_filter_by_visit(
+        self, app, authenticated_client, sample_patient_and_visit
+    ):
         """Should filter vital signs by visit_id"""
         visit_id = sample_patient_and_visit["visit_id"]
 
@@ -201,12 +203,14 @@ class TestVitalSignsUpdate:
 class TestSOAPNotesList:
     """Tests for GET /api/soap-notes"""
 
-    def test_get_soap_notes_without_auth(self, client):
+    def test_get_soap_notes_without_auth(self, app, client):
         """Should return 401 for unauthenticated request"""
         response = client.get("/api/soap-notes")
         assert response.status_code == 401
 
-    def test_get_soap_notes_filter_by_visit(self, authenticated_client, sample_patient_and_visit):
+    def test_get_soap_notes_filter_by_visit(
+        self, app, authenticated_client, sample_patient_and_visit
+    ):
         """Should filter SOAP notes by visit_id"""
         visit_id = sample_patient_and_visit["visit_id"]
         user_id = sample_patient_and_visit["user_id"]
@@ -295,12 +299,14 @@ class TestSOAPNotesUpdate:
 class TestDiagnosisList:
     """Tests for GET /api/diagnoses"""
 
-    def test_get_diagnoses_without_auth(self, client):
+    def test_get_diagnoses_without_auth(self, app, client):
         """Should return 401 for unauthenticated request"""
         response = client.get("/api/diagnoses")
         assert response.status_code == 401
 
-    def test_get_diagnoses_filter_by_status(self, authenticated_client, sample_patient_and_visit):
+    def test_get_diagnoses_filter_by_status(
+        self, app, authenticated_client, sample_patient_and_visit
+    ):
         """Should filter diagnoses by status"""
         visit_id = sample_patient_and_visit["visit_id"]
         user_id = sample_patient_and_visit["user_id"]
@@ -415,7 +421,7 @@ class TestDiagnosisUpdate:
 class TestVaccinationList:
     """Tests for GET /api/vaccinations"""
 
-    def test_get_vaccinations_without_auth(self, client):
+    def test_get_vaccinations_without_auth(self, app, client):
         """Should return 401 for unauthenticated request"""
         response = client.get("/api/vaccinations")
         assert response.status_code == 401

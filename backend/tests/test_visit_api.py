@@ -273,7 +273,7 @@ class TestVisitCreate:
         assert data["chief_complaint"] == "Routine checkup"
         assert "id" in data
 
-    def test_create_visit_with_veterinarian(self, authenticated_client, sample_patient):
+    def test_create_visit_with_veterinarian(self, app, authenticated_client, sample_patient):
         """
         GIVEN visit data with veterinarian ID
         WHEN POST /api/visits is called

@@ -88,7 +88,7 @@ def sample_staff(app, authenticated_client):
 
 @pytest.fixture
 def sample_appointments(
-    authenticated_client, sample_client, sample_patient, sample_appointment_type, sample_staff
+    app, authenticated_client, sample_client, sample_patient, sample_appointment_type, sample_staff
 ):
     """Create sample appointments for testing"""
     with app.app_context():
@@ -292,7 +292,9 @@ class TestAppointmentDetail:
         response = authenticated_client.get("/api/appointments/99999")
         assert response.status_code == 404
 
-    def test_get_appointment_success(self, authenticated_client, sample_client, sample_patient):
+    def test_get_appointment_success(
+        self, app, authenticated_client, sample_client, sample_patient
+    ):
         """
         GIVEN a valid appointment ID
         WHEN GET /api/appointments/<id> is called

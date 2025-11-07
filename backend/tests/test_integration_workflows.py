@@ -77,7 +77,7 @@ class TestAppointmentWorkflow:
     Client → Patient → Appointment → Check-in → Visit → Invoice → Payment
     """
 
-    def test_full_appointment_lifecycle(self, authenticated_client, app):
+    def test_full_appointment_lifecycle(self, app, authenticated_client, app):
         """
         GIVEN a new client
         WHEN they book an appointment, check in, have a visit, and pay
@@ -300,7 +300,7 @@ class TestAppointmentWorkflow:
 class TestInvoiceWorkflow:
     """Test invoice and payment workflows"""
 
-    def test_partial_payment_workflow(self, authenticated_client, app):
+    def test_partial_payment_workflow(self, app, authenticated_client, app):
         """
         GIVEN an invoice with a total amount
         WHEN multiple partial payments are made
