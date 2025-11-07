@@ -3,11 +3,29 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-*.env
 venv/
+env/
+
+# Environment files - Ignore actual .env but keep examples and templates
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
+frontend/.env.local
+
+# Keep these environment files (examples and templates)
+!.env.example
+!.env.development
+!.env.production
+!.env.docker.example
+!backend/.env.example
+!frontend/.env.example
+!frontend/.env.development
 
 # Logs
 *.log
+logs/
 
 # Node
 node_modules/
@@ -18,8 +36,15 @@ package-lock.json
 
 # Build artifacts
 frontend/build/
-backend/.env
-logs/
-frontend/.env
-frontend/.env.development
+dist/
+
+# Database
 *.db
+*.sqlite
+*.sqlite3
+backend/instance/
+
+# Docker volumes
+postgres_data/
+backend_logs/
+backend_uploads/

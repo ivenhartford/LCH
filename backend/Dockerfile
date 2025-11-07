@@ -1,5 +1,13 @@
 # Backend Dockerfile for Lenox Cat Hospital
-FROM python:3.11-slim
+# All configurable values are now managed via build arguments and environment variables
+
+# Build arguments for customization
+ARG PYTHON_VERSION=3.11-slim
+
+FROM python:${PYTHON_VERSION}
+
+# Build-time arguments
+ARG APP_DIR_PERMISSIONS=755
 
 # Set working directory
 WORKDIR /app
@@ -27,16 +35,20 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy application code
 COPY . .
 
-# Create necessary directories
+# Create necessary directories with configurable permissions
 RUN mkdir -p /app/logs /app/instance /app/uploads && \
-    chmod -R 755 /app/logs /app/instance /app/uploads
+    chmod -R ${APP_DIR_PERMISSIONS} /app/logs /app/instance /app/uploads
 
-# Expose port
-EXPOSE 5000
+# Make entrypoint script executable
+RUN chmod +x /app/docker-entrypoint.sh
 
-# Health check
+# Expose port (will be configured via environment variable at runtime)
+EXPOSE ${BACKEND_INTERNAL_PORT:-5000}
+
+# Health check with configurable intervals (set in docker-compose.yml)
+# Note: HEALTHCHECK in Dockerfile is overridden by docker-compose.yml
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/health').read()" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:${BACKEND_INTERNAL_PORT:-5000}/api/health').read()" || exit 1
 
-# Run with gunicorn in production, or flask run in development
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "app:create_app()"]
+# Use entrypoint script
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

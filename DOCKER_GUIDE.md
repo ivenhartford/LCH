@@ -42,27 +42,52 @@ cd LCH
 
 ### 2. Configure Environment Variables
 
+**For Development:**
 ```bash
-# Copy the example environment file
-cp .env.docker.example .env.docker
+# Use the pre-configured development environment
+cp .env.development .env
 
-# Edit the file and change the SECRET_KEY and passwords
-nano .env.docker  # or use your preferred editor
+# Start services (uses .env by default)
+docker compose up -d
 ```
 
-**Important:** Change these values in `.env.docker`:
-- `SECRET_KEY` - Generate with: `python -c 'import secrets; print(secrets.token_hex(32))'`
-- `POSTGRES_PASSWORD` - Use a strong password
+**For Production:**
+```bash
+# Copy production template
+cp .env.production .env
+
+# CRITICAL: Edit .env and change ALL security values!
+nano .env  # or use your preferred editor
+
+# Change these REQUIRED values:
+# - SECRET_KEY (generate with: python -c 'import secrets; print(secrets.token_hex(32))')
+# - POSTGRES_PASSWORD (use a strong password)
+# - INITIAL_ADMIN_PASSWORD (you'll change this after first login)
+# - CORS_ORIGINS (add your domain)
+```
+
+**For Custom Setup:**
+```bash
+# Start with minimal template
+cp .env.example .env
+
+# Edit with your custom values
+nano .env
+```
+
+📖 **For detailed configuration help, see [ENV_README.md](./ENV_README.md)**
 
 ### 3. Start All Services
 
 ```bash
 # Start all services in detached mode
-docker compose --env-file .env.docker up -d
+docker compose up -d
 
 # View logs to ensure everything started correctly
 docker compose logs -f
 ```
+
+**Note:** Docker Compose automatically uses the `.env` file in the current directory.
 
 ### 4. Access the Application
 
@@ -72,13 +97,18 @@ Once all services are healthy (check with `docker compose ps`):
 - **Backend API:** http://localhost:5000
 - **API Documentation:** http://localhost:5000/api/doc
 
-### 5. Create Admin User
+### 5. Login with Admin User
 
+The admin user is **automatically created** on first startup using the credentials from your `.env` file:
+
+- **Username:** Value of `INITIAL_ADMIN_USERNAME` (default: `admin`)
+- **Password:** Value of `INITIAL_ADMIN_PASSWORD`
+
+⚠️ **IMPORTANT:** Change the admin password immediately after first login!
+
+If you need to manually create an admin user:
 ```bash
-# Access the backend container
 docker compose exec backend flask shell
-
-# In the Flask shell, create an admin user:
 ```
 
 ```python
@@ -86,7 +116,7 @@ from app import db
 from app.models import User
 
 admin = User(username='admin', role='administrator')
-admin.set_password('admin123')  # Change this password!
+admin.set_password('your_secure_password')
 db.session.add(admin)
 db.session.commit()
 print("Admin user created successfully!")
@@ -96,7 +126,7 @@ exit()
 ### 6. (Optional) Seed Default Data
 
 ```bash
-# Seed appointment types
+# Seed appointment types and other default data
 docker compose exec backend python seed_data.py
 ```
 
@@ -167,29 +197,54 @@ Persistent data storage:
 
 ### Environment Variables
 
-Create `.env.docker` from the example:
+All configuration is managed through environment variables in a `.env` file. This eliminates ALL hard-coded values and magic numbers.
+
+📖 **Complete documentation:** See [ENV_README.md](./ENV_README.md) for details on all 60+ configuration options.
+
+**Quick setup:**
 
 ```bash
-cp .env.docker.example .env.docker
+# Development
+cp .env.development .env
+
+# Production
+cp .env.production .env
+# Then edit and change all security-sensitive values!
+
+# Custom
+cp .env.example .env
+# Edit with your values
 ```
 
-Key variables:
+**Most important variables:**
 
-| Variable | Description | Default | Required |
+| Variable | Description | Default | Security |
 |----------|-------------|---------|----------|
-| `FLASK_ENV` | Application environment | `production` | No |
-| `SECRET_KEY` | Flask secret key | - | **Yes** |
-| `POSTGRES_DB` | Database name | `vet_clinic_db` | No |
-| `POSTGRES_USER` | Database user | `vet_clinic_user` | No |
-| `POSTGRES_PASSWORD` | Database password | - | **Yes** |
-| `POSTGRES_PORT` | PostgreSQL port | `5432` | No |
-| `BACKEND_PORT` | Backend API port | `5000` | No |
-| `FRONTEND_PORT` | Frontend web port | `80` | No |
-| `CORS_ORIGINS` | Allowed CORS origins | `http://localhost` | No |
+| `SECRET_KEY` | Flask session encryption | - | 🔴 **Critical** |
+| `POSTGRES_PASSWORD` | Database password | - | 🔴 **Critical** |
+| `INITIAL_ADMIN_PASSWORD` | Admin password | - | 🟡 **Change after login** |
+| `FLASK_ENV` | Environment mode | `production` | - |
+| `GUNICORN_WORKERS` | Worker processes | `4` | ⚙️ Tune for CPU |
+| `POSTGRES_PORT` | Database port | `5432` | - |
+| `BACKEND_PORT` | API port | `5000` | - |
+| `FRONTEND_PORT` | Web port | `80` | - |
+| `CORS_ORIGINS` | Allowed origins | `http://localhost` | 🔐 Set for domain |
+
+**All configurable values include:**
+- Security settings (secrets, passwords, sessions)
+- Service ports (backend, frontend, database)
+- Performance tuning (workers, timeouts, connections)
+- Health check intervals
+- Container names and network configuration
+- Volume names
+- Logging levels
+- Time zones
+- File upload limits
+- And much more...
 
 ### Port Customization
 
-To run on different ports, edit `.env.docker`:
+To run on different ports, edit `.env`:
 
 ```bash
 FRONTEND_PORT=8080    # Access frontend at http://localhost:8080
@@ -197,19 +252,37 @@ BACKEND_PORT=5001     # Backend API at http://localhost:5001
 POSTGRES_PORT=5433    # PostgreSQL at localhost:5433
 ```
 
+### Performance Tuning
+
+Adjust Gunicorn workers based on your server:
+
+```bash
+# Formula: (2 x CPU_CORES) + 1
+GUNICORN_WORKERS=4        # For 2 CPU cores
+GUNICORN_TIMEOUT=120      # Request timeout
+GUNICORN_MAX_REQUESTS=1000  # Restart after N requests (prevents memory leaks)
+```
+
+Adjust Nginx workers:
+
+```bash
+NGINX_WORKER_PROCESSES=auto     # Auto = number of CPU cores
+NGINX_WORKER_CONNECTIONS=1024   # Connections per worker
+```
+
 ## Common Operations
 
 ### Starting Services
 
 ```bash
-# Start all services
-docker compose --env-file .env.docker up -d
+# Start all services (automatically uses .env file)
+docker compose up -d
 
 # Start specific service
 docker compose up -d backend
 
-# Start with live logs
-docker compose --env-file .env.docker up
+# Start with live logs (foreground)
+docker compose up
 ```
 
 ### Stopping Services
@@ -340,7 +413,7 @@ volumes:
 Run in development mode:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.docker up
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 ```
 
 ### Running Tests
@@ -440,7 +513,7 @@ docker compose logs
 ```
 
 **Common issues:**
-- Port already in use: Change ports in `.env.docker`
+- Port already in use: Change ports in `.env`
 - Permission denied: Run with sudo or add user to docker group
 - Database not ready: Backend will retry automatically
 
@@ -509,7 +582,7 @@ docker compose down -v
 docker compose down --rmi all
 
 # Start fresh
-docker compose --env-file .env.docker up -d
+docker compose up -d
 ```
 
 ## Maintenance
