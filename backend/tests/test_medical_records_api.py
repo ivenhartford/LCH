@@ -10,7 +10,17 @@ Tests CRUD operations for:
 
 import pytest
 from datetime import date, timedelta
-from app.models import User, Client, Patient, Visit, VitalSigns, SOAPNote, Diagnosis, Vaccination, db
+from app.models import (
+    User,
+    Client,
+    Patient,
+    Visit,
+    VitalSigns,
+    SOAPNote,
+    Diagnosis,
+    Vaccination,
+    db,
+)
 
 
 @pytest.fixture
@@ -137,7 +147,9 @@ class TestVitalSignsCreate:
         assert data["heart_rate"] == 140
         assert data["recorded_by_name"] == "testvet"
 
-    def test_create_vital_signs_invalid_body_condition(self, authenticated_client, sample_patient_and_visit):
+    def test_create_vital_signs_invalid_body_condition(
+        self, authenticated_client, sample_patient_and_visit
+    ):
         """Should reject body_condition_score outside 1-9 range"""
         vs_data = {
             "visit_id": sample_patient_and_visit["visit_id"],
@@ -146,7 +158,9 @@ class TestVitalSignsCreate:
         response = authenticated_client.post("/api/vital-signs", json=vs_data)
         assert response.status_code == 400
 
-    def test_create_vital_signs_invalid_pain_score(self, authenticated_client, sample_patient_and_visit):
+    def test_create_vital_signs_invalid_pain_score(
+        self, authenticated_client, sample_patient_and_visit
+    ):
         """Should reject pain_score outside 0-10 range"""
         vs_data = {
             "visit_id": sample_patient_and_visit["visit_id"],
@@ -406,7 +420,9 @@ class TestVaccinationList:
         response = client.get("/api/vaccinations")
         assert response.status_code == 401
 
-    def test_get_vaccinations_filter_by_patient(self, authenticated_client, sample_patient_and_visit):
+    def test_get_vaccinations_filter_by_patient(
+        self, authenticated_client, sample_patient_and_visit
+    ):
         """Should filter vaccinations by patient_id"""
         patient_id = sample_patient_and_visit["patient_id"]
         user_id = sample_patient_and_visit["user_id"]
@@ -433,7 +449,9 @@ class TestVaccinationList:
 class TestVaccinationCreate:
     """Tests for POST /api/vaccinations"""
 
-    def test_create_vaccination_missing_required(self, authenticated_client, sample_patient_and_visit):
+    def test_create_vaccination_missing_required(
+        self, authenticated_client, sample_patient_and_visit
+    ):
         """Should return 400 when required fields are missing"""
         response = authenticated_client.post(
             "/api/vaccinations",
@@ -518,7 +536,9 @@ class TestVaccinationUpdate:
         assert update_response.status_code == 200
         assert update_response.json["status"] == "overdue"
 
-    def test_update_vaccination_adverse_reaction(self, authenticated_client, sample_patient_and_visit):
+    def test_update_vaccination_adverse_reaction(
+        self, authenticated_client, sample_patient_and_visit
+    ):
         """Should record adverse reactions"""
         # Create vaccination
         create_response = authenticated_client.post(

@@ -151,7 +151,9 @@ class TestMedicationUpdate:
     def test_update_medication_success(self, authenticated_client, sample_medications):
         """Should update medication"""
         update_data = {"stock_quantity": 100, "reorder_level": 20}
-        response = authenticated_client.put(f"/api/medications/{sample_medications[0]}", json=update_data)
+        response = authenticated_client.put(
+            f"/api/medications/{sample_medications[0]}", json=update_data
+        )
         assert response.status_code == 200
         data = response.json
         assert data["stock_quantity"] == 100

@@ -45,7 +45,9 @@ def admin_client(app):
 def sample_owner(authenticated_client):
     """Create a sample client (cat owner) for testing"""
     with authenticated_client.application.app_context():
-        owner = Client(first_name="John", last_name="Doe", phone_primary="555-1234", email="john@example.com")
+        owner = Client(
+            first_name="John", last_name="Doe", phone_primary="555-1234", email="john@example.com"
+        )
         db.session.add(owner)
         db.session.commit()
         return owner.id
@@ -156,7 +158,9 @@ class TestPatientList:
         assert data["patients"][0]["name"] == "Shadow"
         assert data["patients"][0]["status"] == "Deceased"
 
-    def test_get_patients_filter_by_owner(self, authenticated_client, sample_owner, sample_patients):
+    def test_get_patients_filter_by_owner(
+        self, authenticated_client, sample_owner, sample_patients
+    ):
         """
         GIVEN patients linked to specific owner
         WHEN GET /api/patients?owner_id=X is called
@@ -328,7 +332,9 @@ class TestPatientCreate:
         data = response.json
         assert "Owner" in data["error"]
 
-    def test_create_patient_duplicate_microchip(self, authenticated_client, sample_owner, sample_patients):
+    def test_create_patient_duplicate_microchip(
+        self, authenticated_client, sample_owner, sample_patients
+    ):
         """
         GIVEN patient data with duplicate microchip number
         WHEN POST /api/patients is called

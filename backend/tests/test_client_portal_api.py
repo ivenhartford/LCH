@@ -22,8 +22,16 @@ Tests all client portal operations including:
 import pytest
 from datetime import datetime, timedelta, date
 from app.models import (
-    User, Client, Patient, Appointment, AppointmentType, Invoice, InvoiceItem,
-    ClientPortalUser, AppointmentRequest, db
+    User,
+    Client,
+    Patient,
+    Appointment,
+    AppointmentType,
+    Invoice,
+    InvoiceItem,
+    ClientPortalUser,
+    AppointmentRequest,
+    db,
 )
 
 
@@ -36,7 +44,7 @@ def sample_client(app):
             last_name="Doe",
             email="john.doe@example.com",
             phone_primary="555-1234",
-            city="New York"
+            city="New York",
         )
         db.session.add(client)
         db.session.commit()
@@ -47,12 +55,7 @@ def sample_client(app):
 def sample_patient(app, sample_client):
     """Create a sample patient for testing"""
     with app.app_context():
-        patient = Patient(
-            name="Fluffy",
-            species="Cat",
-            breed="Persian",
-            owner_id=sample_client
-        )
+        patient = Patient(name="Fluffy", species="Cat", breed="Persian", owner_id=sample_client)
         db.session.add(patient)
         db.session.commit()
         return patient.id
@@ -63,9 +66,7 @@ def sample_appointment_type(app):
     """Create a sample appointment type"""
     with app.app_context():
         apt_type = AppointmentType(
-            name="Wellness Exam",
-            default_duration_minutes=30,
-            is_active=True
+            name="Wellness Exam", default_duration_minutes=30, is_active=True
         )
         db.session.add(apt_type)
         db.session.commit()
@@ -84,7 +85,7 @@ def sample_appointment(app, sample_client, sample_patient, sample_appointment_ty
             patient_id=sample_patient,
             appointment_type_id=sample_appointment_type,
             status="scheduled",
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
         db.session.add(appointment)
         db.session.commit()
@@ -117,7 +118,7 @@ def sample_invoice(app, sample_client, sample_patient):
             amount_paid=0.00,
             balance_due=108.00,
             status="unpaid",
-            created_by_id=user.id
+            created_by_id=user.id,
         )
         db.session.add(invoice)
         db.session.commit()
@@ -129,9 +130,7 @@ def portal_user(app, sample_client):
     """Create a portal user"""
     with app.app_context():
         portal_user = ClientPortalUser(
-            client_id=sample_client,
-            username="johndoe",
-            email="johndoe@example.com"
+            client_id=sample_client, username="johndoe", email="johndoe@example.com"
         )
         portal_user.set_password("password123")
         db.session.add(portal_user)
@@ -157,13 +156,16 @@ class TestPortalRegistration:
 
     def test_successful_registration(self, client, sample_client):
         """Test successful portal user registration"""
-        response = client.post("/api/portal/register", json={
-            "client_id": sample_client,
-            "username": "newuser",
-            "email": "newuser@example.com",
-            "password": "password123",
-            "password_confirm": "password123"
-        })
+        response = client.post(
+            "/api/portal/register",
+            json={
+                "client_id": sample_client,
+                "username": "newuser",
+                "email": "newuser@example.com",
+                "password": "password123",
+                "password_confirm": "password123",
+            },
+        )
 
         assert response.status_code == 201
         data = response.get_json()
@@ -172,13 +174,16 @@ class TestPortalRegistration:
 
     def test_registration_password_mismatch(self, client, sample_client):
         """Test registration with mismatched passwords"""
-        response = client.post("/api/portal/register", json={
-            "client_id": sample_client,
-            "username": "newuser",
-            "email": "newuser@example.com",
-            "password": "password123",
-            "password_confirm": "different"
-        })
+        response = client.post(
+            "/api/portal/register",
+            json={
+                "client_id": sample_client,
+                "username": "newuser",
+                "email": "newuser@example.com",
+                "password": "password123",
+                "password_confirm": "different",
+            },
+        )
 
         assert response.status_code == 400
         assert "Passwords do not match" in response.get_json()["error"]
@@ -191,32 +196,38 @@ class TestPortalRegistration:
                 first_name="Jane",
                 last_name="Smith",
                 email="jane@example.com",
-                phone_primary="555-5678"
+                phone_primary="555-5678",
             )
             db.session.add(client2)
             db.session.commit()
             client2_id = client2.id
 
-        response = client.post("/api/portal/register", json={
-            "client_id": client2_id,  # Different client
-            "username": "johndoe",  # Same username as portal_user
-            "email": "different@example.com",
-            "password": "password123",
-            "password_confirm": "password123"
-        })
+        response = client.post(
+            "/api/portal/register",
+            json={
+                "client_id": client2_id,  # Different client
+                "username": "johndoe",  # Same username as portal_user
+                "email": "different@example.com",
+                "password": "password123",
+                "password_confirm": "password123",
+            },
+        )
 
         assert response.status_code == 400
         assert "Username already taken" in response.get_json()["error"]
 
     def test_registration_duplicate_client(self, client, sample_client, portal_user):
         """Test registration for client that already has portal account"""
-        response = client.post("/api/portal/register", json={
-            "client_id": sample_client,  # Same client as portal_user
-            "username": "different",
-            "email": "different@example.com",
-            "password": "password123",
-            "password_confirm": "password123"
-        })
+        response = client.post(
+            "/api/portal/register",
+            json={
+                "client_id": sample_client,  # Same client as portal_user
+                "username": "different",
+                "email": "different@example.com",
+                "password": "password123",
+                "password_confirm": "password123",
+            },
+        )
 
         assert response.status_code == 400
         assert "Portal account already exists" in response.get_json()["error"]
@@ -227,10 +238,9 @@ class TestPortalLogin:
 
     def test_successful_login(self, client, portal_user):
         """Test successful portal login"""
-        response = client.post("/api/portal/login", json={
-            "username": "johndoe",
-            "password": "password123"
-        })
+        response = client.post(
+            "/api/portal/login", json={"username": "johndoe", "password": "password123"}
+        )
 
         assert response.status_code == 200
         data = response.get_json()
@@ -239,10 +249,9 @@ class TestPortalLogin:
 
     def test_login_with_email(self, client, portal_user):
         """Test login using email instead of username"""
-        response = client.post("/api/portal/login", json={
-            "username": "johndoe@example.com",
-            "password": "password123"
-        })
+        response = client.post(
+            "/api/portal/login", json={"username": "johndoe@example.com", "password": "password123"}
+        )
 
         assert response.status_code == 200
         data = response.get_json()
@@ -250,20 +259,18 @@ class TestPortalLogin:
 
     def test_login_invalid_credentials(self, client, portal_user):
         """Test login with invalid credentials"""
-        response = client.post("/api/portal/login", json={
-            "username": "johndoe",
-            "password": "wrongpassword"
-        })
+        response = client.post(
+            "/api/portal/login", json={"username": "johndoe", "password": "wrongpassword"}
+        )
 
         assert response.status_code == 401
         assert "Invalid username/email or password" in response.get_json()["error"]
 
     def test_login_nonexistent_user(self, client):
         """Test login with non-existent user"""
-        response = client.post("/api/portal/login", json={
-            "username": "nonexistent",
-            "password": "password"
-        })
+        response = client.post(
+            "/api/portal/login", json={"username": "nonexistent", "password": "password"}
+        )
 
         assert response.status_code == 401
 
@@ -271,7 +278,9 @@ class TestPortalLogin:
 class TestPortalDashboard:
     """Tests for GET /api/portal/dashboard/<client_id>"""
 
-    def test_dashboard_data(self, client, sample_client, sample_patient, sample_appointment, sample_invoice):
+    def test_dashboard_data(
+        self, client, sample_client, sample_patient, sample_appointment, sample_invoice
+    ):
         """Test fetching dashboard data"""
         response = client.get(f"/api/portal/dashboard/{sample_client}")
 
@@ -325,7 +334,7 @@ class TestPortalPatients:
                 first_name="Jane",
                 last_name="Smith",
                 email="jane2@example.com",
-                phone_primary="555-9999"
+                phone_primary="555-9999",
             )
             db.session.add(client2)
             db.session.commit()
@@ -378,7 +387,7 @@ class TestPortalInvoices:
                 first_name="Jane",
                 last_name="Smith",
                 email="jane3@example.com",
-                phone_primary="555-8888"
+                phone_primary="555-8888",
             )
             db.session.add(client2)
             db.session.commit()
@@ -392,17 +401,22 @@ class TestPortalInvoices:
 class TestAppointmentRequests:
     """Tests for appointment request endpoints"""
 
-    def test_create_appointment_request(self, client, sample_client, sample_patient, sample_appointment_type):
+    def test_create_appointment_request(
+        self, client, sample_client, sample_patient, sample_appointment_type
+    ):
         """Test creating an appointment request"""
-        response = client.post("/api/portal/appointment-requests", json={
-            "client_id": sample_client,
-            "patient_id": sample_patient,
-            "appointment_type_id": sample_appointment_type,
-            "requested_date": (date.today() + timedelta(days=7)).isoformat(),
-            "requested_time": "morning",
-            "reason": "Annual checkup",
-            "is_urgent": False
-        })
+        response = client.post(
+            "/api/portal/appointment-requests",
+            json={
+                "client_id": sample_client,
+                "patient_id": sample_patient,
+                "appointment_type_id": sample_appointment_type,
+                "requested_date": (date.today() + timedelta(days=7)).isoformat(),
+                "requested_time": "morning",
+                "reason": "Annual checkup",
+                "is_urgent": False,
+            },
+        )
 
         assert response.status_code == 201
         data = response.get_json()
@@ -412,13 +426,16 @@ class TestAppointmentRequests:
 
     def test_create_urgent_request(self, client, sample_client, sample_patient):
         """Test creating an urgent appointment request"""
-        response = client.post("/api/portal/appointment-requests", json={
-            "client_id": sample_client,
-            "patient_id": sample_patient,
-            "requested_date": date.today().isoformat(),
-            "reason": "Cat is injured",
-            "is_urgent": True
-        })
+        response = client.post(
+            "/api/portal/appointment-requests",
+            json={
+                "client_id": sample_client,
+                "patient_id": sample_patient,
+                "requested_date": date.today().isoformat(),
+                "reason": "Cat is injured",
+                "is_urgent": True,
+            },
+        )
 
         assert response.status_code == 201
         data = response.get_json()
@@ -427,12 +444,15 @@ class TestAppointmentRequests:
 
     def test_create_request_invalid_patient(self, client, sample_client):
         """Test creating request with invalid patient"""
-        response = client.post("/api/portal/appointment-requests", json={
-            "client_id": sample_client,
-            "patient_id": 99999,
-            "requested_date": date.today().isoformat(),
-            "reason": "Test"
-        })
+        response = client.post(
+            "/api/portal/appointment-requests",
+            json={
+                "client_id": sample_client,
+                "patient_id": 99999,
+                "requested_date": date.today().isoformat(),
+                "reason": "Test",
+            },
+        )
 
         assert response.status_code == 404
 
@@ -446,7 +466,7 @@ class TestAppointmentRequests:
                 requested_date=date.today() + timedelta(days=7),
                 reason="Test request",
                 status="pending",
-                priority="normal"
+                priority="normal",
             )
             db.session.add(req)
             db.session.commit()
@@ -468,13 +488,15 @@ class TestAppointmentRequests:
                 requested_date=date.today() + timedelta(days=7),
                 reason="Test request",
                 status="pending",
-                priority="normal"
+                priority="normal",
             )
             db.session.add(req)
             db.session.commit()
             request_id = req.id
 
-        response = client.post(f"/api/portal/appointment-requests/{sample_client}/{request_id}/cancel")
+        response = client.post(
+            f"/api/portal/appointment-requests/{sample_client}/{request_id}/cancel"
+        )
 
         assert response.status_code == 200
         data = response.get_json()
@@ -490,13 +512,15 @@ class TestAppointmentRequests:
                 requested_date=date.today() + timedelta(days=7),
                 reason="Test request",
                 status="approved",
-                priority="normal"
+                priority="normal",
             )
             db.session.add(req)
             db.session.commit()
             request_id = req.id
 
-        response = client.post(f"/api/portal/appointment-requests/{sample_client}/{request_id}/cancel")
+        response = client.post(
+            f"/api/portal/appointment-requests/{sample_client}/{request_id}/cancel"
+        )
 
         assert response.status_code == 400
         assert "only cancel pending" in response.get_json()["error"].lower()
@@ -515,7 +539,7 @@ class TestStaffAppointmentRequests:
                 requested_date=date.today() + timedelta(days=7),
                 reason="Test request",
                 status="pending",
-                priority="high"
+                priority="high",
             )
             db.session.add(req)
             db.session.commit()
@@ -537,7 +561,7 @@ class TestStaffAppointmentRequests:
                     requested_date=date.today() + timedelta(days=7),
                     reason=f"Test {status}",
                     status=status,
-                    priority="normal"
+                    priority="normal",
                 )
                 db.session.add(req)
             db.session.commit()
@@ -558,17 +582,20 @@ class TestStaffAppointmentRequests:
                 requested_date=date.today() + timedelta(days=7),
                 reason="Test request",
                 status="pending",
-                priority="normal"
+                priority="normal",
             )
             db.session.add(req)
             db.session.commit()
             request_id = req.id
 
-        response = authenticated_staff.put(f"/api/appointment-requests/{request_id}/review", json={
-            "status": "approved",
-            "priority": "high",
-            "staff_notes": "Approved for next week"
-        })
+        response = authenticated_staff.put(
+            f"/api/appointment-requests/{request_id}/review",
+            json={
+                "status": "approved",
+                "priority": "high",
+                "staff_notes": "Approved for next week",
+            },
+        )
 
         assert response.status_code == 200
         data = response.get_json()
@@ -588,16 +615,16 @@ class TestStaffAppointmentRequests:
                 requested_date=date.today() + timedelta(days=7),
                 reason="Test request",
                 status="pending",
-                priority="normal"
+                priority="normal",
             )
             db.session.add(req)
             db.session.commit()
             request_id = req.id
 
-        response = authenticated_staff.put(f"/api/appointment-requests/{request_id}/review", json={
-            "status": "rejected",
-            "rejection_reason": "No availability"
-        })
+        response = authenticated_staff.put(
+            f"/api/appointment-requests/{request_id}/review",
+            json={"status": "rejected", "rejection_reason": "No availability"},
+        )
 
         assert response.status_code == 200
         data = response.get_json()

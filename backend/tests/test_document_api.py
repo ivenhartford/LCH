@@ -35,10 +35,7 @@ def sample_client(authenticated_client):
     """Create a sample client for testing"""
     with authenticated_client.application.app_context():
         owner = Client(
-            first_name="John",
-            last_name="Doe",
-            phone_primary="555-1234",
-            email="john@example.com"
+            first_name="John", last_name="Doe", phone_primary="555-1234", email="john@example.com"
         )
         db.session.add(owner)
         db.session.commit()
@@ -87,7 +84,7 @@ def sample_documents(authenticated_client, sample_patient, sample_client):
         user = User.query.filter_by(username="testuser").first()
 
         # Create upload folder if it doesn't exist
-        upload_folder = authenticated_client.application.config['UPLOAD_FOLDER']
+        upload_folder = authenticated_client.application.config["UPLOAD_FOLDER"]
         os.makedirs(upload_folder, exist_ok=True)
 
         documents = [
@@ -128,8 +125,8 @@ def sample_documents(authenticated_client, sample_patient, sample_client):
 
         # Create dummy files
         for doc in documents:
-            with open(doc.file_path, 'wb') as f:
-                f.write(b'test content')
+            with open(doc.file_path, "wb") as f:
+                f.write(b"test content")
             db.session.add(doc)
 
         db.session.commit()
@@ -145,8 +142,8 @@ class TestDocumentUpload:
         WHEN POST /api/documents is called
         THEN it should return 401 Unauthorized
         """
-        data = {'file': (io.BytesIO(b'test content'), 'test.pdf')}
-        response = client.post("/api/documents", data=data, content_type='multipart/form-data')
+        data = {"file": (io.BytesIO(b"test content"), "test.pdf")}
+        response = client.post("/api/documents", data=data, content_type="multipart/form-data")
         assert response.status_code == 401
 
     def test_upload_document_without_file(self, authenticated_client):
@@ -166,13 +163,11 @@ class TestDocumentUpload:
         THEN it should return 400 Bad Request
         """
         data = {
-            'file': (io.BytesIO(b'test content'), 'test.pdf'),
-            'category': 'general',
+            "file": (io.BytesIO(b"test content"), "test.pdf"),
+            "category": "general",
         }
         response = authenticated_client.post(
-            "/api/documents",
-            data=data,
-            content_type='multipart/form-data'
+            "/api/documents", data=data, content_type="multipart/form-data"
         )
         assert response.status_code == 400
         assert b"linked to a patient, visit, or client" in response.data
@@ -184,24 +179,22 @@ class TestDocumentUpload:
         THEN it should create document and return 201
         """
         data = {
-            'file': (io.BytesIO(b'test content'), 'test_document.pdf'),
-            'category': 'medical_record',
-            'patient_id': sample_patient,
-            'description': 'Test medical record',
-            'tags': 'test,medical',
+            "file": (io.BytesIO(b"test content"), "test_document.pdf"),
+            "category": "medical_record",
+            "patient_id": sample_patient,
+            "description": "Test medical record",
+            "tags": "test,medical",
         }
         response = authenticated_client.post(
-            "/api/documents",
-            data=data,
-            content_type='multipart/form-data'
+            "/api/documents", data=data, content_type="multipart/form-data"
         )
         assert response.status_code == 201
         data = response.json
-        assert data['original_filename'] == 'test_document.pdf'
-        assert data['category'] == 'medical_record'
-        assert data['patient_id'] == sample_patient
-        assert 'test' in data['tags']
-        assert 'medical' in data['tags']
+        assert data["original_filename"] == "test_document.pdf"
+        assert data["category"] == "medical_record"
+        assert data["patient_id"] == sample_patient
+        assert "test" in data["tags"]
+        assert "medical" in data["tags"]
 
     def test_upload_consent_form(self, authenticated_client, sample_client):
         """
@@ -210,23 +203,21 @@ class TestDocumentUpload:
         THEN it should create consent form document
         """
         data = {
-            'file': (io.BytesIO(b'consent content'), 'consent.pdf'),
-            'category': 'consent_form',
-            'client_id': sample_client,
-            'is_consent_form': 'true',
-            'consent_type': 'Anesthesia',
-            'signed_date': '2025-01-01T00:00:00',
+            "file": (io.BytesIO(b"consent content"), "consent.pdf"),
+            "category": "consent_form",
+            "client_id": sample_client,
+            "is_consent_form": "true",
+            "consent_type": "Anesthesia",
+            "signed_date": "2025-01-01T00:00:00",
         }
         response = authenticated_client.post(
-            "/api/documents",
-            data=data,
-            content_type='multipart/form-data'
+            "/api/documents", data=data, content_type="multipart/form-data"
         )
         assert response.status_code == 201
         data = response.json
-        assert data['is_consent_form'] == True
-        assert data['consent_type'] == 'Anesthesia'
-        assert data['client_id'] == sample_client
+        assert data["is_consent_form"] == True
+        assert data["consent_type"] == "Anesthesia"
+        assert data["client_id"] == sample_client
 
 
 class TestDocumentList:
@@ -277,7 +268,9 @@ class TestDocumentList:
         assert len(data["documents"]) == 1
         assert data["documents"][0]["category"] == "medical_record"
 
-    def test_get_documents_filter_by_patient(self, authenticated_client, sample_documents, sample_patient):
+    def test_get_documents_filter_by_patient(
+        self, authenticated_client, sample_documents, sample_patient
+    ):
         """
         GIVEN documents linked to different patients
         WHEN GET /api/documents?patient_id=X is called
@@ -391,8 +384,7 @@ class TestDocumentUpdate:
         THEN it should return 401 Unauthorized
         """
         response = client.put(
-            f"/api/documents/{sample_documents[0]}",
-            json={"category": "lab_result"}
+            f"/api/documents/{sample_documents[0]}", json={"category": "lab_result"}
         )
         assert response.status_code == 401
 
@@ -402,10 +394,7 @@ class TestDocumentUpdate:
         WHEN PUT /api/documents/<id> is called
         THEN it should return 404 Not Found
         """
-        response = authenticated_client.put(
-            "/api/documents/9999",
-            json={"category": "lab_result"}
-        )
+        response = authenticated_client.put("/api/documents/9999", json={"category": "lab_result"})
         assert response.status_code == 404
 
     def test_update_document_success(self, authenticated_client, sample_documents):
@@ -418,11 +407,10 @@ class TestDocumentUpdate:
             "category": "lab_result",
             "description": "Updated description",
             "tags": ["new", "tags"],
-            "notes": "Some notes"
+            "notes": "Some notes",
         }
         response = authenticated_client.put(
-            f"/api/documents/{sample_documents[0]}",
-            json=update_data
+            f"/api/documents/{sample_documents[0]}", json=update_data
         )
         assert response.status_code == 200
         data = response.json
@@ -506,14 +494,12 @@ class TestDocumentValidation:
         THEN it should return 400 Bad Request
         """
         data = {
-            'file': (io.BytesIO(b'test content'), 'test.exe'),
-            'category': 'general',
-            'patient_id': sample_patient,
+            "file": (io.BytesIO(b"test content"), "test.exe"),
+            "category": "general",
+            "patient_id": sample_patient,
         }
         response = authenticated_client.post(
-            "/api/documents",
-            data=data,
-            content_type='multipart/form-data'
+            "/api/documents", data=data, content_type="multipart/form-data"
         )
         assert response.status_code == 400
         assert b"File type not allowed" in response.data
@@ -525,14 +511,12 @@ class TestDocumentValidation:
         THEN it should return 400 Bad Request
         """
         data = {
-            'file': (io.BytesIO(b'test content'), ''),
-            'category': 'general',
-            'patient_id': sample_patient,
+            "file": (io.BytesIO(b"test content"), ""),
+            "category": "general",
+            "patient_id": sample_patient,
         }
         response = authenticated_client.post(
-            "/api/documents",
-            data=data,
-            content_type='multipart/form-data'
+            "/api/documents", data=data, content_type="multipart/form-data"
         )
         assert response.status_code == 400
         assert b"No file selected" in response.data

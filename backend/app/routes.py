@@ -4,14 +4,42 @@ from io import BytesIO
 from werkzeug.utils import secure_filename
 from flask import jsonify, send_from_directory, send_file, request, Blueprint
 from flask import current_app as app
-from .pdf_generator import VaccinationCertificateGenerator, HealthCertificateGenerator, MedicalRecordSummaryGenerator
+from .pdf_generator import (
+    VaccinationCertificateGenerator,
+    HealthCertificateGenerator,
+    MedicalRecordSummaryGenerator,
+)
 from .models import (
-    db, User, Patient, Pet, Appointment, AppointmentType, Client,
-    Visit, VitalSigns, SOAPNote, Diagnosis, Vaccination,
-    Medication, Prescription, Service, Invoice, InvoiceItem, Payment,
-    Vendor, Product, PurchaseOrder, PurchaseOrderItem, InventoryTransaction,
-    ClientPortalUser, AppointmentRequest, Document,
-    Protocol, ProtocolStep, TreatmentPlan, TreatmentPlanStep
+    db,
+    User,
+    Patient,
+    Pet,
+    Appointment,
+    AppointmentType,
+    Client,
+    Visit,
+    VitalSigns,
+    SOAPNote,
+    Diagnosis,
+    Vaccination,
+    Medication,
+    Prescription,
+    Service,
+    Invoice,
+    InvoiceItem,
+    Payment,
+    Vendor,
+    Product,
+    PurchaseOrder,
+    PurchaseOrderItem,
+    InventoryTransaction,
+    ClientPortalUser,
+    AppointmentRequest,
+    Document,
+    Protocol,
+    ProtocolStep,
+    TreatmentPlan,
+    TreatmentPlanStep,
 )
 from .schemas import (
     client_schema,
@@ -68,7 +96,7 @@ from .audit_logger import (
     log_audit_event,
     log_business_operation,
     log_performance_decorator,
-    get_changed_fields
+    get_changed_fields,
 )
 
 bp = Blueprint("main", __name__)
@@ -90,18 +118,24 @@ def health_check():
     try:
         # Check database connection
         db.session.execute("SELECT 1")
-        return jsonify({
-            "status": "healthy",
-            "service": "Lenox Cat Hospital API",
-            "database": "connected"
-        }), 200
+        return (
+            jsonify(
+                {"status": "healthy", "service": "Lenox Cat Hospital API", "database": "connected"}
+            ),
+            200,
+        )
     except Exception as e:
-        return jsonify({
-            "status": "unhealthy",
-            "service": "Lenox Cat Hospital API",
-            "database": "disconnected",
-            "error": str(e)
-        }), 503
+        return (
+            jsonify(
+                {
+                    "status": "unhealthy",
+                    "service": "Lenox Cat Hospital API",
+                    "database": "disconnected",
+                    "error": str(e),
+                }
+            ),
+            503,
+        )
 
 
 @bp.route("/api/register", methods=["POST"])
@@ -138,7 +172,9 @@ def login():
     if not user:
         # Track failed login for unknown user
         security_monitor.track_failed_login(ip_address, username)
-        app.logger.warning(f"Failed login attempt for unknown username: {username} from {ip_address}")
+        app.logger.warning(
+            f"Failed login attempt for unknown username: {username} from {ip_address}"
+        )
         return jsonify({"message": "Invalid credentials"}), 401
 
     # Check if account is locked
@@ -180,11 +216,19 @@ def login():
             app.logger.warning(
                 f"Account locked for user {username} after {user.failed_login_attempts} failed attempts from {ip_address}"
             )
-            return jsonify({"error": "Account locked due to multiple failed login attempts. Try again in 15 minutes."}), 403
+            return (
+                jsonify(
+                    {
+                        "error": "Account locked due to multiple failed login attempts. Try again in 15 minutes."
+                    }
+                ),
+                403,
+            )
 
         db.session.commit()
         app.logger.warning(
-            f"Failed login attempt for username: {username} from {ip_address}. " f"Attempts: {user.failed_login_attempts}/5"
+            f"Failed login attempt for username: {username} from {ip_address}. "
+            f"Attempts: {user.failed_login_attempts}/5"
         )
         return jsonify({"message": "Invalid credentials"}), 401
 
@@ -192,7 +236,9 @@ def login():
 @bp.route("/api/check_session")
 def check_session():
     if current_user.is_authenticated:
-        return jsonify({"id": current_user.id, "username": current_user.username, "role": current_user.role})
+        return jsonify(
+            {"id": current_user.id, "username": current_user.username, "role": current_user.role}
+        )
     return jsonify({}), 401
 
 
@@ -205,11 +251,7 @@ def logout():
     ip_address = security_monitor.get_client_ip()
 
     # Track logout event
-    security_monitor.track_logout(
-        current_user.username,
-        current_user.id,
-        ip_address
-    )
+    security_monitor.track_logout(current_user.username, current_user.id, ip_address)
 
     logout_user()
     return jsonify({"message": "Logged out successfully"})
@@ -219,7 +261,9 @@ def logout():
 @admin_required
 def get_users():
     users = User.query.all()
-    return jsonify([{"id": user.id, "username": user.username, "role": user.role} for user in users])
+    return jsonify(
+        [{"id": user.id, "username": user.username, "role": user.role} for user in users]
+    )
 
 
 @bp.route("/api/users/<int:user_id>", methods=["GET"])
@@ -309,21 +353,26 @@ def get_appointments():
             query = query.filter(Appointment.end_time <= datetime.fromisoformat(end_date))
 
         # Paginate
-        pagination = query.order_by(Appointment.start_time).paginate(page=page, per_page=per_page, error_out=False)
+        pagination = query.order_by(Appointment.start_time).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
 
-        return jsonify(
-            {
-                "appointments": [apt.to_dict() for apt in pagination.items],
-                "pagination": {
-                    "page": pagination.page,
-                    "per_page": pagination.per_page,
-                    "total": pagination.total,
-                    "pages": pagination.pages,
-                    "has_next": pagination.has_next,
-                    "has_prev": pagination.has_prev,
-                },
-            }
-        ), 200
+        return (
+            jsonify(
+                {
+                    "appointments": [apt.to_dict() for apt in pagination.items],
+                    "pagination": {
+                        "page": pagination.page,
+                        "per_page": pagination.per_page,
+                        "total": pagination.total,
+                        "pages": pagination.pages,
+                        "has_next": pagination.has_next,
+                        "has_prev": pagination.has_prev,
+                    },
+                }
+            ),
+            200,
+        )
 
     except Exception as e:
         app.logger.error(f"Error fetching appointments: {str(e)}", exc_info=True)
@@ -384,17 +433,19 @@ def create_appointment():
 
         # Audit log: Appointment created
         log_audit_event(
-            action='create',
-            entity_type='appointment',
+            action="create",
+            entity_type="appointment",
             entity_id=appointment.id,
             entity_data={
-                'title': appointment.title,
-                'client_id': appointment.client_id,
-                'patient_id': appointment.patient_id,
-                'start_time': appointment.start_time.isoformat() if appointment.start_time else None,
-                'status': appointment.status,
-                'appointment_type_id': appointment.appointment_type_id
-            }
+                "title": appointment.title,
+                "client_id": appointment.client_id,
+                "patient_id": appointment.patient_id,
+                "start_time": (
+                    appointment.start_time.isoformat() if appointment.start_time else None
+                ),
+                "status": appointment.status,
+                "appointment_type_id": appointment.appointment_type_id,
+            },
         )
 
         app.logger.info(f"Created appointment {appointment.id}")
@@ -461,24 +512,24 @@ def update_appointment(appointment_id):
         changed_old, changed_new = get_changed_fields(old_values, new_values)
         if changed_old:
             log_audit_event(
-                action='update',
-                entity_type='appointment',
+                action="update",
+                entity_type="appointment",
                 entity_id=appointment_id,
                 old_values=changed_old,
-                new_values=changed_new
+                new_values=changed_new,
             )
 
         # Business operation log: Status change
         if "status" in validated_data and old_status != validated_data["status"]:
             log_business_operation(
-                operation='appointment_status_change',
-                entity_type='appointment',
+                operation="appointment_status_change",
+                entity_type="appointment",
                 entity_id=appointment_id,
                 details={
-                    'old_status': old_status,
-                    'new_status': validated_data["status"],
-                    'changed_by': current_user.username
-                }
+                    "old_status": old_status,
+                    "new_status": validated_data["status"],
+                    "changed_by": current_user.username,
+                },
             )
 
         app.logger.info(f"Updated appointment {appointment_id}")
@@ -505,11 +556,11 @@ def delete_appointment(appointment_id):
 
         # Capture appointment data for audit trail
         appointment_data = {
-            'title': appointment.title,
-            'client_id': appointment.client_id,
-            'patient_id': appointment.patient_id,
-            'start_time': appointment.start_time.isoformat() if appointment.start_time else None,
-            'status': appointment.status
+            "title": appointment.title,
+            "client_id": appointment.client_id,
+            "patient_id": appointment.patient_id,
+            "start_time": appointment.start_time.isoformat() if appointment.start_time else None,
+            "status": appointment.status,
         }
 
         db.session.delete(appointment)
@@ -517,16 +568,16 @@ def delete_appointment(appointment_id):
 
         # Audit log: Appointment deleted
         log_audit_event(
-            action='delete',
-            entity_type='appointment',
+            action="delete",
+            entity_type="appointment",
             entity_id=appointment_id,
-            entity_data=appointment_data
+            entity_data=appointment_data,
         )
         log_business_operation(
-            operation='appointment_deleted',
-            entity_type='appointment',
+            operation="appointment_deleted",
+            entity_type="appointment",
             entity_id=appointment_id,
-            details={'deleted_by': current_user.username, 'title': appointment_data['title']}
+            details={"deleted_by": current_user.username, "title": appointment_data["title"]},
         )
 
         app.logger.info(f"Deleted appointment {appointment_id}")
@@ -721,7 +772,9 @@ def get_clients():
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
         clients = pagination.items
 
-        app.logger.info(f"Found {pagination.total} clients, returning page {page} of {pagination.pages}")
+        app.logger.info(
+            f"Found {pagination.total} clients, returning page {page} of {pagination.pages}"
+        )
 
         # Serialize clients
         result = clients_schema.dump(clients)
@@ -795,7 +848,9 @@ def create_client():
         if validated_data.get("email"):
             existing = Client.query.filter_by(email=validated_data["email"]).first()
             if existing:
-                app.logger.warning(f"Attempted to create client with duplicate email: {validated_data['email']}")
+                app.logger.warning(
+                    f"Attempted to create client with duplicate email: {validated_data['email']}"
+                )
                 return jsonify({"error": "Email already exists"}), 409
 
         # Create new client
@@ -803,19 +858,21 @@ def create_client():
         db.session.add(new_client)
         db.session.commit()
 
-        app.logger.info(f"Created client {new_client.id}: {new_client.first_name} {new_client.last_name}")
+        app.logger.info(
+            f"Created client {new_client.id}: {new_client.first_name} {new_client.last_name}"
+        )
 
         # Audit log: Client created
         log_audit_event(
-            action='create',
-            entity_type='client',
+            action="create",
+            entity_type="client",
             entity_id=new_client.id,
             entity_data={
-                'first_name': new_client.first_name,
-                'last_name': new_client.last_name,
-                'email': new_client.email,
-                'phone_primary': new_client.phone_primary
-            }
+                "first_name": new_client.first_name,
+                "last_name": new_client.last_name,
+                "email": new_client.email,
+                "phone_primary": new_client.phone_primary,
+            },
         )
 
         result = client_schema.dump(new_client)
@@ -881,11 +938,11 @@ def update_client(client_id):
         changed_old, changed_new = get_changed_fields(old_values, new_values)
         if changed_old:  # Only log if there were actual changes
             log_audit_event(
-                action='update',
-                entity_type='client',
+                action="update",
+                entity_type="client",
                 entity_id=client_id,
                 old_values=changed_old,
-                new_values=changed_new
+                new_values=changed_new,
             )
 
         result = client_schema.dump(client)
@@ -915,16 +972,18 @@ def delete_client(client_id):
     try:
         hard_delete = request.args.get("hard", "false").lower() == "true"
 
-        app.logger.info(f"DELETE /api/clients/{client_id} - User: {current_user.username}, Hard: {hard_delete}")
+        app.logger.info(
+            f"DELETE /api/clients/{client_id} - User: {current_user.username}, Hard: {hard_delete}"
+        )
 
         client = Client.query.get_or_404(client_id)
 
         # Capture client data for audit trail
         client_data = {
-            'first_name': client.first_name,
-            'last_name': client.last_name,
-            'email': client.email,
-            'phone_primary': client.phone_primary
+            "first_name": client.first_name,
+            "last_name": client.last_name,
+            "email": client.email,
+            "phone_primary": client.phone_primary,
         }
 
         if hard_delete:
@@ -937,20 +996,19 @@ def delete_client(client_id):
 
             db.session.delete(client)
             db.session.commit()
-            app.logger.info(f"Hard deleted client {client_id}: {client.first_name} {client.last_name}")
+            app.logger.info(
+                f"Hard deleted client {client_id}: {client.first_name} {client.last_name}"
+            )
 
             # Audit log: Hard delete
             log_audit_event(
-                action='delete',
-                entity_type='client',
-                entity_id=client_id,
-                entity_data=client_data
+                action="delete", entity_type="client", entity_id=client_id, entity_data=client_data
             )
             log_business_operation(
-                operation='client_hard_delete',
-                entity_type='client',
+                operation="client_hard_delete",
+                entity_type="client",
                 entity_id=client_id,
-                details={'admin': current_user.username}
+                details={"admin": current_user.username},
             )
 
             return jsonify({"message": "Client permanently deleted"}), 200
@@ -958,14 +1016,16 @@ def delete_client(client_id):
             # Soft delete
             client.is_active = False
             db.session.commit()
-            app.logger.info(f"Soft deleted (deactivated) client {client_id}: {client.first_name} {client.last_name}")
+            app.logger.info(
+                f"Soft deleted (deactivated) client {client_id}: {client.first_name} {client.last_name}"
+            )
 
             # Audit log: Soft delete
             log_business_operation(
-                operation='client_deactivated',
-                entity_type='client',
+                operation="client_deactivated",
+                entity_type="client",
                 entity_id=client_id,
-                details={'deactivated_by': current_user.username}
+                details={"deactivated_by": current_user.username},
             )
 
             return jsonify({"message": "Client deactivated"}), 200
@@ -1043,7 +1103,9 @@ def get_patients():
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
         patients = pagination.items
 
-        app.logger.info(f"Found {pagination.total} patients, returning page {page} of {pagination.pages}")
+        app.logger.info(
+            f"Found {pagination.total} patients, returning page {page} of {pagination.pages}"
+        )
 
         # Serialize patients
         result = patients_schema.dump(patients)
@@ -1102,7 +1164,9 @@ def create_patient():
     try:
         data = request.get_json()
 
-        app.logger.info(f"POST /api/patients - User: {current_user.username}, Data: {data.get('name')}")
+        app.logger.info(
+            f"POST /api/patients - User: {current_user.username}, Data: {data.get('name')}"
+        )
 
         # Validate request data
         try:
@@ -1114,12 +1178,16 @@ def create_patient():
         # Verify owner exists
         owner = Client.query.get(validated_data["owner_id"])
         if not owner:
-            app.logger.warning(f"Attempted to create patient with non-existent owner_id: {validated_data['owner_id']}")
+            app.logger.warning(
+                f"Attempted to create patient with non-existent owner_id: {validated_data['owner_id']}"
+            )
             return jsonify({"error": "Owner (client) not found"}), 404
 
         # Check for duplicate microchip if provided
         if validated_data.get("microchip_number"):
-            existing = Patient.query.filter_by(microchip_number=validated_data["microchip_number"]).first()
+            existing = Patient.query.filter_by(
+                microchip_number=validated_data["microchip_number"]
+            ).first()
             if existing:
                 app.logger.warning(
                     f"Attempted to create patient with duplicate microchip: {validated_data['microchip_number']}"
@@ -1137,16 +1205,16 @@ def create_patient():
 
         # Audit log: Patient created
         log_audit_event(
-            action='create',
-            entity_type='patient',
+            action="create",
+            entity_type="patient",
             entity_id=new_patient.id,
             entity_data={
-                'name': new_patient.name,
-                'species': new_patient.species,
-                'breed': new_patient.breed,
-                'owner_id': new_patient.owner_id,
-                'microchip_number': new_patient.microchip_number
-            }
+                "name": new_patient.name,
+                "species": new_patient.species,
+                "breed": new_patient.breed,
+                "owner_id": new_patient.owner_id,
+                "microchip_number": new_patient.microchip_number,
+            },
         )
 
         result = patient_schema.dump(new_patient)
@@ -1191,7 +1259,9 @@ def update_patient(patient_id):
         # Check for duplicate microchip if microchip is being changed
         if "microchip_number" in validated_data and validated_data["microchip_number"]:
             if validated_data["microchip_number"] != patient.microchip_number:
-                existing = Patient.query.filter_by(microchip_number=validated_data["microchip_number"]).first()
+                existing = Patient.query.filter_by(
+                    microchip_number=validated_data["microchip_number"]
+                ).first()
                 if existing:
                     app.logger.warning(
                         f"Attempted to update patient {patient_id} with duplicate "
@@ -1220,11 +1290,11 @@ def update_patient(patient_id):
         changed_old, changed_new = get_changed_fields(old_values, new_values)
         if changed_old:
             log_audit_event(
-                action='update',
-                entity_type='patient',
+                action="update",
+                entity_type="patient",
                 entity_id=patient_id,
                 old_values=changed_old,
-                new_values=changed_new
+                new_values=changed_new,
             )
 
         app.logger.info(f"Updated patient {patient_id}: {patient.name}")
@@ -1257,18 +1327,20 @@ def delete_patient(patient_id):
     try:
         hard_delete = request.args.get("hard", "false").lower() == "true"
 
-        app.logger.info(f"DELETE /api/patients/{patient_id} - User: {current_user.username}, Hard: {hard_delete}")
+        app.logger.info(
+            f"DELETE /api/patients/{patient_id} - User: {current_user.username}, Hard: {hard_delete}"
+        )
 
         patient = Patient.query.get_or_404(patient_id)
 
         # Capture patient data for audit trail
         patient_data = {
-            'name': patient.name,
-            'species': patient.species,
-            'breed': patient.breed,
-            'owner_id': patient.owner_id,
-            'microchip_number': patient.microchip_number,
-            'status': patient.status
+            "name": patient.name,
+            "species": patient.species,
+            "breed": patient.breed,
+            "owner_id": patient.owner_id,
+            "microchip_number": patient.microchip_number,
+            "status": patient.status,
         }
 
         if hard_delete:
@@ -1284,16 +1356,16 @@ def delete_patient(patient_id):
 
             # Audit log: Patient hard deleted
             log_audit_event(
-                action='delete',
-                entity_type='patient',
+                action="delete",
+                entity_type="patient",
                 entity_id=patient_id,
-                entity_data=patient_data
+                entity_data=patient_data,
             )
             log_business_operation(
-                operation='patient_hard_delete',
-                entity_type='patient',
+                operation="patient_hard_delete",
+                entity_type="patient",
                 entity_id=patient_id,
-                details={'deleted_by': current_user.username, 'patient_name': patient_data['name']}
+                details={"deleted_by": current_user.username, "patient_name": patient_data["name"]},
             )
 
             app.logger.info(f"Hard deleted patient {patient_id}: {patient_data['name']}")
@@ -1305,14 +1377,14 @@ def delete_patient(patient_id):
 
             # Business operation log: Patient deactivated
             log_business_operation(
-                operation='patient_deactivated',
-                entity_type='patient',
+                operation="patient_deactivated",
+                entity_type="patient",
                 entity_id=patient_id,
                 details={
-                    'deactivated_by': current_user.username,
-                    'patient_name': patient.name,
-                    'previous_status': patient_data['status']
-                }
+                    "deactivated_by": current_user.username,
+                    "patient_name": patient.name,
+                    "previous_status": patient_data["status"],
+                },
             )
 
             app.logger.info(f"Soft deleted (deactivated) patient {patient_id}: {patient.name}")
@@ -1449,17 +1521,17 @@ def create_visit():
 
         # Audit log: Visit created (HIPAA-sensitive medical record)
         log_audit_event(
-            action='create',
-            entity_type='visit',
+            action="create",
+            entity_type="visit",
             entity_id=visit.id,
             entity_data={
-                'patient_id': visit.patient_id,
-                'visit_type': visit.visit_type,
-                'visit_date': visit.visit_date.isoformat() if visit.visit_date else None,
-                'veterinarian_id': visit.veterinarian_id,
-                'appointment_id': visit.appointment_id,
-                'status': visit.status
-            }
+                "patient_id": visit.patient_id,
+                "visit_type": visit.visit_type,
+                "visit_date": visit.visit_date.isoformat() if visit.visit_date else None,
+                "veterinarian_id": visit.veterinarian_id,
+                "appointment_id": visit.appointment_id,
+                "status": visit.status,
+            },
         )
 
         app.logger.info(f"Created visit {visit.id} for patient {patient.name}")
@@ -1519,25 +1591,25 @@ def update_visit(visit_id):
         changed_old, changed_new = get_changed_fields(old_values, new_values)
         if changed_old:
             log_audit_event(
-                action='update',
-                entity_type='visit',
+                action="update",
+                entity_type="visit",
                 entity_id=visit_id,
                 old_values=changed_old,
-                new_values=changed_new
+                new_values=changed_new,
             )
 
         # Business operation log: Status change
         if "status" in validated_data and old_status != validated_data["status"]:
             log_business_operation(
-                operation='visit_status_change',
-                entity_type='visit',
+                operation="visit_status_change",
+                entity_type="visit",
                 entity_id=visit_id,
                 details={
-                    'old_status': old_status,
-                    'new_status': validated_data["status"],
-                    'patient_id': visit.patient_id,
-                    'changed_by': current_user.username
-                }
+                    "old_status": old_status,
+                    "new_status": validated_data["status"],
+                    "patient_id": visit.patient_id,
+                    "changed_by": current_user.username,
+                },
             )
 
         app.logger.info(f"Updated visit {visit_id}")
@@ -1565,12 +1637,12 @@ def delete_visit(visit_id):
 
         # Capture visit data for audit trail (HIPAA-sensitive)
         visit_data = {
-            'patient_id': visit.patient_id,
-            'visit_type': visit.visit_type,
-            'visit_date': visit.visit_date.isoformat() if visit.visit_date else None,
-            'veterinarian_id': visit.veterinarian_id,
-            'appointment_id': visit.appointment_id,
-            'status': visit.status
+            "patient_id": visit.patient_id,
+            "visit_type": visit.visit_type,
+            "visit_date": visit.visit_date.isoformat() if visit.visit_date else None,
+            "veterinarian_id": visit.veterinarian_id,
+            "appointment_id": visit.appointment_id,
+            "status": visit.status,
         }
 
         db.session.delete(visit)
@@ -1578,20 +1650,17 @@ def delete_visit(visit_id):
 
         # Audit log: Visit deleted (HIPAA-sensitive medical record)
         log_audit_event(
-            action='delete',
-            entity_type='visit',
-            entity_id=visit_id,
-            entity_data=visit_data
+            action="delete", entity_type="visit", entity_id=visit_id, entity_data=visit_data
         )
         log_business_operation(
-            operation='visit_deleted',
-            entity_type='visit',
+            operation="visit_deleted",
+            entity_type="visit",
             entity_id=visit_id,
             details={
-                'deleted_by': current_user.username,
-                'patient_id': visit_data['patient_id'],
-                'visit_type': visit_data['visit_type']
-            }
+                "deleted_by": current_user.username,
+                "patient_id": visit_data["patient_id"],
+                "visit_type": visit_data["visit_type"],
+            },
         )
 
         app.logger.info(f"Deleted visit {visit_id}")
@@ -2209,7 +2278,12 @@ def get_medications():
             query = query.filter(Medication.drug_name.ilike(search_term))
 
         medications = query.order_by(Medication.drug_name).all()
-        return jsonify({"medications": [med.to_dict() for med in medications], "total": len(medications)}), 200
+        return (
+            jsonify(
+                {"medications": [med.to_dict() for med in medications], "total": len(medications)}
+            ),
+            200,
+        )
 
     except Exception as e:
         app.logger.error(f"Error fetching medications: {str(e)}", exc_info=True)
@@ -2322,7 +2396,11 @@ def delete_medication(medication_id):
         # Check if medication has prescriptions
         if medication.prescriptions:
             return (
-                jsonify({"error": "Cannot delete medication with existing prescriptions. Set to inactive instead."}),
+                jsonify(
+                    {
+                        "error": "Cannot delete medication with existing prescriptions. Set to inactive instead."
+                    }
+                ),
                 400,
             )
 
@@ -2368,7 +2446,15 @@ def get_prescriptions():
             query = query.filter_by(status=status)
 
         prescriptions = query.order_by(Prescription.created_at.desc()).all()
-        return jsonify({"prescriptions": [rx.to_dict() for rx in prescriptions], "total": len(prescriptions)}), 200
+        return (
+            jsonify(
+                {
+                    "prescriptions": [rx.to_dict() for rx in prescriptions],
+                    "total": len(prescriptions),
+                }
+            ),
+            200,
+        )
 
     except Exception as e:
         app.logger.error(f"Error fetching prescriptions: {str(e)}", exc_info=True)
@@ -2468,7 +2554,11 @@ def update_prescription(prescription_id):
         validated_data = prescription_schema.load(data, partial=True)
 
         for key, value in validated_data.items():
-            if hasattr(prescription, key) and key not in ["patient_id", "medication_id", "prescribed_by_id"]:
+            if hasattr(prescription, key) and key not in [
+                "patient_id",
+                "medication_id",
+                "prescribed_by_id",
+            ]:
                 setattr(prescription, key, value)
 
         db.session.commit()
@@ -2789,27 +2879,27 @@ def create_invoice():
 
         # Audit log: Invoice created
         log_audit_event(
-            action='create',
-            entity_type='invoice',
+            action="create",
+            entity_type="invoice",
             entity_id=invoice.id,
             entity_data={
-                'invoice_number': invoice.invoice_number,
-                'client_id': invoice.client_id,
-                'patient_id': invoice.patient_id,
-                'total_amount': float(invoice.total_amount),
-                'status': invoice.status,
-                'item_count': len(items_data)
-            }
+                "invoice_number": invoice.invoice_number,
+                "client_id": invoice.client_id,
+                "patient_id": invoice.patient_id,
+                "total_amount": float(invoice.total_amount),
+                "status": invoice.status,
+                "item_count": len(items_data),
+            },
         )
         log_business_operation(
-            operation='invoice_generated',
-            entity_type='invoice',
+            operation="invoice_generated",
+            entity_type="invoice",
             entity_id=invoice.id,
             details={
-                'invoice_number': invoice.invoice_number,
-                'total_amount': float(invoice.total_amount),
-                'created_by': current_user.username
-            }
+                "invoice_number": invoice.invoice_number,
+                "total_amount": float(invoice.total_amount),
+                "created_by": current_user.username,
+            },
         )
 
         # Return invoice with items
@@ -2856,7 +2946,15 @@ def update_invoice(invoice_id):
 
         # Update basic fields
         new_values = {}
-        for key in ["patient_id", "visit_id", "invoice_date", "due_date", "status", "notes", "discount_amount"]:
+        for key in [
+            "patient_id",
+            "visit_id",
+            "invoice_date",
+            "due_date",
+            "status",
+            "notes",
+            "discount_amount",
+        ]:
             if key in validated_data:
                 setattr(invoice, key, validated_data[key])
                 value = validated_data[key]
@@ -2911,25 +3009,25 @@ def update_invoice(invoice_id):
         changed_old, changed_new = get_changed_fields(old_values, new_values)
         if changed_old:
             log_audit_event(
-                action='update',
-                entity_type='invoice',
+                action="update",
+                entity_type="invoice",
                 entity_id=invoice_id,
                 old_values=changed_old,
-                new_values=changed_new
+                new_values=changed_new,
             )
 
         # Business operation log: Status change
         if "status" in validated_data and old_status != validated_data["status"]:
             log_business_operation(
-                operation='invoice_status_change',
-                entity_type='invoice',
+                operation="invoice_status_change",
+                entity_type="invoice",
                 entity_id=invoice_id,
                 details={
-                    'old_status': old_status,
-                    'new_status': validated_data["status"],
-                    'invoice_number': invoice.invoice_number,
-                    'changed_by': current_user.username
-                }
+                    "old_status": old_status,
+                    "new_status": validated_data["status"],
+                    "invoice_number": invoice.invoice_number,
+                    "changed_by": current_user.username,
+                },
             )
 
         # Return invoice with items
@@ -2960,12 +3058,20 @@ def delete_invoice(invoice_id):
 
         # Capture invoice data for audit trail
         invoice_data = {
-            'invoice_number': invoice.invoice_number,
-            'client_id': invoice.client_id,
-            'patient_id': invoice.patient_id,
-            'total_amount': float(invoice.total_amount) if isinstance(invoice.total_amount, Decimal) else invoice.total_amount,
-            'status': invoice.status,
-            'amount_paid': float(invoice.amount_paid) if isinstance(invoice.amount_paid, Decimal) else invoice.amount_paid
+            "invoice_number": invoice.invoice_number,
+            "client_id": invoice.client_id,
+            "patient_id": invoice.patient_id,
+            "total_amount": (
+                float(invoice.total_amount)
+                if isinstance(invoice.total_amount, Decimal)
+                else invoice.total_amount
+            ),
+            "status": invoice.status,
+            "amount_paid": (
+                float(invoice.amount_paid)
+                if isinstance(invoice.amount_paid, Decimal)
+                else invoice.amount_paid
+            ),
         }
 
         db.session.delete(invoice)
@@ -2973,20 +3079,17 @@ def delete_invoice(invoice_id):
 
         # Audit log: Invoice deleted
         log_audit_event(
-            action='delete',
-            entity_type='invoice',
-            entity_id=invoice_id,
-            entity_data=invoice_data
+            action="delete", entity_type="invoice", entity_id=invoice_id, entity_data=invoice_data
         )
         log_business_operation(
-            operation='invoice_deleted',
-            entity_type='invoice',
+            operation="invoice_deleted",
+            entity_type="invoice",
             entity_id=invoice_id,
             details={
-                'deleted_by': current_user.username,
-                'invoice_number': invoice_data['invoice_number'],
-                'total_amount': invoice_data['total_amount']
-            }
+                "deleted_by": current_user.username,
+                "invoice_number": invoice_data["invoice_number"],
+                "total_amount": invoice_data["total_amount"],
+            },
         )
 
         app.logger.info(f"Deleted invoice {invoice_id}")
@@ -3097,32 +3200,32 @@ def create_payment():
 
         # Audit log: Payment created
         log_audit_event(
-            action='create',
-            entity_type='payment',
+            action="create",
+            entity_type="payment",
             entity_id=payment.id,
             entity_data={
-                'invoice_id': payment.invoice_id,
-                'client_id': payment.client_id,
-                'amount': float(payment.amount),
-                'payment_method': payment.payment_method,
-                'reference_number': payment.reference_number
-            }
+                "invoice_id": payment.invoice_id,
+                "client_id": payment.client_id,
+                "amount": float(payment.amount),
+                "payment_method": payment.payment_method,
+                "reference_number": payment.reference_number,
+            },
         )
 
         # Business operation log: Payment processed
         log_business_operation(
-            operation='payment_processed',
-            entity_type='payment',
+            operation="payment_processed",
+            entity_type="payment",
             entity_id=payment.id,
             details={
-                'amount': float(payment.amount),
-                'payment_method': payment.payment_method,
-                'invoice_id': payment.invoice_id,
-                'invoice_number': invoice.invoice_number,
-                'processed_by': current_user.username,
-                'old_invoice_status': old_invoice_status,
-                'new_invoice_status': invoice.status
-            }
+                "amount": float(payment.amount),
+                "payment_method": payment.payment_method,
+                "invoice_id": payment.invoice_id,
+                "invoice_number": invoice.invoice_number,
+                "processed_by": current_user.username,
+                "old_invoice_status": old_invoice_status,
+                "new_invoice_status": invoice.status,
+            },
         )
 
         app.logger.info(f"Created payment {payment.id} for invoice {invoice.invoice_number}")
@@ -3148,12 +3251,12 @@ def delete_payment(payment_id):
 
         # Capture payment data for audit trail
         payment_data = {
-            'invoice_id': payment.invoice_id,
-            'client_id': payment.client_id,
-            'amount': float(payment.amount),
-            'payment_method': payment.payment_method,
-            'reference_number': payment.reference_number,
-            'payment_date': payment.payment_date.isoformat() if payment.payment_date else None
+            "invoice_id": payment.invoice_id,
+            "client_id": payment.client_id,
+            "amount": float(payment.amount),
+            "payment_method": payment.payment_method,
+            "reference_number": payment.reference_number,
+            "payment_date": payment.payment_date.isoformat() if payment.payment_date else None,
         }
 
         # Track old invoice status
@@ -3176,26 +3279,23 @@ def delete_payment(payment_id):
 
         # Audit log: Payment deleted (refund/reversal)
         log_audit_event(
-            action='delete',
-            entity_type='payment',
-            entity_id=payment_id,
-            entity_data=payment_data
+            action="delete", entity_type="payment", entity_id=payment_id, entity_data=payment_data
         )
 
         # Business operation log: Payment refund/reversal
         log_business_operation(
-            operation='payment_refunded',
-            entity_type='payment',
+            operation="payment_refunded",
+            entity_type="payment",
             entity_id=payment_id,
             details={
-                'amount': payment_data['amount'],
-                'payment_method': payment_data['payment_method'],
-                'invoice_id': payment_data['invoice_id'],
-                'invoice_number': invoice.invoice_number,
-                'processed_by': current_user.username,
-                'old_invoice_status': old_invoice_status,
-                'new_invoice_status': invoice.status
-            }
+                "amount": payment_data["amount"],
+                "payment_method": payment_data["payment_method"],
+                "invoice_id": payment_data["invoice_id"],
+                "invoice_number": invoice.invoice_number,
+                "processed_by": current_user.username,
+                "old_invoice_status": old_invoice_status,
+                "new_invoice_status": invoice.status,
+            },
         )
 
         app.logger.info(f"Deleted payment {payment_id}")
@@ -3246,9 +3346,9 @@ def get_financial_summary():
         ).scalar() or Decimal("0.0")
 
         # Total outstanding balance
-        total_outstanding = invoice_query.filter(Invoice.status.in_(["sent", "partial_paid", "overdue"])).with_entities(
-            func.sum(Invoice.balance_due)
-        ).scalar() or Decimal("0.0")
+        total_outstanding = invoice_query.filter(
+            Invoice.status.in_(["sent", "partial_paid", "overdue"])
+        ).with_entities(func.sum(Invoice.balance_due)).scalar() or Decimal("0.0")
 
         # Total invoices issued
         total_invoices = invoice_query.count()
@@ -3257,10 +3357,14 @@ def get_financial_summary():
         paid_invoices = invoice_query.filter(Invoice.status == "paid").count()
 
         # Total payments received
-        total_payments = payment_query.with_entities(func.sum(Payment.amount)).scalar() or Decimal("0.0")
+        total_payments = payment_query.with_entities(func.sum(Payment.amount)).scalar() or Decimal(
+            "0.0"
+        )
 
         # Average invoice amount
-        avg_invoice = invoice_query.with_entities(func.avg(Invoice.total_amount)).scalar() or Decimal("0.0")
+        avg_invoice = invoice_query.with_entities(
+            func.avg(Invoice.total_amount)
+        ).scalar() or Decimal("0.0")
 
         return (
             jsonify(
@@ -3339,7 +3443,10 @@ def get_revenue_by_period():
                 .all()
             )
 
-        data = [{"period": str(row.period), "revenue": float(row.revenue or 0), "count": row.count} for row in results]
+        data = [
+            {"period": str(row.period), "revenue": float(row.revenue or 0), "count": row.count}
+            for row in results
+        ]
 
         return jsonify({"period": period, "data": data}), 200
 
@@ -3379,7 +3486,9 @@ def get_outstanding_balance_report():
                 "client_name": row.client_name,
                 "invoice_count": row.invoice_count,
                 "total_outstanding": float(row.total_outstanding or 0),
-                "oldest_invoice_date": row.oldest_invoice_date.isoformat() if row.oldest_invoice_date else None,
+                "oldest_invoice_date": (
+                    row.oldest_invoice_date.isoformat() if row.oldest_invoice_date else None
+                ),
             }
             for row in results
         ]
@@ -3403,7 +3512,9 @@ def get_payment_method_breakdown():
         end_date = request.args.get("end_date")
 
         query = db.session.query(
-            Payment.payment_method, func.sum(Payment.amount).label("total"), func.count(Payment.id).label("count")
+            Payment.payment_method,
+            func.sum(Payment.amount).label("total"),
+            func.count(Payment.id).label("count"),
         )
 
         if start_date:
@@ -3414,10 +3525,16 @@ def get_payment_method_breakdown():
             end_dt = datetime.strptime(end_date, "%Y-%m-%d")
             query = query.filter(Payment.payment_date <= end_dt)
 
-        results = query.group_by(Payment.payment_method).order_by(func.sum(Payment.amount).desc()).all()
+        results = (
+            query.group_by(Payment.payment_method).order_by(func.sum(Payment.amount).desc()).all()
+        )
 
         data = [
-            {"payment_method": row.payment_method, "total": float(row.total or 0), "count": row.count}
+            {
+                "payment_method": row.payment_method,
+                "total": float(row.total or 0),
+                "count": row.count,
+            }
             for row in results
         ]
 
@@ -3488,6 +3605,7 @@ def get_service_revenue_report():
 # ============================================================================
 # ADVANCED ANALYTICS - Phase 4.3
 # ============================================================================
+
 
 @bp.route("/api/analytics/revenue-trends", methods=["GET"])
 @login_required
@@ -3563,7 +3681,11 @@ def get_revenue_trends():
             )
 
         data = [
-            {"period": str(row.period), "revenue": float(row.revenue or 0), "invoice_count": row.invoice_count}
+            {
+                "period": str(row.period),
+                "revenue": float(row.revenue or 0),
+                "invoice_count": row.invoice_count,
+            }
             for row in trend_data
         ]
 
@@ -3619,7 +3741,9 @@ def get_client_retention():
         total_clients_at_start = Client.query.filter(Client.created_at < start_date).count()
 
         # Calculate retention rate (returning clients / clients at start)
-        retention_rate = (returning_clients / total_clients_at_start * 100) if total_clients_at_start > 0 else 0
+        retention_rate = (
+            (returning_clients / total_clients_at_start * 100) if total_clients_at_start > 0 else 0
+        )
 
         # Calculate churn rate
         churn_rate = 100 - retention_rate
@@ -3627,7 +3751,8 @@ def get_client_retention():
         # Get monthly breakdown
         monthly_breakdown = (
             db.session.query(
-                func.strftime("%Y-%m", Client.created_at).label("month"), func.count(Client.id).label("count")
+                func.strftime("%Y-%m", Client.created_at).label("month"),
+                func.count(Client.id).label("count"),
             )
             .filter(Client.created_at.between(start_date, end_date))
             .group_by(func.strftime("%Y-%m", Client.created_at))
@@ -3635,7 +3760,9 @@ def get_client_retention():
             .all()
         )
 
-        monthly_data = [{"month": str(row.month), "new_clients": row.count} for row in monthly_breakdown]
+        monthly_data = [
+            {"month": str(row.month), "new_clients": row.count} for row in monthly_breakdown
+        ]
 
         return (
             jsonify(
@@ -3691,7 +3818,9 @@ def get_appointment_trends():
         # Appointments by type
         by_type = (
             db.session.query(
-                AppointmentType.name, AppointmentType.color, func.count(Appointment.id).label("count")
+                AppointmentType.name,
+                AppointmentType.color,
+                func.count(Appointment.id).label("count"),
             )
             .join(Appointment, Appointment.appointment_type_id == AppointmentType.id)
             .filter(Appointment.appointment_date.between(start_date, end_date))
@@ -3705,7 +3834,8 @@ def get_appointment_trends():
         # Daily appointment volume
         daily_volume = (
             db.session.query(
-                func.date(Appointment.appointment_date).label("date"), func.count(Appointment.id).label("count")
+                func.date(Appointment.appointment_date).label("date"),
+                func.count(Appointment.id).label("count"),
             )
             .filter(Appointment.appointment_date.between(start_date, end_date))
             .group_by(func.date(Appointment.appointment_date))
@@ -3716,13 +3846,18 @@ def get_appointment_trends():
         volume_data = [{"date": str(row.date), "count": row.count} for row in daily_volume]
 
         # Completion rate
-        total_appointments = Appointment.query.filter(Appointment.appointment_date.between(start_date, end_date)).count()
-
-        completed_appointments = Appointment.query.filter(
-            Appointment.appointment_date.between(start_date, end_date), Appointment.status == "completed"
+        total_appointments = Appointment.query.filter(
+            Appointment.appointment_date.between(start_date, end_date)
         ).count()
 
-        completion_rate = (completed_appointments / total_appointments * 100) if total_appointments > 0 else 0
+        completed_appointments = Appointment.query.filter(
+            Appointment.appointment_date.between(start_date, end_date),
+            Appointment.status == "completed",
+        ).count()
+
+        completion_rate = (
+            (completed_appointments / total_appointments * 100) if total_appointments > 0 else 0
+        )
 
         return (
             jsonify(
@@ -3850,7 +3985,13 @@ def get_patient_demographics():
         active_patients = Patient.query.filter(Patient.status == "active").all()
 
         # Calculate age distribution
-        age_groups = {"0-1 years": 0, "1-3 years": 0, "3-7 years": 0, "7-10 years": 0, "10+ years": 0}
+        age_groups = {
+            "0-1 years": 0,
+            "1-3 years": 0,
+            "3-7 years": 0,
+            "7-10 years": 0,
+            "10+ years": 0,
+        }
 
         for patient in active_patients:
             if patient.date_of_birth:
@@ -3886,7 +4027,9 @@ def get_patient_demographics():
             .all()
         )
 
-        gender_data = [{"gender": row.sex or "Unknown", "count": row.count} for row in gender_counts]
+        gender_data = [
+            {"gender": row.sex or "Unknown", "count": row.count} for row in gender_counts
+        ]
 
         # Get reproductive status
         spay_neuter_count = Patient.query.filter(
@@ -3899,7 +4042,9 @@ def get_patient_demographics():
         return (
             jsonify(
                 {
-                    "age_distribution": [{"age_group": k, "count": v} for k, v in age_groups.items()],
+                    "age_distribution": [
+                        {"age_group": k, "count": v} for k, v in age_groups.items()
+                    ],
                     "breed_distribution": breed_data,
                     "gender_distribution": gender_data,
                     "total_patients": total_patients,
@@ -3949,17 +4094,23 @@ def get_dashboard_summary():
 
         # Revenue growth percentage
         revenue_growth = (
-            ((revenue_this_month - revenue_last_month) / revenue_last_month * 100) if revenue_last_month > 0 else 0
+            ((revenue_this_month - revenue_last_month) / revenue_last_month * 100)
+            if revenue_last_month > 0
+            else 0
         )
 
         # Active patients
         active_patients = Patient.query.filter(Patient.status == "active").count()
 
         # New patients this month
-        new_patients_this_month = Patient.query.filter(Patient.created_at >= this_month_start).count()
+        new_patients_this_month = Patient.query.filter(
+            Patient.created_at >= this_month_start
+        ).count()
 
         # Appointments this month
-        appointments_this_month = Appointment.query.filter(Appointment.appointment_date >= this_month_start).count()
+        appointments_this_month = Appointment.query.filter(
+            Appointment.appointment_date >= this_month_start
+        ).count()
 
         # Completed appointments this month
         completed_appointments = Appointment.query.filter(
@@ -4005,6 +4156,7 @@ def get_dashboard_summary():
 # PDF DOCUMENT GENERATION - Phase 4.4
 # ============================================================================
 
+
 @bp.route("/api/pdf/vaccination-certificate/<int:vaccination_id>", methods=["GET"])
 @login_required
 def generate_vaccination_certificate(vaccination_id):
@@ -4024,7 +4176,9 @@ def generate_vaccination_certificate(vaccination_id):
             "breed": patient.breed,
             "color": patient.color,
             "sex": patient.sex,
-            "date_of_birth": patient.date_of_birth.strftime("%m/%d/%Y") if patient.date_of_birth else "N/A",
+            "date_of_birth": (
+                patient.date_of_birth.strftime("%m/%d/%Y") if patient.date_of_birth else "N/A"
+            ),
             "microchip_number": patient.microchip_number or "N/A",
             "weight": patient.weight or "N/A",
         }
@@ -4034,9 +4188,21 @@ def generate_vaccination_certificate(vaccination_id):
             "vaccine_name": vaccination.vaccine_name,
             "manufacturer": vaccination.manufacturer or "N/A",
             "lot_number": vaccination.lot_number or "N/A",
-            "administered_date": vaccination.administered_date.strftime("%m/%d/%Y") if vaccination.administered_date else "N/A",
-            "expiration_date": vaccination.expiration_date.strftime("%m/%d/%Y") if vaccination.expiration_date else "N/A",
-            "next_due_date": vaccination.next_due_date.strftime("%m/%d/%Y") if vaccination.next_due_date else "N/A",
+            "administered_date": (
+                vaccination.administered_date.strftime("%m/%d/%Y")
+                if vaccination.administered_date
+                else "N/A"
+            ),
+            "expiration_date": (
+                vaccination.expiration_date.strftime("%m/%d/%Y")
+                if vaccination.expiration_date
+                else "N/A"
+            ),
+            "next_due_date": (
+                vaccination.next_due_date.strftime("%m/%d/%Y")
+                if vaccination.next_due_date
+                else "N/A"
+            ),
             "administered_by": vaccination.administered_by or "N/A",
             "notes": vaccination.notes or "",
         }
@@ -4045,7 +4211,9 @@ def generate_vaccination_certificate(vaccination_id):
             "name": f"{owner.first_name} {owner.last_name}",
             "phone": owner.phone_primary,
             "email": owner.email or "N/A",
-            "address": f"{owner.address_line1 or ''}, {owner.city or ''}, {owner.state or ''} {owner.zip_code or ''}".strip(", "),
+            "address": f"{owner.address_line1 or ''}, {owner.city or ''}, {owner.state or ''} {owner.zip_code or ''}".strip(
+                ", "
+            ),
         }
 
         # Generate PDF
@@ -4112,16 +4280,23 @@ def generate_health_certificate(patient_id):
             "heart_rate": exam_data.get("heart_rate", "N/A"),
             "respiratory_rate": exam_data.get("respiratory_rate", "N/A"),
             "weight": exam_data.get("weight", patient.weight or "N/A"),
-            "findings": exam_data.get("findings", "Patient appears healthy with no abnormalities detected."),
+            "findings": exam_data.get(
+                "findings", "Patient appears healthy with no abnormalities detected."
+            ),
             "health_status": exam_data.get("health_status", "HEALTHY"),
-            "examined_by": exam_data.get("examined_by", "Dr. " + (request.user.username if hasattr(request, "user") else "N/A")),
+            "examined_by": exam_data.get(
+                "examined_by",
+                "Dr. " + (request.user.username if hasattr(request, "user") else "N/A"),
+            ),
         }
 
         owner_data = {
             "name": f"{owner.first_name} {owner.last_name}",
             "phone": owner.phone_primary,
             "email": owner.email or "N/A",
-            "address": f"{owner.address_line1 or ''}, {owner.city or ''}, {owner.state or ''} {owner.zip_code or ''}".strip(", "),
+            "address": f"{owner.address_line1 or ''}, {owner.city or ''}, {owner.state or ''} {owner.zip_code or ''}".strip(
+                ", "
+            ),
         }
 
         # Generate PDF
@@ -4170,7 +4345,9 @@ def generate_medical_record_summary(patient_id):
             "color": patient.color,
             "sex": patient.sex,
             "reproductive_status": patient.reproductive_status or "N/A",
-            "date_of_birth": patient.date_of_birth.strftime("%m/%d/%Y") if patient.date_of_birth else "N/A",
+            "date_of_birth": (
+                patient.date_of_birth.strftime("%m/%d/%Y") if patient.date_of_birth else "N/A"
+            ),
             "age": age,
             "microchip_number": patient.microchip_number or "N/A",
             "weight": patient.weight or "N/A",
@@ -4182,15 +4359,24 @@ def generate_medical_record_summary(patient_id):
             "name": f"{owner.first_name} {owner.last_name}",
             "phone": owner.phone_primary,
             "email": owner.email or "N/A",
-            "address": f"{owner.address_line1 or ''}, {owner.city or ''}, {owner.state or ''} {owner.zip_code or ''}".strip(", "),
+            "address": f"{owner.address_line1 or ''}, {owner.city or ''}, {owner.state or ''} {owner.zip_code or ''}".strip(
+                ", "
+            ),
         }
 
         # Get vaccination history (most recent 10)
-        vaccinations = Vaccination.query.filter_by(patient_id=patient_id).order_by(Vaccination.administered_date.desc()).limit(10).all()
+        vaccinations = (
+            Vaccination.query.filter_by(patient_id=patient_id)
+            .order_by(Vaccination.administered_date.desc())
+            .limit(10)
+            .all()
+        )
 
         vaccinations_data = [
             {
-                "administered_date": v.administered_date.strftime("%m/%d/%Y") if v.administered_date else "N/A",
+                "administered_date": (
+                    v.administered_date.strftime("%m/%d/%Y") if v.administered_date else "N/A"
+                ),
                 "vaccine_name": v.vaccine_name,
                 "manufacturer": v.manufacturer or "N/A",
                 "next_due_date": v.next_due_date.strftime("%m/%d/%Y") if v.next_due_date else "N/A",
@@ -4199,7 +4385,12 @@ def generate_medical_record_summary(patient_id):
         ]
 
         # Get visit history (most recent 5)
-        visits = Visit.query.filter_by(patient_id=patient_id).order_by(Visit.visit_date.desc()).limit(5).all()
+        visits = (
+            Visit.query.filter_by(patient_id=patient_id)
+            .order_by(Visit.visit_date.desc())
+            .limit(5)
+            .all()
+        )
 
         visits_data = []
         for visit in visits:
@@ -4207,7 +4398,9 @@ def generate_medical_record_summary(patient_id):
 
             visits_data.append(
                 {
-                    "visit_date": visit.visit_date.strftime("%m/%d/%Y") if visit.visit_date else "N/A",
+                    "visit_date": (
+                        visit.visit_date.strftime("%m/%d/%Y") if visit.visit_date else "N/A"
+                    ),
                     "visit_type": visit.visit_type or "N/A",
                     "chief_complaint": soap_note.subjective if soap_note else "N/A",
                     "diagnosis": soap_note.assessment if soap_note else "N/A",
@@ -4232,12 +4425,12 @@ def generate_medical_record_summary(patient_id):
         return jsonify({"error": str(e)}), 400
 
 
-
 # ============================================================================
 # INVENTORY MANAGEMENT - Phase 3.1
 # ============================================================================
 
 # ------------------ VENDOR ENDPOINTS ------------------
+
 
 @bp.route("/api/vendors", methods=["GET"])
 @login_required
@@ -4245,25 +4438,25 @@ def get_vendors():
     """Get list of all vendors with optional filtering"""
     try:
         query = Vendor.query
-        
+
         # Filter by active status
         is_active = request.args.get("is_active")
         if is_active is not None:
             query = query.filter(Vendor.is_active == (is_active.lower() == "true"))
-        
+
         # Filter by preferred
         preferred = request.args.get("preferred")
         if preferred is not None:
             query = query.filter(Vendor.preferred_vendor == (preferred.lower() == "true"))
-        
+
         # Search by company name
         search = request.args.get("search")
         if search:
             query = query.filter(Vendor.company_name.ilike(f"%{search}%"))
-        
+
         vendors = query.order_by(Vendor.company_name).all()
         return jsonify({"vendors": [v.to_dict() for v in vendors], "total": len(vendors)}), 200
-    
+
     except Exception as e:
         app.logger.error(f"Error getting vendors: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 400
@@ -4276,7 +4469,7 @@ def get_vendor(vendor_id):
     vendor = Vendor.query.get(vendor_id)
     if not vendor:
         return jsonify({"error": "Vendor not found"}), 404
-    
+
     return jsonify(vendor.to_dict()), 200
 
 
@@ -4287,13 +4480,13 @@ def create_vendor():
     try:
         data = request.get_json()
         validated_data = vendor_schema.load(data)
-        
+
         vendor = Vendor(**validated_data)
         db.session.add(vendor)
         db.session.commit()
-        
+
         return jsonify(vendor.to_dict()), 201
-    
+
     except MarshmallowValidationError as err:
         return jsonify({"error": err.messages}), 400
     except Exception as e:
@@ -4309,17 +4502,17 @@ def update_vendor(vendor_id):
     vendor = Vendor.query.get(vendor_id)
     if not vendor:
         return jsonify({"error": "Vendor not found"}), 404
-    
+
     try:
         data = request.get_json()
         validated_data = vendor_schema.load(data, partial=True)
-        
+
         for key, value in validated_data.items():
             setattr(vendor, key, value)
-        
+
         db.session.commit()
         return jsonify(vendor.to_dict()), 200
-    
+
     except MarshmallowValidationError as err:
         return jsonify({"error": err.messages}), 400
     except Exception as e:
@@ -4335,18 +4528,18 @@ def delete_vendor(vendor_id):
     vendor = Vendor.query.get(vendor_id)
     if not vendor:
         return jsonify({"error": "Vendor not found"}), 404
-    
+
     try:
         hard_delete = request.args.get("hard", "false").lower() == "true"
-        
+
         if hard_delete:
             db.session.delete(vendor)
         else:
             vendor.is_active = False
-        
+
         db.session.commit()
         return jsonify({"message": "Vendor deleted successfully"}), 200
-    
+
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error deleting vendor: {str(e)}", exc_info=True)
@@ -4355,51 +4548,49 @@ def delete_vendor(vendor_id):
 
 # ------------------ PRODUCT ENDPOINTS ------------------
 
+
 @bp.route("/api/products", methods=["GET"])
 @login_required
 def get_products():
     """Get list of all products with optional filtering"""
     try:
         query = Product.query
-        
+
         # Filter by active status
         is_active = request.args.get("is_active")
         if is_active is not None:
             query = query.filter(Product.is_active == (is_active.lower() == "true"))
-        
+
         # Filter by product type
         product_type = request.args.get("product_type")
         if product_type:
             query = query.filter(Product.product_type == product_type)
-        
+
         # Filter by category
         category = request.args.get("category")
         if category:
             query = query.filter(Product.category == category)
-        
+
         # Filter by vendor
         vendor_id = request.args.get("vendor_id")
         if vendor_id:
             query = query.filter(Product.vendor_id == int(vendor_id))
-        
+
         # Filter by low stock
         low_stock = request.args.get("low_stock")
         if low_stock and low_stock.lower() == "true":
             query = query.filter(Product.stock_quantity <= Product.reorder_level)
-        
+
         # Search by name or SKU
         search = request.args.get("search")
         if search:
             query = query.filter(
-                db.or_(
-                    Product.name.ilike(f"%{search}%"),
-                    Product.sku.ilike(f"%{search}%")
-                )
+                db.or_(Product.name.ilike(f"%{search}%"), Product.sku.ilike(f"%{search}%"))
             )
-        
+
         products = query.order_by(Product.name).all()
         return jsonify({"products": [p.to_dict() for p in products], "total": len(products)}), 200
-    
+
     except Exception as e:
         app.logger.error(f"Error getting products: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 400
@@ -4410,16 +4601,16 @@ def get_products():
 def get_low_stock_products():
     """Get products that need reordering"""
     try:
-        products = Product.query.filter(
-            Product.is_active == True,
-            Product.stock_quantity <= Product.reorder_level
-        ).order_by(Product.stock_quantity).all()
-        
-        return jsonify({
-            "products": [p.to_dict() for p in products],
-            "total": len(products)
-        }), 200
-    
+        products = (
+            Product.query.filter(
+                Product.is_active == True, Product.stock_quantity <= Product.reorder_level
+            )
+            .order_by(Product.stock_quantity)
+            .all()
+        )
+
+        return jsonify({"products": [p.to_dict() for p in products], "total": len(products)}), 200
+
     except Exception as e:
         app.logger.error(f"Error getting low stock products: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 400
@@ -4432,7 +4623,7 @@ def get_product(product_id):
     product = Product.query.get(product_id)
     if not product:
         return jsonify({"error": "Product not found"}), 404
-    
+
     return jsonify(product.to_dict()), 200
 
 
@@ -4443,13 +4634,13 @@ def create_product():
     try:
         data = request.get_json()
         validated_data = product_schema.load(data)
-        
+
         product = Product(**validated_data)
         db.session.add(product)
         db.session.commit()
-        
+
         return jsonify(product.to_dict()), 201
-    
+
     except MarshmallowValidationError as err:
         return jsonify({"error": err.messages}), 400
     except Exception as e:
@@ -4465,17 +4656,17 @@ def update_product(product_id):
     product = Product.query.get(product_id)
     if not product:
         return jsonify({"error": "Product not found"}), 404
-    
+
     try:
         data = request.get_json()
         validated_data = product_schema.load(data, partial=True)
-        
+
         for key, value in validated_data.items():
             setattr(product, key, value)
-        
+
         db.session.commit()
         return jsonify(product.to_dict()), 200
-    
+
     except MarshmallowValidationError as err:
         return jsonify({"error": err.messages}), 400
     except Exception as e:
@@ -4491,18 +4682,18 @@ def delete_product(product_id):
     product = Product.query.get(product_id)
     if not product:
         return jsonify({"error": "Product not found"}), 404
-    
+
     try:
         hard_delete = request.args.get("hard", "false").lower() == "true"
-        
+
         if hard_delete:
             db.session.delete(product)
         else:
             product.is_active = False
-        
+
         db.session.commit()
         return jsonify({"message": "Product deleted successfully"}), 200
-    
+
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error deleting product: {str(e)}", exc_info=True)
@@ -4511,31 +4702,32 @@ def delete_product(product_id):
 
 # ------------------ PURCHASE ORDER ENDPOINTS ------------------
 
+
 @bp.route("/api/purchase-orders", methods=["GET"])
 @login_required
 def get_purchase_orders():
     """Get list of all purchase orders with optional filtering"""
     try:
         query = PurchaseOrder.query
-        
+
         # Filter by status
         status = request.args.get("status")
         if status:
             query = query.filter(PurchaseOrder.status == status)
-        
+
         # Filter by vendor
         vendor_id = request.args.get("vendor_id")
         if vendor_id:
             query = query.filter(PurchaseOrder.vendor_id == int(vendor_id))
-        
+
         # Search by PO number
         search = request.args.get("search")
         if search:
             query = query.filter(PurchaseOrder.po_number.ilike(f"%{search}%"))
-        
+
         pos = query.order_by(PurchaseOrder.order_date.desc()).all()
         return jsonify({"purchase_orders": [po.to_dict() for po in pos], "total": len(pos)}), 200
-    
+
     except Exception as e:
         app.logger.error(f"Error getting purchase orders: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 400
@@ -4548,7 +4740,7 @@ def get_purchase_order(po_id):
     po = PurchaseOrder.query.get(po_id)
     if not po:
         return jsonify({"error": "Purchase order not found"}), 404
-    
+
     return jsonify(po.to_dict()), 200
 
 
@@ -4559,21 +4751,22 @@ def create_purchase_order():
     try:
         data = request.get_json()
         validated_data = purchase_order_schema.load(data)
-        
+
         # Generate PO number
         from datetime import datetime
+
         today = datetime.utcnow().strftime("%Y%m%d")
         count = PurchaseOrder.query.filter(PurchaseOrder.po_number.like(f"PO-{today}%")).count()
         po_number = f"PO-{today}-{count + 1:04d}"
         validated_data["po_number"] = po_number
         validated_data["created_by_id"] = current_user.id
-        
+
         po = PurchaseOrder(**validated_data)
         db.session.add(po)
         db.session.commit()
-        
+
         return jsonify(po.to_dict()), 201
-    
+
     except MarshmallowValidationError as err:
         return jsonify({"error": err.messages}), 400
     except Exception as e:
@@ -4589,18 +4782,18 @@ def update_purchase_order(po_id):
     po = PurchaseOrder.query.get(po_id)
     if not po:
         return jsonify({"error": "Purchase order not found"}), 404
-    
+
     try:
         data = request.get_json()
         validated_data = purchase_order_schema.load(data, partial=True)
-        
+
         for key, value in validated_data.items():
             if key != "po_number":  # Don't allow PO number changes
                 setattr(po, key, value)
-        
+
         db.session.commit()
         return jsonify(po.to_dict()), 200
-    
+
     except MarshmallowValidationError as err:
         return jsonify({"error": err.messages}), 400
     except Exception as e:
@@ -4616,18 +4809,18 @@ def receive_purchase_order(po_id):
     po = PurchaseOrder.query.get(po_id)
     if not po:
         return jsonify({"error": "Purchase order not found"}), 404
-    
+
     if po.status == "received":
         return jsonify({"error": "Purchase order already received"}), 400
-    
+
     try:
         from datetime import datetime
-        
+
         # Mark PO as received
         po.status = "received"
         po.actual_delivery_date = datetime.utcnow().date()
         po.received_by_id = current_user.id
-        
+
         # Update inventory for each item
         for item in po.items:
             product = Product.query.get(item.product_id)
@@ -4635,7 +4828,7 @@ def receive_purchase_order(po_id):
                 quantity_before = product.stock_quantity
                 product.stock_quantity += item.quantity_received
                 quantity_after = product.stock_quantity
-                
+
                 # Create inventory transaction
                 transaction = InventoryTransaction(
                     product_id=product.id,
@@ -4646,13 +4839,13 @@ def receive_purchase_order(po_id):
                     quantity_after=quantity_after,
                     reason=f"Received from PO {po.po_number}",
                     reference_number=po.po_number,
-                    performed_by_id=current_user.id
+                    performed_by_id=current_user.id,
                 )
                 db.session.add(transaction)
-        
+
         db.session.commit()
         return jsonify(po.to_dict()), 200
-    
+
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error receiving purchase order: {str(e)}", exc_info=True)
@@ -4666,15 +4859,15 @@ def delete_purchase_order(po_id):
     po = PurchaseOrder.query.get(po_id)
     if not po:
         return jsonify({"error": "Purchase order not found"}), 404
-    
+
     if po.status != "draft":
         return jsonify({"error": "Can only delete draft purchase orders"}), 400
-    
+
     try:
         db.session.delete(po)
         db.session.commit()
         return jsonify({"message": "Purchase order deleted successfully"}), 200
-    
+
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error deleting purchase order: {str(e)}", exc_info=True)
@@ -4683,38 +4876,41 @@ def delete_purchase_order(po_id):
 
 # ------------------ INVENTORY TRANSACTION ENDPOINTS ------------------
 
+
 @bp.route("/api/inventory-transactions", methods=["GET"])
 @login_required
 def get_inventory_transactions():
     """Get inventory transaction history with optional filtering"""
     try:
         query = InventoryTransaction.query
-        
+
         # Filter by product
         product_id = request.args.get("product_id")
         if product_id:
             query = query.filter(InventoryTransaction.product_id == int(product_id))
-        
+
         # Filter by transaction type
         transaction_type = request.args.get("transaction_type")
         if transaction_type:
             query = query.filter(InventoryTransaction.transaction_type == transaction_type)
-        
+
         # Filter by date range
         start_date = request.args.get("start_date")
         if start_date:
             query = query.filter(InventoryTransaction.transaction_date >= start_date)
-        
+
         end_date = request.args.get("end_date")
         if end_date:
             query = query.filter(InventoryTransaction.transaction_date <= end_date)
-        
+
         transactions = query.order_by(InventoryTransaction.transaction_date.desc()).limit(100).all()
-        return jsonify({
-            "transactions": [t.to_dict() for t in transactions],
-            "total": len(transactions)
-        }), 200
-    
+        return (
+            jsonify(
+                {"transactions": [t.to_dict() for t in transactions], "total": len(transactions)}
+            ),
+            200,
+        )
+
     except Exception as e:
         app.logger.error(f"Error getting inventory transactions: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 400
@@ -4726,37 +4922,39 @@ def create_inventory_transaction():
     """Create manual inventory transaction (adjustment, damaged, expired, etc.)"""
     try:
         data = request.get_json()
-        
+
         # Get product
         product_id = data.get("product_id")
         product = Product.query.get(product_id)
         if not product:
             return jsonify({"error": "Product not found"}), 404
-        
+
         # Prepare transaction data
         quantity_before = product.stock_quantity
         quantity = data.get("quantity", 0)
         quantity_after = quantity_before + quantity
-        
+
         # Validate transaction
-        validated_data = inventory_transaction_schema.load({
-            **data,
-            "quantity_before": quantity_before,
-            "quantity_after": quantity_after,
-            "performed_by_id": current_user.id
-        })
-        
+        validated_data = inventory_transaction_schema.load(
+            {
+                **data,
+                "quantity_before": quantity_before,
+                "quantity_after": quantity_after,
+                "performed_by_id": current_user.id,
+            }
+        )
+
         # Create transaction
         transaction = InventoryTransaction(**validated_data)
-        
+
         # Update product stock
         product.stock_quantity = quantity_after
-        
+
         db.session.add(transaction)
         db.session.commit()
-        
+
         return jsonify(transaction.to_dict()), 201
-    
+
     except MarshmallowValidationError as err:
         return jsonify({"error": err.messages}), 400
     except Exception as e:
@@ -4772,7 +4970,7 @@ def get_inventory_transaction(transaction_id):
     transaction = InventoryTransaction.query.get(transaction_id)
     if not transaction:
         return jsonify({"error": "Inventory transaction not found"}), 404
-    
+
     return jsonify(transaction.to_dict()), 200
 
 
@@ -4811,7 +5009,7 @@ def get_all_staff():
         search_filter = db.or_(
             Staff.first_name.ilike(f"%{search}%"),
             Staff.last_name.ilike(f"%{search}%"),
-            Staff.email.ilike(f"%{search}%")
+            Staff.email.ilike(f"%{search}%"),
         )
         query = query.filter(search_filter)
 
@@ -5035,7 +5233,9 @@ def create_schedule():
         db.session.add(schedule)
         db.session.commit()
 
-        app.logger.info(f"Created schedule for {staff.first_name} {staff.last_name} on {schedule.shift_date}")
+        app.logger.info(
+            f"Created schedule for {staff.first_name} {staff.last_name} on {schedule.shift_date}"
+        )
         return jsonify(schedule.to_dict()), 201
 
     except MarshmallowValidationError as err:
@@ -5141,6 +5341,7 @@ def approve_time_off(schedule_id):
 # LABORATORY MANAGEMENT API ENDPOINTS
 # ============================================================================
 
+
 @bp.route("/api/lab-tests", methods=["GET"])
 @login_required
 def get_all_lab_tests():
@@ -5173,7 +5374,7 @@ def get_all_lab_tests():
             db.or_(
                 LabTest.test_name.ilike(search_term),
                 LabTest.test_code.ilike(search_term),
-                LabTest.description.ilike(search_term)
+                LabTest.description.ilike(search_term),
             )
         )
 
@@ -5290,6 +5491,7 @@ def delete_lab_test(test_id):
 # LAB RESULTS API ENDPOINTS
 # ============================================================================
 
+
 @bp.route("/api/lab-results", methods=["GET"])
 @login_required
 def get_all_lab_results():
@@ -5338,7 +5540,9 @@ def get_pending_lab_results():
     """Get all pending lab results"""
     from .models import LabResult
 
-    pending_results = LabResult.query.filter_by(status="pending").order_by(LabResult.collection_date).all()
+    pending_results = (
+        LabResult.query.filter_by(status="pending").order_by(LabResult.collection_date).all()
+    )
 
     return jsonify({"lab_results": [result.to_dict() for result in pending_results]}), 200
 
@@ -5403,7 +5607,9 @@ def create_lab_result():
         db.session.add(lab_result)
         db.session.commit()
 
-        app.logger.info(f"Lab result created for patient {patient.name} by user {current_user.username}")
+        app.logger.info(
+            f"Lab result created for patient {patient.name} by user {current_user.username}"
+        )
         return jsonify(lab_result.to_dict()), 201
 
     except ValidationError as e:
@@ -5498,6 +5704,7 @@ def delete_lab_result(result_id):
 # NOTIFICATION TEMPLATE API ENDPOINTS
 # ============================================================================
 
+
 @bp.route("/api/notification-templates", methods=["GET"])
 @login_required
 def get_all_notification_templates():
@@ -5567,7 +5774,9 @@ def create_notification_template():
         db.session.add(template)
         db.session.commit()
 
-        app.logger.info(f"Notification template created: {template.name} by user {current_user.username}")
+        app.logger.info(
+            f"Notification template created: {template.name} by user {current_user.username}"
+        )
         return jsonify(template.to_dict()), 201
 
     except ValidationError as e:
@@ -5609,7 +5818,9 @@ def update_notification_template(template_id):
 
         db.session.commit()
 
-        app.logger.info(f"Notification template updated: {template.name} by user {current_user.username}")
+        app.logger.info(
+            f"Notification template updated: {template.name} by user {current_user.username}"
+        )
         return jsonify(template.to_dict()), 200
 
     except ValidationError as e:
@@ -5635,7 +5846,9 @@ def delete_notification_template(template_id):
         template.is_active = False
         db.session.commit()
 
-        app.logger.info(f"Notification template deleted: {template.name} by user {current_user.username}")
+        app.logger.info(
+            f"Notification template deleted: {template.name} by user {current_user.username}"
+        )
         return jsonify({"message": "Notification template deleted successfully"}), 200
 
     except Exception as e:
@@ -5647,6 +5860,7 @@ def delete_notification_template(template_id):
 # ============================================================================
 # CLIENT COMMUNICATION PREFERENCE API ENDPOINTS
 # ============================================================================
+
 
 @bp.route("/api/client-preferences", methods=["GET"])
 @login_required
@@ -5729,6 +5943,7 @@ def update_client_preferences(client_id):
 # ============================================================================
 # REMINDER API ENDPOINTS
 # ============================================================================
+
 
 @bp.route("/api/reminders", methods=["GET"])
 @login_required
@@ -5849,7 +6064,9 @@ def create_reminder():
         db.session.add(reminder)
         db.session.commit()
 
-        app.logger.info(f"Reminder created for client {client.name} by user {current_user.username}")
+        app.logger.info(
+            f"Reminder created for client {client.name} by user {current_user.username}"
+        )
         return jsonify(reminder.to_dict()), 201
 
     except ValidationError as e:
@@ -5944,6 +6161,7 @@ def delete_reminder(reminder_id):
 # Phase 3.5 - Client Portal Routes
 # ============================================================================
 
+
 # Client Portal Authentication
 @bp.route("/api/portal/register", methods=["POST"])
 @limiter.limit("5 per hour")
@@ -5983,13 +6201,17 @@ def portal_register():
 
         # Generate email verification token
         portal_user.verification_token = generate_verification_token()
-        portal_user.reset_token_expiry = datetime.utcnow() + timedelta(hours=24)  # Token valid for 24 hours
+        portal_user.reset_token_expiry = datetime.utcnow() + timedelta(
+            hours=24
+        )  # Token valid for 24 hours
 
         db.session.add(portal_user)
         db.session.commit()
 
         # Send verification email
-        send_verification_email(portal_user.email, portal_user.verification_token, portal_user.username)
+        send_verification_email(
+            portal_user.email, portal_user.verification_token, portal_user.username
+        )
 
         app.logger.info(f"Client portal user registered: {portal_user.username}")
         return (
@@ -6020,8 +6242,8 @@ def portal_login():
 
         # Find user by username or email
         portal_user = ClientPortalUser.query.filter(
-            (ClientPortalUser.username == data["username"]) |
-            (ClientPortalUser.email == data["username"])
+            (ClientPortalUser.username == data["username"])
+            | (ClientPortalUser.email == data["username"])
         ).first()
 
         if not portal_user or not portal_user.check_password(data["password"]):
@@ -6044,7 +6266,10 @@ def portal_login():
             )
 
         # Check if account is locked
-        if portal_user.account_locked_until and portal_user.account_locked_until > datetime.utcnow():
+        if (
+            portal_user.account_locked_until
+            and portal_user.account_locked_until > datetime.utcnow()
+        ):
             return jsonify({"error": "Account is locked. Please try again later"}), 403
 
         # Update login tracking
@@ -6065,18 +6290,25 @@ def portal_login():
         client = Client.query.get(portal_user.client_id)
 
         app.logger.info(f"Client portal login: {portal_user.username}")
-        return jsonify({
-            "message": "Login successful",
-            "token": token,  # JWT token for authentication
-            "user": {
-                "id": portal_user.id,
-                "username": portal_user.username,
-                "email": portal_user.email,
-                "client_id": portal_user.client_id,
-                "client_name": f"{client.first_name} {client.last_name}" if client else None,
-                "has_pin": portal_user.pin_hash is not None
-            }
-        }), 200
+        return (
+            jsonify(
+                {
+                    "message": "Login successful",
+                    "token": token,  # JWT token for authentication
+                    "user": {
+                        "id": portal_user.id,
+                        "username": portal_user.username,
+                        "email": portal_user.email,
+                        "client_id": portal_user.client_id,
+                        "client_name": (
+                            f"{client.first_name} {client.last_name}" if client else None
+                        ),
+                        "has_pin": portal_user.pin_hash is not None,
+                    },
+                }
+            ),
+            200,
+        )
 
     except MarshmallowValidationError as e:
         return jsonify({"error": e.messages}), 400
@@ -6099,50 +6331,71 @@ def portal_dashboard(client_id, **kwargs):
 
         # Get upcoming appointments (next 30 days)
         from datetime import timedelta
-        upcoming_appointments = Appointment.query.filter(
-            Appointment.client_id == client_id,
-            Appointment.start_time >= datetime.utcnow(),
-            Appointment.start_time <= datetime.utcnow() + timedelta(days=30),
-            Appointment.status.in_(["scheduled", "confirmed"])
-        ).order_by(Appointment.start_time).limit(5).all()
+
+        upcoming_appointments = (
+            Appointment.query.filter(
+                Appointment.client_id == client_id,
+                Appointment.start_time >= datetime.utcnow(),
+                Appointment.start_time <= datetime.utcnow() + timedelta(days=30),
+                Appointment.status.in_(["scheduled", "confirmed"]),
+            )
+            .order_by(Appointment.start_time)
+            .limit(5)
+            .all()
+        )
 
         # Get recent invoices
-        recent_invoices = Invoice.query.filter_by(client_id=client_id).order_by(Invoice.invoice_date.desc()).limit(5).all()
+        recent_invoices = (
+            Invoice.query.filter_by(client_id=client_id)
+            .order_by(Invoice.invoice_date.desc())
+            .limit(5)
+            .all()
+        )
 
         # Get pending appointment requests
-        pending_requests = AppointmentRequest.query.filter_by(
-            client_id=client_id,
-            status="pending"
-        ).order_by(AppointmentRequest.created_at.desc()).all()
+        pending_requests = (
+            AppointmentRequest.query.filter_by(client_id=client_id, status="pending")
+            .order_by(AppointmentRequest.created_at.desc())
+            .all()
+        )
 
-        return jsonify({
-            "client": clients_schema.dump(client),
-            "patients": patients_schema.dump(patients),
-            "upcoming_appointments": [
+        return (
+            jsonify(
                 {
-                    "id": apt.id,
-                    "title": apt.title,
-                    "start_time": apt.start_time.isoformat() if apt.start_time else None,
-                    "end_time": apt.end_time.isoformat() if apt.end_time else None,
-                    "status": apt.status,
-                    "patient_id": apt.patient_id
+                    "client": clients_schema.dump(client),
+                    "patients": patients_schema.dump(patients),
+                    "upcoming_appointments": [
+                        {
+                            "id": apt.id,
+                            "title": apt.title,
+                            "start_time": apt.start_time.isoformat() if apt.start_time else None,
+                            "end_time": apt.end_time.isoformat() if apt.end_time else None,
+                            "status": apt.status,
+                            "patient_id": apt.patient_id,
+                        }
+                        for apt in upcoming_appointments
+                    ],
+                    "recent_invoices": [
+                        {
+                            "id": inv.id,
+                            "invoice_number": inv.invoice_number,
+                            "invoice_date": (
+                                inv.invoice_date.isoformat() if inv.invoice_date else None
+                            ),
+                            "total_amount": str(inv.total_amount),
+                            "balance_due": str(inv.balance_due),
+                            "status": inv.status,
+                        }
+                        for inv in recent_invoices
+                    ],
+                    "pending_requests": appointment_requests_schema.dump(pending_requests),
+                    "account_balance": (
+                        str(client.account_balance) if client.account_balance else "0.00"
+                    ),
                 }
-                for apt in upcoming_appointments
-            ],
-            "recent_invoices": [
-                {
-                    "id": inv.id,
-                    "invoice_number": inv.invoice_number,
-                    "invoice_date": inv.invoice_date.isoformat() if inv.invoice_date else None,
-                    "total_amount": str(inv.total_amount),
-                    "balance_due": str(inv.balance_due),
-                    "status": inv.status
-                }
-                for inv in recent_invoices
-            ],
-            "pending_requests": appointment_requests_schema.dump(pending_requests),
-            "account_balance": str(client.account_balance) if client.account_balance else "0.00"
-        }), 200
+            ),
+            200,
+        )
 
     except Exception as e:
         app.logger.error(f"Error fetching dashboard data: {str(e)}", exc_info=True)
@@ -6182,7 +6435,11 @@ def portal_appointments(client_id, **kwargs):
     """Get appointment history for client"""
     try:
         # Get all appointments for client's patients
-        appointments = Appointment.query.filter_by(client_id=client_id).order_by(Appointment.start_time.desc()).all()
+        appointments = (
+            Appointment.query.filter_by(client_id=client_id)
+            .order_by(Appointment.start_time.desc())
+            .all()
+        )
 
         result = []
         for apt in appointments:
@@ -6193,7 +6450,7 @@ def portal_appointments(client_id, **kwargs):
                 "end_time": apt.end_time.isoformat() if apt.end_time else None,
                 "status": apt.status,
                 "patient_id": apt.patient_id,
-                "description": apt.description
+                "description": apt.description,
             }
             result.append(apt_data)
 
@@ -6208,7 +6465,9 @@ def portal_appointments(client_id, **kwargs):
 def portal_invoices(client_id, **kwargs):
     """Get invoice history for client"""
     try:
-        invoices = Invoice.query.filter_by(client_id=client_id).order_by(Invoice.invoice_date.desc()).all()
+        invoices = (
+            Invoice.query.filter_by(client_id=client_id).order_by(Invoice.invoice_date.desc()).all()
+        )
 
         result = []
         for inv in invoices:
@@ -6221,7 +6480,7 @@ def portal_invoices(client_id, **kwargs):
                 "amount_paid": str(inv.amount_paid),
                 "balance_due": str(inv.balance_due),
                 "status": inv.status,
-                "patient_id": inv.patient_id
+                "patient_id": inv.patient_id,
             }
             result.append(inv_data)
 
@@ -6243,31 +6502,38 @@ def portal_invoice_detail(client_id, invoice_id, **kwargs):
         # Get invoice items
         items = InvoiceItem.query.filter_by(invoice_id=invoice_id).all()
 
-        return jsonify({
-            "invoice": {
-                "id": invoice.id,
-                "invoice_number": invoice.invoice_number,
-                "invoice_date": invoice.invoice_date.isoformat() if invoice.invoice_date else None,
-                "due_date": invoice.due_date.isoformat() if invoice.due_date else None,
-                "subtotal": str(invoice.subtotal),
-                "tax_amount": str(invoice.tax_amount),
-                "discount_amount": str(invoice.discount_amount),
-                "total_amount": str(invoice.total_amount),
-                "amount_paid": str(invoice.amount_paid),
-                "balance_due": str(invoice.balance_due),
-                "status": invoice.status,
-                "notes": invoice.notes
-            },
-            "items": [
+        return (
+            jsonify(
                 {
-                    "description": item.description,
-                    "quantity": str(item.quantity),
-                    "unit_price": str(item.unit_price),
-                    "total_price": str(item.total_price)
+                    "invoice": {
+                        "id": invoice.id,
+                        "invoice_number": invoice.invoice_number,
+                        "invoice_date": (
+                            invoice.invoice_date.isoformat() if invoice.invoice_date else None
+                        ),
+                        "due_date": invoice.due_date.isoformat() if invoice.due_date else None,
+                        "subtotal": str(invoice.subtotal),
+                        "tax_amount": str(invoice.tax_amount),
+                        "discount_amount": str(invoice.discount_amount),
+                        "total_amount": str(invoice.total_amount),
+                        "amount_paid": str(invoice.amount_paid),
+                        "balance_due": str(invoice.balance_due),
+                        "status": invoice.status,
+                        "notes": invoice.notes,
+                    },
+                    "items": [
+                        {
+                            "description": item.description,
+                            "quantity": str(item.quantity),
+                            "unit_price": str(item.unit_price),
+                            "total_price": str(item.total_price),
+                        }
+                        for item in items
+                    ],
                 }
-                for item in items
-            ]
-        }), 200
+            ),
+            200,
+        )
     except Exception as e:
         app.logger.error(f"Error fetching invoice details: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 400
@@ -6284,7 +6550,10 @@ def create_appointment_request(**kwargs):
         # Ensure the authenticated user can only create requests for themselves
         authenticated_client_id = kwargs.get("authenticated_client_id")
         if data["client_id"] != authenticated_client_id:
-            return jsonify({"error": "Unauthorized: You can only create requests for yourself"}), 403
+            return (
+                jsonify({"error": "Unauthorized: You can only create requests for yourself"}),
+                403,
+            )
 
         # Verify client and patient exist and are linked
         client = Client.query.get(data["client_id"])
@@ -6308,7 +6577,7 @@ def create_appointment_request(**kwargs):
             is_urgent=data.get("is_urgent", False),
             notes=data.get("notes"),
             status="pending",
-            priority="urgent" if data.get("is_urgent") else "normal"
+            priority="urgent" if data.get("is_urgent") else "normal",
         )
 
         db.session.add(apt_request)
@@ -6336,7 +6605,11 @@ def create_appointment_request(**kwargs):
 def get_client_appointment_requests(client_id, **kwargs):
     """Get all appointment requests for a client"""
     try:
-        requests = AppointmentRequest.query.filter_by(client_id=client_id).order_by(AppointmentRequest.created_at.desc()).all()
+        requests = (
+            AppointmentRequest.query.filter_by(client_id=client_id)
+            .order_by(AppointmentRequest.created_at.desc())
+            .all()
+        )
 
         result = []
         for req in requests:
@@ -6389,7 +6662,9 @@ def get_appointment_request_detail(client_id, request_id, **kwargs):
         return jsonify({"error": str(e)}), 400
 
 
-@bp.route("/api/portal/appointment-requests/<int:client_id>/<int:request_id>/cancel", methods=["POST"])
+@bp.route(
+    "/api/portal/appointment-requests/<int:client_id>/<int:request_id>/cancel", methods=["POST"]
+)
 @portal_auth_required
 def cancel_appointment_request(client_id, request_id, **kwargs):
     """Cancel a pending appointment request"""
@@ -6459,7 +6734,10 @@ def resend_verification():
 
         if not portal_user:
             # Don't reveal if email exists for security
-            return jsonify({"message": "If the email exists, a verification link has been sent."}), 200
+            return (
+                jsonify({"message": "If the email exists, a verification link has been sent."}),
+                200,
+            )
 
         if portal_user.is_verified:
             return jsonify({"error": "Email already verified"}), 400
@@ -6470,7 +6748,9 @@ def resend_verification():
         db.session.commit()
 
         # Send verification email
-        send_verification_email(portal_user.email, portal_user.verification_token, portal_user.username)
+        send_verification_email(
+            portal_user.email, portal_user.verification_token, portal_user.username
+        )
 
         app.logger.info(f"Verification email resent to: {email}")
         return jsonify({"message": "Verification email sent. Please check your inbox."}), 200
@@ -6535,10 +6815,12 @@ def portal_verify_pin():
 
         # Check if session has expired (8 hours)
         if portal_user.session_expires_at and portal_user.session_expires_at < datetime.utcnow():
-            return jsonify({
-                "error": "Session expired. Please log in again.",
-                "session_expired": True
-            }), 401
+            return (
+                jsonify(
+                    {"error": "Session expired. Please log in again.", "session_expired": True}
+                ),
+                401,
+            )
 
         # Get PIN from request
         pin = request.json.get("pin")
@@ -6554,14 +6836,19 @@ def portal_verify_pin():
         db.session.commit()
 
         app.logger.info(f"PIN verified for portal user: {portal_user.username}")
-        return jsonify({
-            "message": "PIN verified successfully",
-            "user": {
-                "id": portal_user.id,
-                "username": portal_user.username,
-                "client_id": portal_user.client_id
-            }
-        }), 200
+        return (
+            jsonify(
+                {
+                    "message": "PIN verified successfully",
+                    "user": {
+                        "id": portal_user.id,
+                        "username": portal_user.username,
+                        "client_id": portal_user.client_id,
+                    },
+                }
+            ),
+            200,
+        )
 
     except Exception as e:
         app.logger.error(f"Error verifying PIN: {str(e)}", exc_info=True)
@@ -6586,11 +6873,16 @@ def portal_check_session():
 
         # Check if session has expired (8 hours)
         if portal_user.session_expires_at and portal_user.session_expires_at < datetime.utcnow():
-            return jsonify({
-                "session_expired": True,
-                "requires_login": True,
-                "message": "Session expired. Please log in again."
-            }), 200
+            return (
+                jsonify(
+                    {
+                        "session_expired": True,
+                        "requires_login": True,
+                        "message": "Session expired. Please log in again.",
+                    }
+                ),
+                200,
+            )
 
         # Check if idle timeout has occurred (15 minutes)
         requires_pin = False
@@ -6604,12 +6896,17 @@ def portal_check_session():
             portal_user.last_activity_at = datetime.utcnow()
             db.session.commit()
 
-        return jsonify({
-            "session_expired": False,
-            "requires_pin": requires_pin,
-            "has_pin": portal_user.pin_hash is not None,
-            "requires_login": False
-        }), 200
+        return (
+            jsonify(
+                {
+                    "session_expired": False,
+                    "requires_pin": requires_pin,
+                    "has_pin": portal_user.pin_hash is not None,
+                    "requires_login": False,
+                }
+            ),
+            200,
+        )
 
     except Exception as e:
         app.logger.error(f"Error checking session: {str(e)}", exc_info=True)
@@ -6634,8 +6931,7 @@ def get_all_appointment_requests():
             query = query.filter_by(priority=priority)
 
         requests = query.order_by(
-            AppointmentRequest.priority.desc(),
-            AppointmentRequest.created_at
+            AppointmentRequest.priority.desc(), AppointmentRequest.created_at
         ).all()
 
         result = []
@@ -6724,7 +7020,9 @@ def review_appointment_request(request_id):
 
         db.session.commit()
 
-        app.logger.info(f"Appointment request {request_id} reviewed by {current_user.username}: {data['status']}")
+        app.logger.info(
+            f"Appointment request {request_id} reviewed by {current_user.username}: {data['status']}"
+        )
         return jsonify(req.to_dict()), 200
 
     except MarshmallowValidationError as e:
@@ -6742,7 +7040,9 @@ def review_appointment_request(request_id):
 
 def allowed_file(filename):
     """Check if file extension is allowed"""
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in app.config.get("ALLOWED_EXTENSIONS", set())
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in app.config.get(
+        "ALLOWED_EXTENSIONS", set()
+    )
 
 
 @bp.route("/api/documents", methods=["POST"])
@@ -6908,13 +7208,18 @@ def get_documents():
         # Paginate
         paginated = query.paginate(page=page, per_page=per_page, error_out=False)
 
-        return jsonify({
-            "documents": [doc.to_dict() for doc in paginated.items],
-            "total": paginated.total,
-            "pages": paginated.pages,
-            "current_page": page,
-            "per_page": per_page,
-        }), 200
+        return (
+            jsonify(
+                {
+                    "documents": [doc.to_dict() for doc in paginated.items],
+                    "total": paginated.total,
+                    "pages": paginated.pages,
+                    "current_page": page,
+                    "per_page": per_page,
+                }
+            ),
+            200,
+        )
 
     except Exception as e:
         app.logger.error(f"Error fetching documents: {str(e)}", exc_info=True)
@@ -6947,7 +7252,9 @@ def download_document(document_id):
             app.logger.error(f"Document file not found: {document.file_path}")
             return jsonify({"error": "Document file not found on server"}), 404
 
-        app.logger.info(f"Document downloaded: {document.original_filename} (ID: {document_id}) by {current_user.username}")
+        app.logger.info(
+            f"Document downloaded: {document.original_filename} (ID: {document_id}) by {current_user.username}"
+        )
 
         return send_file(
             document.file_path,
@@ -6997,7 +7304,9 @@ def update_document(document_id):
 
         db.session.commit()
 
-        app.logger.info(f"Document updated: {document.original_filename} (ID: {document_id}) by {current_user.username}")
+        app.logger.info(
+            f"Document updated: {document.original_filename} (ID: {document_id}) by {current_user.username}"
+        )
 
         return jsonify(document.to_dict()), 200
 
@@ -7028,7 +7337,9 @@ def delete_document(document_id):
             db.session.delete(document)
             db.session.commit()
 
-            app.logger.info(f"Document permanently deleted: {document.original_filename} (ID: {document_id}) by {current_user.username}")
+            app.logger.info(
+                f"Document permanently deleted: {document.original_filename} (ID: {document_id}) by {current_user.username}"
+            )
 
             return jsonify({"message": "Document permanently deleted"}), 200
         else:
@@ -7036,7 +7347,9 @@ def delete_document(document_id):
             document.is_archived = True
             db.session.commit()
 
-            app.logger.info(f"Document archived: {document.original_filename} (ID: {document_id}) by {current_user.username}")
+            app.logger.info(
+                f"Document archived: {document.original_filename} (ID: {document_id}) by {current_user.username}"
+            )
 
             return jsonify({"message": "Document archived", "document": document.to_dict()}), 200
 
@@ -7076,10 +7389,7 @@ def get_protocols():
         if search:
             search_term = f"%{search}%"
             query = query.filter(
-                db.or_(
-                    Protocol.name.ilike(search_term),
-                    Protocol.description.ilike(search_term)
-                )
+                db.or_(Protocol.name.ilike(search_term), Protocol.description.ilike(search_term))
             )
 
         protocols = query.order_by(Protocol.name).all()
@@ -7121,7 +7431,7 @@ def create_protocol():
             default_duration_days=data.get("default_duration_days"),
             estimated_cost=data.get("estimated_cost"),
             notes=data.get("notes"),
-            created_by_id=current_user.id
+            created_by_id=current_user.id,
         )
 
         db.session.add(protocol)
@@ -7137,13 +7447,15 @@ def create_protocol():
                 description=step_data.get("description"),
                 day_offset=step_data.get("day_offset", 0),
                 estimated_cost=step_data.get("estimated_cost"),
-                notes=step_data.get("notes")
+                notes=step_data.get("notes"),
             )
             db.session.add(step)
 
         db.session.commit()
 
-        app.logger.info(f"Protocol created: {protocol.name} (ID: {protocol.id}) by {current_user.username}")
+        app.logger.info(
+            f"Protocol created: {protocol.name} (ID: {protocol.id}) by {current_user.username}"
+        )
 
         return jsonify(protocol.to_dict(include_steps=True)), 201
 
@@ -7179,7 +7491,9 @@ def update_protocol(protocol_id):
 
         db.session.commit()
 
-        app.logger.info(f"Protocol updated: {protocol.name} (ID: {protocol_id}) by {current_user.username}")
+        app.logger.info(
+            f"Protocol updated: {protocol.name} (ID: {protocol_id}) by {current_user.username}"
+        )
 
         return jsonify(protocol.to_dict(include_steps=True)), 200
 
@@ -7204,7 +7518,9 @@ def delete_protocol(protocol_id):
             db.session.delete(protocol)
             db.session.commit()
 
-            app.logger.info(f"Protocol permanently deleted: {protocol.name} (ID: {protocol_id}) by {current_user.username}")
+            app.logger.info(
+                f"Protocol permanently deleted: {protocol.name} (ID: {protocol_id}) by {current_user.username}"
+            )
 
             return jsonify({"message": "Protocol permanently deleted"}), 200
         else:
@@ -7212,7 +7528,9 @@ def delete_protocol(protocol_id):
             protocol.is_active = False
             db.session.commit()
 
-            app.logger.info(f"Protocol deactivated: {protocol.name} (ID: {protocol_id}) by {current_user.username}")
+            app.logger.info(
+                f"Protocol deactivated: {protocol.name} (ID: {protocol_id}) by {current_user.username}"
+            )
 
             return jsonify({"message": "Protocol deactivated", "protocol": protocol.to_dict()}), 200
 
@@ -7251,12 +7569,14 @@ def apply_protocol_to_patient(protocol_id):
             status="draft",
             start_date=datetime.strptime(start_date, "%Y-%m-%d").date() if start_date else None,
             total_estimated_cost=protocol.estimated_cost or 0,
-            created_by_id=current_user.id
+            created_by_id=current_user.id,
         )
 
         # Calculate end date from protocol duration
         if treatment_plan.start_date and protocol.default_duration_days:
-            treatment_plan.end_date = treatment_plan.start_date + timedelta(days=protocol.default_duration_days)
+            treatment_plan.end_date = treatment_plan.start_date + timedelta(
+                days=protocol.default_duration_days
+            )
 
         db.session.add(treatment_plan)
         db.session.flush()  # Get treatment plan ID
@@ -7271,18 +7591,22 @@ def apply_protocol_to_patient(protocol_id):
                 description=proto_step.description,
                 status="pending",
                 estimated_cost=proto_step.estimated_cost,
-                notes=proto_step.notes
+                notes=proto_step.notes,
             )
 
             # Calculate scheduled date from day offset
             if treatment_plan.start_date:
-                step.scheduled_date = treatment_plan.start_date + timedelta(days=proto_step.day_offset)
+                step.scheduled_date = treatment_plan.start_date + timedelta(
+                    days=proto_step.day_offset
+                )
 
             db.session.add(step)
 
         db.session.commit()
 
-        app.logger.info(f"Protocol {protocol.name} applied to patient {patient.name} (Treatment Plan ID: {treatment_plan.id}) by {current_user.username}")
+        app.logger.info(
+            f"Protocol {protocol.name} applied to patient {patient.name} (Treatment Plan ID: {treatment_plan.id}) by {current_user.username}"
+        )
 
         return jsonify(treatment_plan.to_dict(include_steps=True)), 201
 
@@ -7323,7 +7647,7 @@ def get_treatment_plans():
             query = query.filter(
                 db.or_(
                     TreatmentPlan.name.ilike(search_term),
-                    TreatmentPlan.description.ilike(search_term)
+                    TreatmentPlan.description.ilike(search_term),
                 )
             )
 
@@ -7368,7 +7692,7 @@ def create_treatment_plan():
             start_date=data.get("start_date"),
             end_date=data.get("end_date"),
             notes=data.get("notes"),
-            created_by_id=current_user.id
+            created_by_id=current_user.id,
         )
 
         db.session.add(treatment_plan)
@@ -7386,7 +7710,7 @@ def create_treatment_plan():
                 status=step_data.get("status", "pending"),
                 scheduled_date=step_data.get("scheduled_date"),
                 estimated_cost=step_data.get("estimated_cost"),
-                notes=step_data.get("notes")
+                notes=step_data.get("notes"),
             )
             db.session.add(step)
 
@@ -7398,7 +7722,9 @@ def create_treatment_plan():
 
         db.session.commit()
 
-        app.logger.info(f"Treatment plan created: {treatment_plan.name} (ID: {treatment_plan.id}) by {current_user.username}")
+        app.logger.info(
+            f"Treatment plan created: {treatment_plan.name} (ID: {treatment_plan.id}) by {current_user.username}"
+        )
 
         return jsonify(treatment_plan.to_dict(include_steps=True)), 201
 
@@ -7444,7 +7770,9 @@ def update_treatment_plan(plan_id):
 
         db.session.commit()
 
-        app.logger.info(f"Treatment plan updated: {treatment_plan.name} (ID: {plan_id}) by {current_user.username}")
+        app.logger.info(
+            f"Treatment plan updated: {treatment_plan.name} (ID: {plan_id}) by {current_user.username}"
+        )
 
         return jsonify(treatment_plan.to_dict(include_steps=True)), 200
 
@@ -7467,7 +7795,9 @@ def delete_treatment_plan(plan_id):
         db.session.delete(treatment_plan)
         db.session.commit()
 
-        app.logger.info(f"Treatment plan deleted: {treatment_plan.name} (ID: {plan_id}) by {current_user.username}")
+        app.logger.info(
+            f"Treatment plan deleted: {treatment_plan.name} (ID: {plan_id}) by {current_user.username}"
+        )
 
         return jsonify({"message": "Treatment plan deleted"}), 200
 
@@ -7521,14 +7851,14 @@ def update_treatment_plan_step(plan_id, step_id):
 
         # Recalculate treatment plan total costs
         if "actual_cost" in data:
-            total_actual = sum(
-                float(s.actual_cost) for s in treatment_plan.steps if s.actual_cost
-            )
+            total_actual = sum(float(s.actual_cost) for s in treatment_plan.steps if s.actual_cost)
             treatment_plan.total_actual_cost = total_actual
 
         db.session.commit()
 
-        app.logger.info(f"Treatment plan step updated: {step.title} (ID: {step_id}) by {current_user.username}")
+        app.logger.info(
+            f"Treatment plan step updated: {step.title} (ID: {step_id}) by {current_user.username}"
+        )
 
         return jsonify(step.to_dict()), 200
 

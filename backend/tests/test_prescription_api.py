@@ -129,7 +129,9 @@ class TestPrescriptionList:
         self, authenticated_client, sample_prescriptions, sample_patient_and_visit
     ):
         """Should filter prescriptions by patient"""
-        response = authenticated_client.get(f"/api/prescriptions?patient_id={sample_patient_and_visit['patient_id']}")
+        response = authenticated_client.get(
+            f"/api/prescriptions?patient_id={sample_patient_and_visit['patient_id']}"
+        )
         assert response.status_code == 200
         data = response.json
         assert len(data["prescriptions"]) == 2
@@ -159,7 +161,9 @@ class TestPrescriptionDetail:
 
 
 class TestPrescriptionCreate:
-    def test_create_prescription_success(self, authenticated_client, sample_patient_and_visit, sample_medication):
+    def test_create_prescription_success(
+        self, authenticated_client, sample_patient_and_visit, sample_medication
+    ):
         """Should create a new prescription"""
         prescription_data = {
             "patient_id": sample_patient_and_visit["patient_id"],
@@ -192,7 +196,9 @@ class TestPrescriptionCreate:
         assert response.status_code == 404
         assert "Patient not found" in response.json["error"]
 
-    def test_create_prescription_invalid_medication(self, authenticated_client, sample_patient_and_visit):
+    def test_create_prescription_invalid_medication(
+        self, authenticated_client, sample_patient_and_visit
+    ):
         """Should reject prescription for non-existent medication"""
         prescription_data = {
             "patient_id": sample_patient_and_visit["patient_id"],
@@ -222,8 +228,13 @@ class TestPrescriptionCreate:
 class TestPrescriptionUpdate:
     def test_update_prescription_success(self, authenticated_client, sample_prescriptions):
         """Should update prescription"""
-        update_data = {"status": "discontinued", "discontinuation_reason": "Patient switched to different medication"}
-        response = authenticated_client.put(f"/api/prescriptions/{sample_prescriptions[0]}", json=update_data)
+        update_data = {
+            "status": "discontinued",
+            "discontinuation_reason": "Patient switched to different medication",
+        }
+        response = authenticated_client.put(
+            f"/api/prescriptions/{sample_prescriptions[0]}", json=update_data
+        )
         assert response.status_code == 200
         data = response.json
         assert data["status"] == "discontinued"
@@ -232,7 +243,9 @@ class TestPrescriptionUpdate:
     def test_update_prescription_refills(self, authenticated_client, sample_prescriptions):
         """Should update refills remaining"""
         update_data = {"refills_remaining": 1}
-        response = authenticated_client.put(f"/api/prescriptions/{sample_prescriptions[0]}", json=update_data)
+        response = authenticated_client.put(
+            f"/api/prescriptions/{sample_prescriptions[0]}", json=update_data
+        )
         assert response.status_code == 200
         data = response.json
         assert data["refills_remaining"] == 1

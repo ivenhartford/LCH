@@ -124,7 +124,9 @@ class TestVisitList:
         # Should be ordered by visit_date desc (future, today, past)
         assert data["visits"][0]["chief_complaint"] == "Injury"
 
-    def test_get_visits_filter_by_patient(self, authenticated_client, sample_visits, sample_patient):
+    def test_get_visits_filter_by_patient(
+        self, authenticated_client, sample_visits, sample_patient
+    ):
         """
         GIVEN visits for multiple patients
         WHEN GET /api/visits?patient_id=X is called
@@ -224,7 +226,9 @@ class TestVisitCreate:
         WHEN POST /api/visits is called
         THEN it should return 404
         """
-        response = authenticated_client.post("/api/visits", json={"patient_id": 99999, "visit_type": "Wellness"})
+        response = authenticated_client.post(
+            "/api/visits", json={"patient_id": 99999, "visit_type": "Wellness"}
+        )
         assert response.status_code == 404
         assert "Patient not found" in response.json["error"]
 
@@ -322,7 +326,9 @@ class TestVisitUpdate:
         """
         visit_id = sample_visits[0]
         new_notes = "Updated visit notes with additional observations"
-        response = authenticated_client.put(f"/api/visits/{visit_id}", json={"visit_notes": new_notes})
+        response = authenticated_client.put(
+            f"/api/visits/{visit_id}", json={"visit_notes": new_notes}
+        )
         assert response.status_code == 200
         data = response.json
         assert data["visit_notes"] == new_notes
@@ -334,7 +340,9 @@ class TestVisitUpdate:
         THEN it should update only the provided fields
         """
         visit_id = sample_visits[0]
-        response = authenticated_client.put(f"/api/visits/{visit_id}", json={"chief_complaint": "Updated complaint"})
+        response = authenticated_client.put(
+            f"/api/visits/{visit_id}", json={"chief_complaint": "Updated complaint"}
+        )
         assert response.status_code == 200
         data = response.json
         assert data["chief_complaint"] == "Updated complaint"

@@ -44,8 +44,9 @@ class SecurityEvent:
     PIN_UNLOCK_FAILURE = "pin_unlock_failure"
 
 
-def log_security_event(event_type, user_id=None, username=None, ip_address=None,
-                       details=None, severity="info"):
+def log_security_event(
+    event_type, user_id=None, username=None, ip_address=None, details=None, severity="info"
+):
     """
     Log security events for monitoring and audit trail
 
@@ -77,8 +78,7 @@ def log_security_event(event_type, user_id=None, username=None, ip_address=None,
     return event_data
 
 
-def safe_error_response(error, error_type="internal_error", status_code=500,
-                       include_details=None):
+def safe_error_response(error, error_type="internal_error", status_code=500, include_details=None):
     """
     Return a safe error response that doesn't leak implementation details
     in production, but provides useful info in development.
@@ -93,20 +93,17 @@ def safe_error_response(error, error_type="internal_error", status_code=500,
         tuple: (jsonify response, status_code)
     """
     # Log full error details server-side
-    current_app.logger.error(
-        f"Error ({error_type}): {str(error)}",
-        exc_info=True
-    )
+    current_app.logger.error(f"Error ({error_type}): {str(error)}", exc_info=True)
 
     # Determine if we should include details
-    show_details = include_details if include_details is not None else (
-        current_app.debug or current_app.testing
+    show_details = (
+        include_details
+        if include_details is not None
+        else (current_app.debug or current_app.testing)
     )
 
     # Build response
-    response = {
-        "error": GENERIC_ERRORS.get(error_type, GENERIC_ERRORS["internal_error"])
-    }
+    response = {"error": GENERIC_ERRORS.get(error_type, GENERIC_ERRORS["internal_error"])}
 
     # Include details only in development/testing
     if show_details:
@@ -122,57 +119,29 @@ def safe_error_response(error, error_type="internal_error", status_code=500,
 
 def handle_validation_error(error):
     """Handle Marshmallow validation errors"""
-    return safe_error_response(
-        error,
-        error_type="validation_error",
-        status_code=400
-    )
+    return safe_error_response(error, error_type="validation_error", status_code=400)
 
 
 def handle_not_found_error(error):
     """Handle resource not found errors"""
-    return safe_error_response(
-        error,
-        error_type="not_found",
-        status_code=404
-    )
+    return safe_error_response(error, error_type="not_found", status_code=404)
 
 
 def handle_auth_error(error):
     """Handle authentication errors"""
-    log_security_event(
-        SecurityEvent.LOGIN_FAILURE,
-        details=str(error),
-        severity="warning"
-    )
-    return safe_error_response(
-        error,
-        error_type="auth_error",
-        status_code=401
-    )
+    log_security_event(SecurityEvent.LOGIN_FAILURE, details=str(error), severity="warning")
+    return safe_error_response(error, error_type="auth_error", status_code=401)
 
 
 def handle_permission_error(error):
     """Handle authorization/permission errors"""
-    log_security_event(
-        SecurityEvent.UNAUTHORIZED_ACCESS,
-        details=str(error),
-        severity="warning"
-    )
-    return safe_error_response(
-        error,
-        error_type="permission_error",
-        status_code=403
-    )
+    log_security_event(SecurityEvent.UNAUTHORIZED_ACCESS, details=str(error), severity="warning")
+    return safe_error_response(error, error_type="permission_error", status_code=403)
 
 
 def handle_database_error(error):
     """Handle database errors"""
-    return safe_error_response(
-        error,
-        error_type="database_error",
-        status_code=500
-    )
+    return safe_error_response(error, error_type="database_error", status_code=500)
 
 
 def monitor_endpoint(f):
@@ -180,6 +149,7 @@ def monitor_endpoint(f):
     Decorator to add automatic security monitoring to endpoints
     Tracks suspicious patterns and repeated failures
     """
+
     @wraps(f)
     def decorated_function(*args, **kwargs):
         try:
@@ -194,17 +164,14 @@ def monitor_endpoint(f):
                     log_security_event(
                         SecurityEvent.UNAUTHORIZED_ACCESS,
                         details=f"Endpoint: {f.__name__}",
-                        severity="warning"
+                        severity="warning",
                     )
 
             return result
 
         except Exception as e:
             # Log unexpected errors
-            current_app.logger.error(
-                f"Unexpected error in {f.__name__}: {str(e)}",
-                exc_info=True
-            )
+            current_app.logger.error(f"Unexpected error in {f.__name__}: {str(e)}", exc_info=True)
             return safe_error_response(e)
 
     return decorated_function
@@ -218,9 +185,10 @@ def sanitize_database_error(error):
     error_str = str(error).lower()
 
     # Don't reveal table names, column names, etc.
-    if any(word in error_str for word in [
-        "table", "column", "constraint", "foreign key", "unique", "null"
-    ]):
+    if any(
+        word in error_str
+        for word in ["table", "column", "constraint", "foreign key", "unique", "null"]
+    ):
         return "A database constraint was violated."
 
     return GENERIC_ERRORS["database_error"]

@@ -52,7 +52,7 @@ class SecurityMonitor:
                     ip_address=ip_address,
                     username=username,
                     details=f"Brute force detected: {len(self.failed_logins[ip_address])} failed logins in {self.FAILED_LOGIN_WINDOW}s",
-                    severity="critical"
+                    severity="critical",
                 )
                 return True
 
@@ -70,7 +70,7 @@ class SecurityMonitor:
             user_id=user_id,
             username=username,
             ip_address=ip_address,
-            severity="info"
+            severity="info",
         )
 
     def track_logout(self, username, user_id, ip_address):
@@ -80,7 +80,7 @@ class SecurityMonitor:
             user_id=user_id,
             username=username,
             ip_address=ip_address,
-            severity="info"
+            severity="info",
         )
 
     def track_account_lockout(self, username, user_id, ip_address):
@@ -91,11 +91,10 @@ class SecurityMonitor:
             username=username,
             ip_address=ip_address,
             details="Account locked due to failed login attempts",
-            severity="warning"
+            severity="warning",
         )
 
-    def track_unauthorized_access(self, endpoint, user_id=None, username=None,
-                                  ip_address=None):
+    def track_unauthorized_access(self, endpoint, user_id=None, username=None, ip_address=None):
         """Track unauthorized access attempts"""
         log_security_event(
             SecurityEvent.UNAUTHORIZED_ACCESS,
@@ -103,7 +102,7 @@ class SecurityMonitor:
             username=username,
             ip_address=ip_address,
             details=f"Attempted access to: {endpoint}",
-            severity="warning"
+            severity="warning",
         )
 
     def track_rate_limit_exceeded(self, endpoint, ip_address):
@@ -112,7 +111,7 @@ class SecurityMonitor:
             SecurityEvent.RATE_LIMIT_EXCEEDED,
             ip_address=ip_address,
             details=f"Rate limit exceeded for: {endpoint}",
-            severity="warning"
+            severity="warning",
         )
 
     def track_invalid_token(self, token_type, ip_address):
@@ -121,40 +120,30 @@ class SecurityMonitor:
             SecurityEvent.INVALID_TOKEN,
             ip_address=ip_address,
             details=f"Invalid {token_type} token",
-            severity="warning"
+            severity="warning",
         )
 
     def track_session_expired(self, user_id, username):
         """Track session expiry events"""
         log_security_event(
-            SecurityEvent.SESSION_EXPIRED,
-            user_id=user_id,
-            username=username,
-            severity="info"
+            SecurityEvent.SESSION_EXPIRED, user_id=user_id, username=username, severity="info"
         )
 
     def track_pin_unlock(self, success, user_id, username, ip_address):
         """Track PIN unlock attempts"""
         event_type = (
-            SecurityEvent.PIN_UNLOCK_SUCCESS if success
-            else SecurityEvent.PIN_UNLOCK_FAILURE
+            SecurityEvent.PIN_UNLOCK_SUCCESS if success else SecurityEvent.PIN_UNLOCK_FAILURE
         )
         severity = "info" if success else "warning"
 
         log_security_event(
-            event_type,
-            user_id=user_id,
-            username=username,
-            ip_address=ip_address,
-            severity=severity
+            event_type, user_id=user_id, username=username, ip_address=ip_address, severity=severity
         )
 
     def mark_suspicious(self, ip_address):
         """Mark an IP address as suspicious"""
         self.suspicious_ips.add(ip_address)
-        current_app.logger.warning(
-            f"[SECURITY] IP {ip_address} marked as suspicious"
-        )
+        current_app.logger.warning(f"[SECURITY] IP {ip_address} marked as suspicious")
 
     def is_suspicious(self, ip_address):
         """Check if an IP is marked suspicious"""
@@ -176,8 +165,7 @@ class SecurityMonitor:
         with self.lock:
             return {
                 "failed_login_attempts": {
-                    ip: len(timestamps)
-                    for ip, timestamps in self.failed_logins.items()
+                    ip: len(timestamps) for ip, timestamps in self.failed_logins.items()
                 },
                 "suspicious_ips": list(self.suspicious_ips),
                 "total_events": len(self.events),
@@ -193,7 +181,7 @@ class SecurityMonitor:
         log_security_event(
             "security_event_cleared",
             details=f"IP {ip_address} cleared from suspicious list",
-            severity="info"
+            severity="info",
         )
 
 

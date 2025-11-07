@@ -76,7 +76,10 @@ def portal_auth_required(f):
         # Expected format: "Bearer <token>"
         parts = auth_header.split()
         if len(parts) != 2 or parts[0].lower() != "bearer":
-            return jsonify({"error": "Invalid authorization header format. Use: Bearer <token>"}), 401
+            return (
+                jsonify({"error": "Invalid authorization header format. Use: Bearer <token>"}),
+                401,
+            )
 
         token = parts[1]
 

@@ -17,9 +17,13 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 from app.models import (
-    Protocol, ProtocolStep,
-    TreatmentPlan, TreatmentPlanStep,
-    Patient, Client, User
+    Protocol,
+    ProtocolStep,
+    TreatmentPlan,
+    TreatmentPlanStep,
+    Patient,
+    Client,
+    User,
 )
 
 
@@ -44,7 +48,7 @@ def test_create_protocol_basic(client, auth_headers, test_user):
         "is_active": True,
         "default_duration_days": 7,
         "estimated_cost": "100.00",
-        "notes": "Test notes"
+        "notes": "Test notes",
     }
 
     response = client.post("/api/protocols", json=data, headers=auth_headers)
@@ -73,23 +77,23 @@ def test_create_protocol_with_steps(client, auth_headers):
                 "title": "Pre-op exam",
                 "description": "Physical examination and bloodwork",
                 "day_offset": 0,
-                "estimated_cost": "75.00"
+                "estimated_cost": "75.00",
             },
             {
                 "step_number": 2,
                 "title": "Dental cleaning",
                 "description": "Anesthesia and cleaning",
                 "day_offset": 1,
-                "estimated_cost": "250.00"
+                "estimated_cost": "250.00",
             },
             {
                 "step_number": 3,
                 "title": "Post-op check",
                 "description": "Follow-up examination",
                 "day_offset": 3,
-                "estimated_cost": "25.00"
-            }
-        ]
+                "estimated_cost": "25.00",
+            },
+        ],
     }
 
     response = client.post("/api/protocols", json=data, headers=auth_headers)
@@ -108,10 +112,7 @@ def test_create_protocol_with_steps(client, auth_headers):
 
 def test_create_protocol_validation_error(client, auth_headers):
     """Test creating protocol with invalid data"""
-    data = {
-        "name": "",  # Empty name should fail
-        "category": "wellness"
-    }
+    data = {"name": "", "category": "wellness"}  # Empty name should fail
 
     response = client.post("/api/protocols", json=data, headers=auth_headers)
     assert response.status_code == 400
@@ -124,24 +125,14 @@ def test_get_protocol_by_id(client, auth_headers, test_user, session):
         name="Test Protocol",
         description="Test description",
         category="surgical",
-        created_by_id=test_user.id
+        created_by_id=test_user.id,
     )
     session.add(protocol)
     session.flush()
 
     # Add steps
-    step1 = ProtocolStep(
-        protocol_id=protocol.id,
-        step_number=1,
-        title="Step 1",
-        day_offset=0
-    )
-    step2 = ProtocolStep(
-        protocol_id=protocol.id,
-        step_number=2,
-        title="Step 2",
-        day_offset=1
-    )
+    step1 = ProtocolStep(protocol_id=protocol.id, step_number=1, title="Step 1", day_offset=0)
+    step2 = ProtocolStep(protocol_id=protocol.id, step_number=2, title="Step 2", day_offset=1)
     session.add_all([step1, step2])
     session.commit()
 
@@ -167,7 +158,7 @@ def test_update_protocol(client, auth_headers, test_user, session):
         name="Original Name",
         description="Original description",
         category="wellness",
-        created_by_id=test_user.id
+        created_by_id=test_user.id,
     )
     session.add(protocol)
     session.commit()
@@ -177,7 +168,7 @@ def test_update_protocol(client, auth_headers, test_user, session):
         "name": "Updated Name",
         "description": "Updated description",
         "category": "dental",
-        "is_active": False
+        "is_active": False,
     }
 
     response = client.put(f"/api/protocols/{protocol.id}", json=data, headers=auth_headers)
@@ -192,11 +183,7 @@ def test_update_protocol(client, auth_headers, test_user, session):
 
 def test_delete_protocol_soft(client, auth_headers, test_user, session):
     """Test soft deleting (deactivating) a protocol"""
-    protocol = Protocol(
-        name="Test Protocol",
-        is_active=True,
-        created_by_id=test_user.id
-    )
+    protocol = Protocol(name="Test Protocol", is_active=True, created_by_id=test_user.id)
     session.add(protocol)
     session.commit()
 
@@ -212,19 +199,13 @@ def test_delete_protocol_soft(client, auth_headers, test_user, session):
 
 def test_delete_protocol_hard(client, auth_headers, test_user, session):
     """Test hard deleting (permanently removing) a protocol"""
-    protocol = Protocol(
-        name="Test Protocol",
-        created_by_id=test_user.id
-    )
+    protocol = Protocol(name="Test Protocol", created_by_id=test_user.id)
     session.add(protocol)
     session.commit()
     protocol_id = protocol.id
 
     # Hard delete
-    response = client.delete(
-        f"/api/protocols/{protocol_id}?permanent=true",
-        headers=auth_headers
-    )
+    response = client.delete(f"/api/protocols/{protocol_id}?permanent=true", headers=auth_headers)
     assert response.status_code == 200
     assert "permanently deleted" in response.json["message"].lower()
 
@@ -267,8 +248,12 @@ def test_filter_protocols_by_active_status(client, auth_headers, test_user, sess
 
 def test_search_protocols(client, auth_headers, test_user, session):
     """Test searching protocols by name/description"""
-    protocol1 = Protocol(name="Dental Cleaning", description="Teeth cleaning", created_by_id=test_user.id)
-    protocol2 = Protocol(name="Surgery Protocol", description="Surgical procedure", created_by_id=test_user.id)
+    protocol1 = Protocol(
+        name="Dental Cleaning", description="Teeth cleaning", created_by_id=test_user.id
+    )
+    protocol2 = Protocol(
+        name="Surgery Protocol", description="Surgical procedure", created_by_id=test_user.id
+    )
     session.add_all([protocol1, protocol2])
     session.commit()
 
@@ -293,31 +278,42 @@ def test_apply_protocol_to_patient(client, auth_headers, test_user, test_patient
         description="Standard spay procedure",
         default_duration_days=10,
         estimated_cost=Decimal("450.00"),
-        created_by_id=test_user.id
+        created_by_id=test_user.id,
     )
     session.add(protocol)
     session.flush()
 
     steps = [
-        ProtocolStep(protocol_id=protocol.id, step_number=1, title="Pre-op", day_offset=0, estimated_cost=Decimal("85.00")),
-        ProtocolStep(protocol_id=protocol.id, step_number=2, title="Surgery", day_offset=1, estimated_cost=Decimal("325.00")),
-        ProtocolStep(protocol_id=protocol.id, step_number=3, title="Follow-up", day_offset=10, estimated_cost=Decimal("40.00")),
+        ProtocolStep(
+            protocol_id=protocol.id,
+            step_number=1,
+            title="Pre-op",
+            day_offset=0,
+            estimated_cost=Decimal("85.00"),
+        ),
+        ProtocolStep(
+            protocol_id=protocol.id,
+            step_number=2,
+            title="Surgery",
+            day_offset=1,
+            estimated_cost=Decimal("325.00"),
+        ),
+        ProtocolStep(
+            protocol_id=protocol.id,
+            step_number=3,
+            title="Follow-up",
+            day_offset=10,
+            estimated_cost=Decimal("40.00"),
+        ),
     ]
     session.add_all(steps)
     session.commit()
 
     # Apply protocol to patient
     start_date = datetime.now().date()
-    data = {
-        "patient_id": test_patient.id,
-        "start_date": start_date.isoformat()
-    }
+    data = {"patient_id": test_patient.id, "start_date": start_date.isoformat()}
 
-    response = client.post(
-        f"/api/protocols/{protocol.id}/apply",
-        json=data,
-        headers=auth_headers
-    )
+    response = client.post(f"/api/protocols/{protocol.id}/apply", json=data, headers=auth_headers)
     assert response.status_code == 201
 
     result = response.json
@@ -348,11 +344,7 @@ def test_apply_protocol_missing_patient_id(client, auth_headers, test_user, sess
 
     data = {"start_date": "2025-11-10"}  # Missing patient_id
 
-    response = client.post(
-        f"/api/protocols/{protocol.id}/apply",
-        json=data,
-        headers=auth_headers
-    )
+    response = client.post(f"/api/protocols/{protocol.id}/apply", json=data, headers=auth_headers)
     assert response.status_code == 400
     assert "patient_id is required" in response.json["error"]
 
@@ -363,16 +355,9 @@ def test_apply_protocol_invalid_patient(client, auth_headers, test_user, session
     session.add(protocol)
     session.commit()
 
-    data = {
-        "patient_id": 99999,  # Non-existent patient
-        "start_date": "2025-11-10"
-    }
+    data = {"patient_id": 99999, "start_date": "2025-11-10"}  # Non-existent patient
 
-    response = client.post(
-        f"/api/protocols/{protocol.id}/apply",
-        json=data,
-        headers=auth_headers
-    )
+    response = client.post(f"/api/protocols/{protocol.id}/apply", json=data, headers=auth_headers)
     assert response.status_code == 404
 
 
@@ -396,7 +381,7 @@ def test_create_treatment_plan_basic(client, auth_headers, test_user, test_patie
         "patient_id": test_patient.id,
         "status": "draft",
         "start_date": "2025-11-10",
-        "notes": "Test notes"
+        "notes": "Test notes",
     }
 
     response = client.post("/api/treatment-plans", json=data, headers=auth_headers)
@@ -426,7 +411,7 @@ def test_create_treatment_plan_with_steps(client, auth_headers, test_patient):
                 "description": "Physical examination",
                 "status": "pending",
                 "scheduled_date": "2025-11-10",
-                "estimated_cost": "100.00"
+                "estimated_cost": "100.00",
             },
             {
                 "step_number": 2,
@@ -434,9 +419,9 @@ def test_create_treatment_plan_with_steps(client, auth_headers, test_patient):
                 "description": "Main treatment procedure",
                 "status": "pending",
                 "scheduled_date": "2025-11-12",
-                "estimated_cost": "300.00"
-            }
-        ]
+                "estimated_cost": "300.00",
+            },
+        ],
     }
 
     response = client.post("/api/treatment-plans", json=data, headers=auth_headers)
@@ -450,10 +435,7 @@ def test_create_treatment_plan_with_steps(client, auth_headers, test_patient):
 
 def test_create_treatment_plan_invalid_patient(client, auth_headers):
     """Test creating treatment plan with non-existent patient"""
-    data = {
-        "name": "Test Plan",
-        "patient_id": 99999  # Non-existent
-    }
+    data = {"name": "Test Plan", "patient_id": 99999}  # Non-existent
 
     response = client.post("/api/treatment-plans", json=data, headers=auth_headers)
     assert response.status_code == 400
@@ -466,23 +448,17 @@ def test_get_treatment_plan_by_id(client, auth_headers, test_user, test_patient,
         description="Test description",
         patient_id=test_patient.id,
         status="active",
-        created_by_id=test_user.id
+        created_by_id=test_user.id,
     )
     session.add(plan)
     session.flush()
 
     # Add steps
     step1 = TreatmentPlanStep(
-        treatment_plan_id=plan.id,
-        step_number=1,
-        title="Step 1",
-        status="pending"
+        treatment_plan_id=plan.id, step_number=1, title="Step 1", status="pending"
     )
     step2 = TreatmentPlanStep(
-        treatment_plan_id=plan.id,
-        step_number=2,
-        title="Step 2",
-        status="completed"
+        treatment_plan_id=plan.id, step_number=2, title="Step 2", status="completed"
     )
     session.add_all([step1, step2])
     session.commit()
@@ -510,7 +486,7 @@ def test_update_treatment_plan(client, auth_headers, test_user, test_patient, se
         description="Original description",
         patient_id=test_patient.id,
         status="draft",
-        created_by_id=test_user.id
+        created_by_id=test_user.id,
     )
     session.add(plan)
     session.commit()
@@ -520,7 +496,7 @@ def test_update_treatment_plan(client, auth_headers, test_user, test_patient, se
         "name": "Updated Plan",
         "description": "Updated description",
         "status": "active",
-        "notes": "New notes"
+        "notes": "New notes",
     }
 
     response = client.put(f"/api/treatment-plans/{plan.id}", json=data, headers=auth_headers)
@@ -532,13 +508,12 @@ def test_update_treatment_plan(client, auth_headers, test_user, test_patient, se
     assert result["status"] == "active"
 
 
-def test_update_treatment_plan_to_completed_sets_date(client, auth_headers, test_user, test_patient, session):
+def test_update_treatment_plan_to_completed_sets_date(
+    client, auth_headers, test_user, test_patient, session
+):
     """Test that updating status to completed sets completed_date"""
     plan = TreatmentPlan(
-        name="Test Plan",
-        patient_id=test_patient.id,
-        status="active",
-        created_by_id=test_user.id
+        name="Test Plan", patient_id=test_patient.id, status="active", created_by_id=test_user.id
     )
     session.add(plan)
     session.commit()
@@ -556,11 +531,7 @@ def test_update_treatment_plan_to_completed_sets_date(client, auth_headers, test
 
 def test_delete_treatment_plan(client, auth_headers, test_user, test_patient, session):
     """Test deleting a treatment plan"""
-    plan = TreatmentPlan(
-        name="Test Plan",
-        patient_id=test_patient.id,
-        created_by_id=test_user.id
-    )
+    plan = TreatmentPlan(name="Test Plan", patient_id=test_patient.id, created_by_id=test_user.id)
     session.add(plan)
     session.commit()
     plan_id = plan.id
@@ -601,8 +572,12 @@ def test_filter_treatment_plans_by_patient(client, auth_headers, test_user, sess
 
 def test_filter_treatment_plans_by_status(client, auth_headers, test_user, test_patient, session):
     """Test filtering treatment plans by status"""
-    plan1 = TreatmentPlan(name="Draft Plan", patient_id=test_patient.id, status="draft", created_by_id=test_user.id)
-    plan2 = TreatmentPlan(name="Active Plan", patient_id=test_patient.id, status="active", created_by_id=test_user.id)
+    plan1 = TreatmentPlan(
+        name="Draft Plan", patient_id=test_patient.id, status="draft", created_by_id=test_user.id
+    )
+    plan2 = TreatmentPlan(
+        name="Active Plan", patient_id=test_patient.id, status="active", created_by_id=test_user.id
+    )
     session.add_all([plan1, plan2])
     session.commit()
 
@@ -616,8 +591,18 @@ def test_filter_treatment_plans_by_status(client, auth_headers, test_user, test_
 
 def test_search_treatment_plans(client, auth_headers, test_user, test_patient, session):
     """Test searching treatment plans by name/description"""
-    plan1 = TreatmentPlan(name="Dental Care", description="Teeth cleaning", patient_id=test_patient.id, created_by_id=test_user.id)
-    plan2 = TreatmentPlan(name="Surgery Plan", description="Surgical procedure", patient_id=test_patient.id, created_by_id=test_user.id)
+    plan1 = TreatmentPlan(
+        name="Dental Care",
+        description="Teeth cleaning",
+        patient_id=test_patient.id,
+        created_by_id=test_user.id,
+    )
+    plan2 = TreatmentPlan(
+        name="Surgery Plan",
+        description="Surgical procedure",
+        patient_id=test_patient.id,
+        created_by_id=test_user.id,
+    )
     session.add_all([plan1, plan2])
     session.commit()
 
@@ -645,22 +630,16 @@ def test_update_treatment_plan_step(client, auth_headers, test_user, test_patien
         step_number=1,
         title="Original Title",
         status="pending",
-        estimated_cost=Decimal("100.00")
+        estimated_cost=Decimal("100.00"),
     )
     session.add(step)
     session.commit()
 
     # Update step
-    data = {
-        "title": "Updated Title",
-        "description": "New description",
-        "notes": "Additional notes"
-    }
+    data = {"title": "Updated Title", "description": "New description", "notes": "Additional notes"}
 
     response = client.patch(
-        f"/api/treatment-plans/{plan.id}/steps/{step.id}",
-        json=data,
-        headers=auth_headers
+        f"/api/treatment-plans/{plan.id}/steps/{step.id}", json=data, headers=auth_headers
     )
     assert response.status_code == 200
 
@@ -677,10 +656,7 @@ def test_update_step_to_completed_sets_date(client, auth_headers, test_user, tes
     session.flush()
 
     step = TreatmentPlanStep(
-        treatment_plan_id=plan.id,
-        step_number=1,
-        title="Test Step",
-        status="pending"
+        treatment_plan_id=plan.id, step_number=1, title="Test Step", status="pending"
     )
     session.add(step)
     session.commit()
@@ -689,9 +665,7 @@ def test_update_step_to_completed_sets_date(client, auth_headers, test_user, tes
     data = {"status": "completed"}
 
     response = client.patch(
-        f"/api/treatment-plans/{plan.id}/steps/{step.id}",
-        json=data,
-        headers=auth_headers
+        f"/api/treatment-plans/{plan.id}/steps/{step.id}", json=data, headers=auth_headers
     )
     assert response.status_code == 200
 
@@ -701,28 +675,24 @@ def test_update_step_to_completed_sets_date(client, auth_headers, test_user, tes
     assert result["performed_by_id"] == test_user.id
 
 
-def test_update_step_actual_cost_recalculates_total(client, auth_headers, test_user, test_patient, session):
+def test_update_step_actual_cost_recalculates_total(
+    client, auth_headers, test_user, test_patient, session
+):
     """Test that updating actual_cost recalculates treatment plan total"""
     plan = TreatmentPlan(
         name="Test Plan",
         patient_id=test_patient.id,
         total_actual_cost=Decimal("0"),
-        created_by_id=test_user.id
+        created_by_id=test_user.id,
     )
     session.add(plan)
     session.flush()
 
     step1 = TreatmentPlanStep(
-        treatment_plan_id=plan.id,
-        step_number=1,
-        title="Step 1",
-        actual_cost=Decimal("100.00")
+        treatment_plan_id=plan.id, step_number=1, title="Step 1", actual_cost=Decimal("100.00")
     )
     step2 = TreatmentPlanStep(
-        treatment_plan_id=plan.id,
-        step_number=2,
-        title="Step 2",
-        actual_cost=None
+        treatment_plan_id=plan.id, step_number=2, title="Step 2", actual_cost=None
     )
     session.add_all([step1, step2])
     session.commit()
@@ -731,9 +701,7 @@ def test_update_step_actual_cost_recalculates_total(client, auth_headers, test_u
     data = {"actual_cost": "150.00"}
 
     response = client.patch(
-        f"/api/treatment-plans/{plan.id}/steps/{step2.id}",
-        json=data,
-        headers=auth_headers
+        f"/api/treatment-plans/{plan.id}/steps/{step2.id}", json=data, headers=auth_headers
     )
     assert response.status_code == 200
 
@@ -752,11 +720,7 @@ def test_update_step_wrong_plan(client, auth_headers, test_user, test_patient, s
     session.add_all([plan1, plan2])
     session.flush()
 
-    step = TreatmentPlanStep(
-        treatment_plan_id=plan1.id,
-        step_number=1,
-        title="Step 1"
-    )
+    step = TreatmentPlanStep(treatment_plan_id=plan1.id, step_number=1, title="Step 1")
     session.add(step)
     session.commit()
 
@@ -764,9 +728,7 @@ def test_update_step_wrong_plan(client, auth_headers, test_user, test_patient, s
     data = {"title": "Updated"}
 
     response = client.patch(
-        f"/api/treatment-plans/{plan2.id}/steps/{step.id}",
-        json=data,
-        headers=auth_headers
+        f"/api/treatment-plans/{plan2.id}/steps/{step.id}", json=data, headers=auth_headers
     )
     assert response.status_code == 400
     assert "does not belong" in response.json["error"]
@@ -781,9 +743,7 @@ def test_update_step_not_found(client, auth_headers, test_user, test_patient, se
     data = {"title": "Updated"}
 
     response = client.patch(
-        f"/api/treatment-plans/{plan.id}/steps/99999",
-        json=data,
-        headers=auth_headers
+        f"/api/treatment-plans/{plan.id}/steps/99999", json=data, headers=auth_headers
     )
     assert response.status_code == 404
 
@@ -805,17 +765,27 @@ def test_progress_calculation_no_steps(client, auth_headers, test_user, test_pat
     assert result["progress_percentage"] == 0
 
 
-def test_progress_calculation_partial_completion(client, auth_headers, test_user, test_patient, session):
+def test_progress_calculation_partial_completion(
+    client, auth_headers, test_user, test_patient, session
+):
     """Test progress calculation with some steps completed"""
     plan = TreatmentPlan(name="Test Plan", patient_id=test_patient.id, created_by_id=test_user.id)
     session.add(plan)
     session.flush()
 
     steps = [
-        TreatmentPlanStep(treatment_plan_id=plan.id, step_number=1, title="Step 1", status="completed"),
-        TreatmentPlanStep(treatment_plan_id=plan.id, step_number=2, title="Step 2", status="completed"),
-        TreatmentPlanStep(treatment_plan_id=plan.id, step_number=3, title="Step 3", status="pending"),
-        TreatmentPlanStep(treatment_plan_id=plan.id, step_number=4, title="Step 4", status="pending"),
+        TreatmentPlanStep(
+            treatment_plan_id=plan.id, step_number=1, title="Step 1", status="completed"
+        ),
+        TreatmentPlanStep(
+            treatment_plan_id=plan.id, step_number=2, title="Step 2", status="completed"
+        ),
+        TreatmentPlanStep(
+            treatment_plan_id=plan.id, step_number=3, title="Step 3", status="pending"
+        ),
+        TreatmentPlanStep(
+            treatment_plan_id=plan.id, step_number=4, title="Step 4", status="pending"
+        ),
     ]
     session.add_all(steps)
     session.commit()
@@ -834,8 +804,12 @@ def test_progress_calculation_all_completed(client, auth_headers, test_user, tes
     session.flush()
 
     steps = [
-        TreatmentPlanStep(treatment_plan_id=plan.id, step_number=1, title="Step 1", status="completed"),
-        TreatmentPlanStep(treatment_plan_id=plan.id, step_number=2, title="Step 2", status="completed"),
+        TreatmentPlanStep(
+            treatment_plan_id=plan.id, step_number=1, title="Step 1", status="completed"
+        ),
+        TreatmentPlanStep(
+            treatment_plan_id=plan.id, step_number=2, title="Step 2", status="completed"
+        ),
     ]
     session.add_all(steps)
     session.commit()

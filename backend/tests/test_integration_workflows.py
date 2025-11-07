@@ -8,8 +8,15 @@ ensuring that complex user stories work correctly from start to finish.
 import pytest
 from app import create_app, db
 from app.models import (
-    User, Client, Patient, Appointment, AppointmentType,
-    Visit, Invoice, Payment, Service
+    User,
+    Client,
+    Patient,
+    Appointment,
+    AppointmentType,
+    Visit,
+    Invoice,
+    Payment,
+    Service,
 )
 from datetime import datetime, timedelta
 
@@ -42,10 +49,7 @@ def authenticated_client(app, client):
         db.session.commit()
 
     # Login
-    response = client.post("/api/login", json={
-        "username": "testuser",
-        "password": "testpass"
-    })
+    response = client.post("/api/login", json={"username": "testuser", "password": "testpass"})
     assert response.status_code == 200
 
     return client
@@ -61,10 +65,7 @@ def admin_client(app):
         db.session.commit()
 
     test_client = app.test_client()
-    response = test_client.post("/api/login", json={
-        "username": "admin",
-        "password": "adminpass"
-    })
+    response = test_client.post("/api/login", json={"username": "admin", "password": "adminpass"})
     assert response.status_code == 200
 
     return test_client
@@ -93,12 +94,12 @@ class TestAppointmentWorkflow:
                 "address_street": "123 Main St",
                 "city": "New York",
                 "state": "NY",
-                "zip_code": "10001"
+                "zip_code": "10001",
             }
 
             response = authenticated_client.post("/api/clients", json=client_data)
             assert response.status_code == 201
-            client_id = response.json['id']
+            client_id = response.json["id"]
             assert client_id is not None
 
             # Step 2: Create patient (cat) for the client
@@ -111,12 +112,12 @@ class TestAppointmentWorkflow:
                 "color": "White",
                 "weight": 10.5,
                 "owner_id": client_id,
-                "status": "active"
+                "status": "active",
             }
 
             response = authenticated_client.post("/api/patients", json=patient_data)
             assert response.status_code == 201
-            patient_id = response.json['id']
+            patient_id = response.json["id"]
             assert patient_id is not None
 
             # Step 3: Create appointment type
@@ -125,12 +126,12 @@ class TestAppointmentWorkflow:
                 "duration_minutes": 30,
                 "color": "#4CAF50",
                 "default_price": 75.00,
-                "description": "Annual wellness examination"
+                "description": "Annual wellness examination",
             }
 
             response = authenticated_client.post("/api/appointment-types", json=appt_type_data)
             assert response.status_code == 201
-            appt_type_id = response.json['id']
+            appt_type_id = response.json["id"]
 
             # Step 4: Create appointment
             tomorrow = (datetime.now() + timedelta(days=1)).isoformat()
@@ -142,36 +143,36 @@ class TestAppointmentWorkflow:
                 "start_time": tomorrow,
                 "duration_minutes": 30,
                 "status": "pending",
-                "notes": "First visit"
+                "notes": "First visit",
             }
 
             response = authenticated_client.post("/api/appointments", json=appointment_data)
             assert response.status_code == 201
-            appointment_id = response.json['id']
-            assert response.json['status'] == 'pending'
+            appointment_id = response.json["id"]
+            assert response.json["status"] == "pending"
 
             # Step 5: Confirm appointment
-            response = authenticated_client.put(f"/api/appointments/{appointment_id}", json={
-                "status": "confirmed"
-            })
+            response = authenticated_client.put(
+                f"/api/appointments/{appointment_id}", json={"status": "confirmed"}
+            )
             assert response.status_code == 200
-            assert response.json['status'] == 'confirmed'
+            assert response.json["status"] == "confirmed"
 
             # Step 6: Check in appointment
-            response = authenticated_client.put(f"/api/appointments/{appointment_id}", json={
-                "status": "checked_in",
-                "check_in_time": datetime.now().isoformat()
-            })
+            response = authenticated_client.put(
+                f"/api/appointments/{appointment_id}",
+                json={"status": "checked_in", "check_in_time": datetime.now().isoformat()},
+            )
             assert response.status_code == 200
-            assert response.json['status'] == 'checked_in'
-            assert response.json['check_in_time'] is not None
+            assert response.json["status"] == "checked_in"
+            assert response.json["check_in_time"] is not None
 
             # Step 7: Start appointment (in progress)
-            response = authenticated_client.put(f"/api/appointments/{appointment_id}", json={
-                "status": "in_progress"
-            })
+            response = authenticated_client.put(
+                f"/api/appointments/{appointment_id}", json={"status": "in_progress"}
+            )
             assert response.status_code == 200
-            assert response.json['status'] == 'in_progress'
+            assert response.json["status"] == "in_progress"
 
             # Step 8: Create visit/medical record
             visit_data = {
@@ -179,12 +180,12 @@ class TestAppointmentWorkflow:
                 "patient_id": patient_id,
                 "visit_date": datetime.now().isoformat(),
                 "reason": "Annual wellness exam",
-                "chief_complaint": "Routine checkup"
+                "chief_complaint": "Routine checkup",
             }
 
             response = authenticated_client.post("/api/visits", json=visit_data)
             assert response.status_code == 201
-            visit_id = response.json['id']
+            visit_id = response.json["id"]
 
             # Step 9: Add vital signs
             vitals_data = {
@@ -193,7 +194,7 @@ class TestAppointmentWorkflow:
                 "heart_rate": 180,
                 "respiratory_rate": 30,
                 "weight": 10.5,
-                "body_condition_score": 5
+                "body_condition_score": 5,
             }
 
             response = authenticated_client.post("/api/vital-signs", json=vitals_data)
@@ -205,7 +206,7 @@ class TestAppointmentWorkflow:
                 "subjective": "Owner reports cat is eating well and active",
                 "objective": "Healthy cat, good body condition",
                 "assessment": "Healthy, no concerns",
-                "plan": "Continue current diet, return in 1 year"
+                "plan": "Continue current diet, return in 1 year",
             }
 
             response = authenticated_client.post("/api/soap-notes", json=soap_data)
@@ -216,12 +217,12 @@ class TestAppointmentWorkflow:
                 "name": "Wellness Exam",
                 "price": 75.00,
                 "taxable": True,
-                "category": "Examination"
+                "category": "Examination",
             }
 
             response = authenticated_client.post("/api/services", json=service_data)
             assert response.status_code == 201
-            service_id = response.json['id']
+            service_id = response.json["id"]
 
             # Step 12: Create invoice
             invoice_data = {
@@ -235,15 +236,15 @@ class TestAppointmentWorkflow:
                         "service_id": service_id,
                         "description": "Wellness Exam",
                         "quantity": 1,
-                        "unit_price": 75.00
+                        "unit_price": 75.00,
                     }
-                ]
+                ],
             }
 
             response = authenticated_client.post("/api/invoices", json=invoice_data)
             assert response.status_code == 201
-            invoice_id = response.json['id']
-            total_amount = response.json['total_amount']
+            invoice_id = response.json["id"]
+            total_amount = response.json["total_amount"]
             assert total_amount > 0
 
             # Step 13: Process payment
@@ -252,40 +253,40 @@ class TestAppointmentWorkflow:
                 "amount": total_amount,
                 "payment_method": "credit_card",
                 "payment_date": datetime.now().isoformat(),
-                "reference_number": "CC123456"
+                "reference_number": "CC123456",
             }
 
             response = authenticated_client.post("/api/payments", json=payment_data)
             assert response.status_code == 201
-            payment_id = response.json['id']
+            payment_id = response.json["id"]
 
             # Step 14: Verify invoice is paid
             response = authenticated_client.get(f"/api/invoices/{invoice_id}")
             assert response.status_code == 200
-            assert response.json['status'] == 'paid'
-            assert response.json['amount_paid'] == total_amount
+            assert response.json["status"] == "paid"
+            assert response.json["amount_paid"] == total_amount
 
             # Step 15: Complete appointment
-            response = authenticated_client.put(f"/api/appointments/{appointment_id}", json={
-                "status": "completed",
-                "check_out_time": datetime.now().isoformat()
-            })
+            response = authenticated_client.put(
+                f"/api/appointments/{appointment_id}",
+                json={"status": "completed", "check_out_time": datetime.now().isoformat()},
+            )
             assert response.status_code == 200
-            assert response.json['status'] == 'completed'
-            assert response.json['check_out_time'] is not None
+            assert response.json["status"] == "completed"
+            assert response.json["check_out_time"] is not None
 
             # Final verification: Get appointment and verify all relationships
             response = authenticated_client.get(f"/api/appointments/{appointment_id}")
             assert response.status_code == 200
             final_appt = response.json
-            assert final_appt['status'] == 'completed'
-            assert final_appt['client_id'] == client_id
-            assert final_appt['patient_id'] == patient_id
+            assert final_appt["status"] == "completed"
+            assert final_appt["client_id"] == client_id
+            assert final_appt["patient_id"] == patient_id
 
             # Verify patient has appointment history
             response = authenticated_client.get(f"/api/patients/{patient_id}")
             assert response.status_code == 200
-            assert len(response.json.get('appointments', [])) >= 1
+            assert len(response.json.get("appointments", [])) >= 1
 
             print("\n✅ Full appointment lifecycle test PASSED")
             print(f"   Client: {client_id}")
@@ -308,77 +309,92 @@ class TestInvoiceWorkflow:
 
         with app.app_context():
             # Create client
-            response = authenticated_client.post("/api/clients", json={
-                "first_name": "Jane",
-                "last_name": "Smith",
-                "email": "jane@example.com",
-                "phone_primary": "555-5678"
-            })
-            client_id = response.json['id']
+            response = authenticated_client.post(
+                "/api/clients",
+                json={
+                    "first_name": "Jane",
+                    "last_name": "Smith",
+                    "email": "jane@example.com",
+                    "phone_primary": "555-5678",
+                },
+            )
+            client_id = response.json["id"]
 
             # Create patient
-            response = authenticated_client.post("/api/patients", json={
-                "name": "Mittens",
-                "species": "Cat",
-                "breed": "Tabby",
-                "sex": "M",
-                "owner_id": client_id,
-                "status": "active"
-            })
-            patient_id = response.json['id']
+            response = authenticated_client.post(
+                "/api/patients",
+                json={
+                    "name": "Mittens",
+                    "species": "Cat",
+                    "breed": "Tabby",
+                    "sex": "M",
+                    "owner_id": client_id,
+                    "status": "active",
+                },
+            )
+            patient_id = response.json["id"]
 
             # Create service
-            response = authenticated_client.post("/api/services", json={
-                "name": "Surgery",
-                "price": 500.00,
-                "taxable": True
-            })
-            service_id = response.json['id']
+            response = authenticated_client.post(
+                "/api/services", json={"name": "Surgery", "price": 500.00, "taxable": True}
+            )
+            service_id = response.json["id"]
 
             # Create invoice
-            response = authenticated_client.post("/api/invoices", json={
-                "client_id": client_id,
-                "patient_id": patient_id,
-                "invoice_date": datetime.now().isoformat(),
-                "due_date": (datetime.now() + timedelta(days=30)).isoformat(),
-                "items": [{
-                    "service_id": service_id,
-                    "description": "Surgery",
-                    "quantity": 1,
-                    "unit_price": 500.00
-                }]
-            })
+            response = authenticated_client.post(
+                "/api/invoices",
+                json={
+                    "client_id": client_id,
+                    "patient_id": patient_id,
+                    "invoice_date": datetime.now().isoformat(),
+                    "due_date": (datetime.now() + timedelta(days=30)).isoformat(),
+                    "items": [
+                        {
+                            "service_id": service_id,
+                            "description": "Surgery",
+                            "quantity": 1,
+                            "unit_price": 500.00,
+                        }
+                    ],
+                },
+            )
             assert response.status_code == 201
-            invoice_id = response.json['id']
-            total = response.json['total_amount']
+            invoice_id = response.json["id"]
+            total = response.json["total_amount"]
 
             # Make first partial payment (50%)
-            response = authenticated_client.post("/api/payments", json={
-                "invoice_id": invoice_id,
-                "amount": total * 0.5,
-                "payment_method": "cash",
-                "payment_date": datetime.now().isoformat()
-            })
+            response = authenticated_client.post(
+                "/api/payments",
+                json={
+                    "invoice_id": invoice_id,
+                    "amount": total * 0.5,
+                    "payment_method": "cash",
+                    "payment_date": datetime.now().isoformat(),
+                },
+            )
             assert response.status_code == 201
 
             # Verify invoice is partially paid
             response = authenticated_client.get(f"/api/invoices/{invoice_id}")
-            assert response.json['status'] == 'partial'
-            assert response.json['amount_paid'] == total * 0.5
+            assert response.json["status"] == "partial"
+            assert response.json["amount_paid"] == total * 0.5
 
             # Make second partial payment (remaining 50%)
-            response = authenticated_client.post("/api/payments", json={
-                "invoice_id": invoice_id,
-                "amount": total * 0.5,
-                "payment_method": "credit_card",
-                "payment_date": datetime.now().isoformat()
-            })
+            response = authenticated_client.post(
+                "/api/payments",
+                json={
+                    "invoice_id": invoice_id,
+                    "amount": total * 0.5,
+                    "payment_method": "credit_card",
+                    "payment_date": datetime.now().isoformat(),
+                },
+            )
             assert response.status_code == 201
 
             # Verify invoice is now fully paid
             response = authenticated_client.get(f"/api/invoices/{invoice_id}")
-            assert response.json['status'] == 'paid'
-            assert response.json['amount_paid'] == total
+            assert response.json["status"] == "paid"
+            assert response.json["amount_paid"] == total
 
             print("\n✅ Partial payment workflow test PASSED")
 

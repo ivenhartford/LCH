@@ -43,29 +43,29 @@ class StructuredLogger:
             **kwargs: Additional context data
         """
         log_entry = {
-            'timestamp': datetime.utcnow().isoformat(),
-            'level': level.upper(),
-            'event_type': event_type,
-            'message': message,
-            **kwargs
+            "timestamp": datetime.utcnow().isoformat(),
+            "level": level.upper(),
+            "event_type": event_type,
+            "message": message,
+            **kwargs,
         }
 
         # Add request context if available
         if request:
-            log_entry['request'] = {
-                'method': request.method,
-                'endpoint': request.endpoint,
-                'path': request.path,
-                'ip_address': request.remote_addr,
-                'user_agent': request.headers.get('User-Agent', 'Unknown')
+            log_entry["request"] = {
+                "method": request.method,
+                "endpoint": request.endpoint,
+                "path": request.path,
+                "ip_address": request.remote_addr,
+                "user_agent": request.headers.get("User-Agent", "Unknown"),
             }
 
         # Add user context if available
         if current_user and current_user.is_authenticated:
-            log_entry['user'] = {
-                'id': current_user.id,
-                'username': current_user.username,
-                'role': current_user.role
+            log_entry["user"] = {
+                "id": current_user.id,
+                "username": current_user.username,
+                "role": current_user.role,
             }
 
         # Log as JSON
@@ -79,8 +79,16 @@ class StructuredLogger:
 structured_logger = StructuredLogger()
 
 
-def log_audit_event(action, entity_type, entity_id, entity_data=None,
-                   old_values=None, new_values=None, user_id=None, ip_address=None):
+def log_audit_event(
+    action,
+    entity_type,
+    entity_id,
+    entity_data=None,
+    old_values=None,
+    new_values=None,
+    user_id=None,
+    ip_address=None,
+):
     """
     Log an audit trail event for data modifications
 
@@ -112,28 +120,28 @@ def log_audit_event(action, entity_type, entity_id, entity_data=None,
         ip_address = request.remote_addr
 
     audit_data = {
-        'action': action,
-        'entity_type': entity_type,
-        'entity_id': entity_id,
-        'user_id': user_id,
-        'ip_address': ip_address
+        "action": action,
+        "entity_type": entity_type,
+        "entity_id": entity_id,
+        "user_id": user_id,
+        "ip_address": ip_address,
     }
 
     # Add data based on action type
-    if action == 'create' and entity_data:
-        audit_data['entity_data'] = entity_data
-    elif action == 'update':
+    if action == "create" and entity_data:
+        audit_data["entity_data"] = entity_data
+    elif action == "update":
         if old_values:
-            audit_data['old_values'] = old_values
+            audit_data["old_values"] = old_values
         if new_values:
-            audit_data['new_values'] = new_values
-    elif action == 'delete':
+            audit_data["new_values"] = new_values
+    elif action == "delete":
         if entity_data:
-            audit_data['deleted_entity'] = entity_data
+            audit_data["deleted_entity"] = entity_data
 
     # Log with structured logger
     message = f"{action.upper()} {entity_type} #{entity_id}"
-    structured_logger.log_event('info', f'{entity_type}_{action}', message, **audit_data)
+    structured_logger.log_event("info", f"{entity_type}_{action}", message, **audit_data)
 
     # Also log to regular logger for backwards compatibility
     current_app.logger.info(f"[AUDIT] {message}: {audit_data}")
@@ -158,21 +166,21 @@ def log_business_operation(operation, entity_type, entity_id=None, details=None,
             details={'old_status': 'pending', 'new_status': 'confirmed'}
         )
     """
-    level = 'info' if success else 'warning'
+    level = "info" if success else "warning"
     message = f"{operation.replace('_', ' ').title()}"
 
     if entity_id:
         message += f" for {entity_type} #{entity_id}"
 
     log_data = {
-        'operation': operation,
-        'entity_type': entity_type,
-        'entity_id': entity_id,
-        'success': success
+        "operation": operation,
+        "entity_type": entity_type,
+        "entity_id": entity_id,
+        "success": success,
     }
 
     if details:
-        log_data['details'] = details
+        log_data["details"] = details
 
     structured_logger.log_event(level, operation, message, **log_data)
     current_app.logger.info(f"[BUSINESS] {message}: {log_data}")
@@ -188,18 +196,20 @@ def log_performance(endpoint_name, duration_ms, warning_threshold=1000):
         warning_threshold: Threshold for slow request warning (default 1000ms)
     """
     is_slow = duration_ms > warning_threshold
-    level = 'warning' if is_slow else 'debug'
+    level = "warning" if is_slow else "debug"
 
-    message = f"{'SLOW ' if is_slow else ''}Request: {endpoint_name} completed in {duration_ms:.2f}ms"
+    message = (
+        f"{'SLOW ' if is_slow else ''}Request: {endpoint_name} completed in {duration_ms:.2f}ms"
+    )
 
     structured_logger.log_event(
         level,
-        'performance_metric',
+        "performance_metric",
         message,
         endpoint=endpoint_name,
         duration_ms=duration_ms,
         is_slow=is_slow,
-        threshold=warning_threshold
+        threshold=warning_threshold,
     )
 
 
@@ -213,6 +223,7 @@ def log_performance_decorator(f):
         def get_clients():
             ...
     """
+
     @wraps(f)
     def decorated_function(*args, **kwargs):
         # Record start time
@@ -256,27 +267,23 @@ def log_api_call(method, endpoint, status_code, duration_ms=None, error=None):
         error: Error message if applicable
     """
     is_error = status_code >= 400
-    level = 'error' if status_code >= 500 else ('warning' if is_error else 'info')
+    level = "error" if status_code >= 500 else ("warning" if is_error else "info")
 
     message = f"API {method} {endpoint} -> {status_code}"
 
-    log_data = {
-        'method': method,
-        'endpoint': endpoint,
-        'status_code': status_code
-    }
+    log_data = {"method": method, "endpoint": endpoint, "status_code": status_code}
 
     if duration_ms:
-        log_data['duration_ms'] = duration_ms
+        log_data["duration_ms"] = duration_ms
         message += f" ({duration_ms:.2f}ms)"
 
     if error:
-        log_data['error'] = error
+        log_data["error"] = error
 
-    structured_logger.log_event(level, 'api_call', message, **log_data)
+    structured_logger.log_event(level, "api_call", message, **log_data)
 
 
-def log_data_access(entity_type, entity_id, access_type='read', granted=True, reason=None):
+def log_data_access(entity_type, entity_id, access_type="read", granted=True, reason=None):
     """
     Log data access for security and compliance
 
@@ -287,21 +294,23 @@ def log_data_access(entity_type, entity_id, access_type='read', granted=True, re
         granted: Whether access was granted
         reason: Reason for denial if not granted
     """
-    level = 'info' if granted else 'warning'
-    message = f"{'Granted' if granted else 'Denied'} {access_type} access to {entity_type} #{entity_id}"
+    level = "info" if granted else "warning"
+    message = (
+        f"{'Granted' if granted else 'Denied'} {access_type} access to {entity_type} #{entity_id}"
+    )
 
     log_data = {
-        'entity_type': entity_type,
-        'entity_id': entity_id,
-        'access_type': access_type,
-        'granted': granted
+        "entity_type": entity_type,
+        "entity_id": entity_id,
+        "access_type": access_type,
+        "granted": granted,
     }
 
     if not granted and reason:
-        log_data['denial_reason'] = reason
+        log_data["denial_reason"] = reason
         message += f": {reason}"
 
-    structured_logger.log_event(level, 'data_access', message, **log_data)
+    structured_logger.log_event(level, "data_access", message, **log_data)
 
 
 def get_changed_fields(old_data, new_data):
@@ -328,12 +337,12 @@ def get_changed_fields(old_data, new_data):
 
 # Export commonly used functions
 __all__ = [
-    'structured_logger',
-    'log_audit_event',
-    'log_business_operation',
-    'log_performance',
-    'log_performance_decorator',
-    'log_api_call',
-    'log_data_access',
-    'get_changed_fields'
+    "structured_logger",
+    "log_audit_event",
+    "log_business_operation",
+    "log_performance",
+    "log_performance_decorator",
+    "log_api_call",
+    "log_data_access",
+    "get_changed_fields",
 ]

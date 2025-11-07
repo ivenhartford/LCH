@@ -133,66 +133,51 @@ log_audit_event(
 # List of entities that need logging
 ENTITIES_TO_UPDATE = [
     # Core entities
-    'patient',
-    'appointment',
-    'appointment_type',
-
+    "patient",
+    "appointment",
+    "appointment_type",
     # Medical records
-    'visit',
-    'soap_note',
-    'diagnosis',
-    'vaccination',
-    'prescription',
-
+    "visit",
+    "soap_note",
+    "diagnosis",
+    "vaccination",
+    "prescription",
     # Financial
-    'service',
-    'invoice',
-    'invoice_item',
-    'payment',
-
+    "service",
+    "invoice",
+    "invoice_item",
+    "payment",
     # Inventory
-    'vendor',
-    'product',
-    'purchase_order',
-    'inventory_transaction',
-
+    "vendor",
+    "product",
+    "purchase_order",
+    "inventory_transaction",
     # Portal
-    'client_portal_user',
-    'appointment_request',
-    'document',
-
+    "client_portal_user",
+    "appointment_request",
+    "document",
     # Treatment
-    'protocol',
-    'treatment_plan',
+    "protocol",
+    "treatment_plan",
 ]
 
 # Key operations that need specialized logging
 SPECIAL_OPERATIONS = {
-    'appointment': [
-        'check_in',
-        'start_appointment',
-        'complete_appointment',
-        'cancel_appointment',
-        'status_change'
+    "appointment": [
+        "check_in",
+        "start_appointment",
+        "complete_appointment",
+        "cancel_appointment",
+        "status_change",
     ],
-    'invoice': [
-        'generate_invoice',
-        'send_invoice',
-        'mark_paid'
-    ],
-    'payment': [
-        'process_payment',
-        'refund_payment'
-    ],
-    'inventory': [
-        'receive_order',
-        'adjust_stock',
-        'low_stock_alert'
-    ]
+    "invoice": ["generate_invoice", "send_invoice", "mark_paid"],
+    "payment": ["process_payment", "refund_payment"],
+    "inventory": ["receive_order", "adjust_stock", "low_stock_alert"],
 }
 
 # Performance decorator - add to all endpoints
 PERFORMANCE_DECORATOR = "@log_performance_decorator"
+
 
 def print_instructions():
     """Print instructions for adding logging"""

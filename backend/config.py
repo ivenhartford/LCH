@@ -29,10 +29,22 @@ class Config:
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB max file size
     UPLOAD_FOLDER = os.path.join(basedir, "uploads")
     ALLOWED_EXTENSIONS = {
-        "pdf", "doc", "docx", "txt", "rtf",  # Documents
-        "jpg", "jpeg", "png", "gif", "bmp", "tiff",  # Images
-        "xls", "xlsx", "csv",  # Spreadsheets
-        "zip", "rar"  # Archives
+        "pdf",
+        "doc",
+        "docx",
+        "txt",
+        "rtf",  # Documents
+        "jpg",
+        "jpeg",
+        "png",
+        "gif",
+        "bmp",
+        "tiff",  # Images
+        "xls",
+        "xlsx",
+        "csv",  # Spreadsheets
+        "zip",
+        "rar",  # Archives
     }
     ALLOWED_MIME_TYPES = {
         "application/pdf",
@@ -74,7 +86,9 @@ class DevelopmentConfig(Config):
         SECRET_KEY = "dev_secret_key_CHANGE_IN_PRODUCTION"
         import warnings
 
-        warnings.warn("Using default SECRET_KEY in development. Set SECRET_KEY environment variable.")
+        warnings.warn(
+            "Using default SECRET_KEY in development. Set SECRET_KEY environment variable."
+        )
 
 
 class TestingConfig(Config):
