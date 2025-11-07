@@ -87,12 +87,13 @@
 **Remaining:** Invoice date format and invoice item total_price (minor test data issues)
 
 ### 7. Portal Authentication - Login Failures
-**Status:** 🟢 MEDIUM
-**Error:** Portal login returning 403 instead of 200
-**Location:** `backend/app/routes.py` - portal_login endpoint
-**Impact:** Portal users cannot log in
-**Tests Affected:** 15+ portal authentication tests
-**Fix Required:** Debug authentication logic, password hashing mismatch?
+**Status:** ✅ FIXED
+**Error:** Portal login returning 403 "Email not verified"
+**Location:** `backend/tests/test_client_portal_api.py` - portal_user fixture
+**Impact:** Portal login tests were failing
+**Tests Affected:** 4 portal login tests in test_client_portal_api.py
+**Fix Applied:** Added `is_verified=True` to portal_user fixture. The portal_login route checks email verification (security requirement from Phase 3.6), and test fixture wasn't setting this flag.
+**Result:** All 4 portal login tests now pass
 
 ### 8. Document API - Missing Authentication
 **Status:** 🟢 MEDIUM - SECURITY ISSUE
