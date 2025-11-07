@@ -1,7 +1,8 @@
-import { render, screen, waitFor, fireEvent } from '../test-utils';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
+import { NotificationProvider } from '../contexts/NotificationContext';
 import PatientForm from './PatientForm';
 import logger from '../utils/logger';
 
@@ -38,7 +39,9 @@ const renderWithProviders = () => {
   return render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <PatientForm />
+        <NotificationProvider>
+          <PatientForm />
+        </NotificationProvider>
       </BrowserRouter>
     </QueryClientProvider>
   );

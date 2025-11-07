@@ -1,7 +1,8 @@
-import { render, screen, waitFor } from '../test-utils';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, MemoryRouter, Route, Routes } from 'react-router-dom';
+import { NotificationProvider } from '../contexts/NotificationContext';
 import AppointmentDetail from './AppointmentDetail';
 
 // Mock useNavigate
@@ -26,9 +27,11 @@ const renderWithProviders = (component, { appointmentId = '1' } = {}) => {
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[`/appointments/${appointmentId}`]}>
-        <Routes>
-          <Route path="/appointments/:id" element={component} />
-        </Routes>
+        <NotificationProvider>
+          <Routes>
+            <Route path="/appointments/:id" element={component} />
+          </Routes>
+        </NotificationProvider>
       </MemoryRouter>
     </QueryClientProvider>
   );
