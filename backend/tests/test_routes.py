@@ -28,6 +28,7 @@ def test_create_and_get_appointment(client):
 
     # Create a client first (required for appointments)
     from app.models import Client
+
     with client.application.app_context():
         test_client = Client(first_name="Test", last_name="Client", phone_primary="555-1234")
         db.session.add(test_client)

@@ -37,9 +37,7 @@ def send_verification_email(email, token, username):
     verification_url = f"{current_app.config.get('APP_URL', 'http://localhost:3000')}/portal/verify-email?token={token}"
 
     # For now, just log the verification URL
-    current_app.logger.info(
-        f"Email verification for {username} ({email}): {verification_url}"
-    )
+    current_app.logger.info(f"Email verification for {username} ({email}): {verification_url}")
 
     # In production, send actual email:
     # Example with SendGrid:
@@ -87,9 +85,7 @@ def send_password_reset_email(email, token, username):
     reset_url = f"{current_app.config.get('APP_URL', 'http://localhost:3000')}/portal/reset-password?token={token}"
 
     # For now, just log the reset URL
-    current_app.logger.info(
-        f"Password reset for {username} ({email}): {reset_url}"
-    )
+    current_app.logger.info(f"Password reset for {username} ({email}): {reset_url}")
 
     return True  # Stub returns True
 

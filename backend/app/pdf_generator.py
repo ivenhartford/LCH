@@ -14,7 +14,15 @@ from datetime import datetime
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Table,
+    TableStyle,
+    Paragraph,
+    Spacer,
+    Image,
+    PageBreak,
+)
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
@@ -119,7 +127,10 @@ class PDFGenerator:
         # Signature line
         sig_data = [
             ["", ""],
-            ["Veterinarian Signature: _______________________", f"Date: {datetime.now().strftime('%m/%d/%Y')}"],
+            [
+                "Veterinarian Signature: _______________________",
+                f"Date: {datetime.now().strftime('%m/%d/%Y')}",
+            ],
         ]
 
         if veterinarian_name:
@@ -156,7 +167,9 @@ class VaccinationCertificateGenerator(PDFGenerator):
             BytesIO object containing the PDF
         """
         buffer = BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5 * inch, bottomMargin=0.5 * inch)
+        doc = SimpleDocTemplate(
+            buffer, pagesize=letter, topMargin=0.5 * inch, bottomMargin=0.5 * inch
+        )
 
         elements = []
 
@@ -196,7 +209,9 @@ class VaccinationCertificateGenerator(PDFGenerator):
             ],
         ]
 
-        patient_table = Table(patient_info_data, colWidths=[1.3 * inch, 2.2 * inch, 1.3 * inch, 2.2 * inch])
+        patient_table = Table(
+            patient_info_data, colWidths=[1.3 * inch, 2.2 * inch, 1.3 * inch, 2.2 * inch]
+        )
         patient_table.setStyle(
             TableStyle(
                 [
@@ -223,7 +238,12 @@ class VaccinationCertificateGenerator(PDFGenerator):
         elements.append(self.create_section_header("Owner Information"))
 
         owner_info_data = [
-            ["Owner Name:", owner_data.get("name", "N/A"), "Phone:", owner_data.get("phone", "N/A")],
+            [
+                "Owner Name:",
+                owner_data.get("name", "N/A"),
+                "Phone:",
+                owner_data.get("phone", "N/A"),
+            ],
             [
                 "Address:",
                 owner_data.get("address", "N/A"),
@@ -232,7 +252,9 @@ class VaccinationCertificateGenerator(PDFGenerator):
             ],
         ]
 
-        owner_table = Table(owner_info_data, colWidths=[1.3 * inch, 2.2 * inch, 1.3 * inch, 2.2 * inch])
+        owner_table = Table(
+            owner_info_data, colWidths=[1.3 * inch, 2.2 * inch, 1.3 * inch, 2.2 * inch]
+        )
         owner_table.setStyle(
             TableStyle(
                 [
@@ -320,7 +342,9 @@ class HealthCertificateGenerator(PDFGenerator):
             BytesIO object containing the PDF
         """
         buffer = BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5 * inch, bottomMargin=0.5 * inch)
+        doc = SimpleDocTemplate(
+            buffer, pagesize=letter, topMargin=0.5 * inch, bottomMargin=0.5 * inch
+        )
 
         elements = []
 
@@ -347,7 +371,12 @@ class HealthCertificateGenerator(PDFGenerator):
         elements.append(self.create_section_header("Patient Information"))
         patient_info_data = [
             ["Patient Name:", patient_data.get("name", "N/A"), "Species:", "Feline (Cat)"],
-            ["Breed:", patient_data.get("breed", "N/A"), "Color:", patient_data.get("color", "N/A")],
+            [
+                "Breed:",
+                patient_data.get("breed", "N/A"),
+                "Color:",
+                patient_data.get("color", "N/A"),
+            ],
             ["Sex:", patient_data.get("sex", "N/A"), "Age:", patient_data.get("age", "N/A")],
             [
                 "Microchip #:",
@@ -357,7 +386,9 @@ class HealthCertificateGenerator(PDFGenerator):
             ],
         ]
 
-        patient_table = Table(patient_info_data, colWidths=[1.3 * inch, 2.2 * inch, 1.3 * inch, 2.2 * inch])
+        patient_table = Table(
+            patient_info_data, colWidths=[1.3 * inch, 2.2 * inch, 1.3 * inch, 2.2 * inch]
+        )
         patient_table.setStyle(
             TableStyle(
                 [
@@ -380,11 +411,23 @@ class HealthCertificateGenerator(PDFGenerator):
         # Owner Information
         elements.append(self.create_section_header("Owner Information"))
         owner_info_data = [
-            ["Owner Name:", owner_data.get("name", "N/A"), "Phone:", owner_data.get("phone", "N/A")],
-            ["Address:", owner_data.get("address", "N/A"), "Email:", owner_data.get("email", "N/A")],
+            [
+                "Owner Name:",
+                owner_data.get("name", "N/A"),
+                "Phone:",
+                owner_data.get("phone", "N/A"),
+            ],
+            [
+                "Address:",
+                owner_data.get("address", "N/A"),
+                "Email:",
+                owner_data.get("email", "N/A"),
+            ],
         ]
 
-        owner_table = Table(owner_info_data, colWidths=[1.3 * inch, 2.2 * inch, 1.3 * inch, 2.2 * inch])
+        owner_table = Table(
+            owner_info_data, colWidths=[1.3 * inch, 2.2 * inch, 1.3 * inch, 2.2 * inch]
+        )
         owner_table.setStyle(
             TableStyle(
                 [
@@ -416,7 +459,12 @@ class HealthCertificateGenerator(PDFGenerator):
 
         # Vital Signs
         vitals_data = [
-            ["Temperature:", f"{exam_data.get('temperature', 'N/A')}°F", "Heart Rate:", f"{exam_data.get('heart_rate', 'N/A')} bpm"],
+            [
+                "Temperature:",
+                f"{exam_data.get('temperature', 'N/A')}°F",
+                "Heart Rate:",
+                f"{exam_data.get('heart_rate', 'N/A')} bpm",
+            ],
             [
                 "Respiratory Rate:",
                 f"{exam_data.get('respiratory_rate', 'N/A')} rpm",
@@ -499,7 +547,9 @@ class MedicalRecordSummaryGenerator(PDFGenerator):
             BytesIO object containing the PDF
         """
         buffer = BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5 * inch, bottomMargin=0.5 * inch)
+        doc = SimpleDocTemplate(
+            buffer, pagesize=letter, topMargin=0.5 * inch, bottomMargin=0.5 * inch
+        )
 
         elements = []
 
@@ -517,8 +567,18 @@ class MedicalRecordSummaryGenerator(PDFGenerator):
         # Patient Information
         elements.append(self.create_section_header("Patient Information"))
         patient_info_data = [
-            ["Patient Name:", patient_data.get("name", "N/A"), "Patient ID:", f"#{patient_data.get('id', 'N/A')}"],
-            ["Breed:", patient_data.get("breed", "N/A"), "Color:", patient_data.get("color", "N/A")],
+            [
+                "Patient Name:",
+                patient_data.get("name", "N/A"),
+                "Patient ID:",
+                f"#{patient_data.get('id', 'N/A')}",
+            ],
+            [
+                "Breed:",
+                patient_data.get("breed", "N/A"),
+                "Color:",
+                patient_data.get("color", "N/A"),
+            ],
             [
                 "Sex:",
                 patient_data.get("sex", "N/A"),
@@ -539,7 +599,9 @@ class MedicalRecordSummaryGenerator(PDFGenerator):
             ],
         ]
 
-        patient_table = Table(patient_info_data, colWidths=[1.5 * inch, 2 * inch, 1.5 * inch, 2 * inch])
+        patient_table = Table(
+            patient_info_data, colWidths=[1.5 * inch, 2 * inch, 1.5 * inch, 2 * inch]
+        )
         patient_table.setStyle(
             TableStyle(
                 [
@@ -562,8 +624,18 @@ class MedicalRecordSummaryGenerator(PDFGenerator):
         # Owner Information
         elements.append(self.create_section_header("Owner Information"))
         owner_info_data = [
-            ["Owner Name:", owner_data.get("name", "N/A"), "Phone:", owner_data.get("phone", "N/A")],
-            ["Address:", owner_data.get("address", "N/A"), "Email:", owner_data.get("email", "N/A")],
+            [
+                "Owner Name:",
+                owner_data.get("name", "N/A"),
+                "Phone:",
+                owner_data.get("phone", "N/A"),
+            ],
+            [
+                "Address:",
+                owner_data.get("address", "N/A"),
+                "Email:",
+                owner_data.get("email", "N/A"),
+            ],
         ]
 
         owner_table = Table(owner_info_data, colWidths=[1.5 * inch, 2 * inch, 1.5 * inch, 2 * inch])
@@ -621,7 +693,9 @@ class MedicalRecordSummaryGenerator(PDFGenerator):
                     ]
                 )
 
-            vacc_table = Table(vacc_table_data, colWidths=[1.5 * inch, 2.5 * inch, 2 * inch, 1 * inch])
+            vacc_table = Table(
+                vacc_table_data, colWidths=[1.5 * inch, 2.5 * inch, 2 * inch, 1 * inch]
+            )
             vacc_table.setStyle(
                 TableStyle(
                     [

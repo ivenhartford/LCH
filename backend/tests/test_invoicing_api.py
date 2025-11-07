@@ -1,6 +1,7 @@
 """
 Tests for Invoicing API endpoints (Services, Invoices, Payments)
 """
+
 import pytest
 from app import db
 from app.models import User, Client, Patient, Visit, Service, Invoice, InvoiceItem, Payment
@@ -254,7 +255,9 @@ class TestInvoiceList:
         assert len(data["invoices"]) == 0
         assert data["total"] == 0
 
-    def test_get_invoices_with_data(self, authenticated_client, sample_client, sample_patient, sample_services):
+    def test_get_invoices_with_data(
+        self, authenticated_client, sample_client, sample_patient, sample_services
+    ):
         """Should return all invoices"""
         # Create a test invoice with required fields
         with authenticated_client.application.app_context():
@@ -283,7 +286,9 @@ class TestInvoiceList:
         assert len(data["invoices"]) == 1
         assert data["total"] == 1
 
-    def test_get_invoices_filter_by_status(self, authenticated_client, sample_client, sample_patient):
+    def test_get_invoices_filter_by_status(
+        self, authenticated_client, sample_client, sample_patient
+    ):
         """Should filter invoices by status"""
         # Create test invoices with different statuses
         with authenticated_client.application.app_context():
@@ -355,7 +360,9 @@ class TestInvoiceDetail:
 
 
 class TestInvoiceCreate:
-    def test_create_invoice_with_items(self, authenticated_client, sample_client, sample_patient, sample_services):
+    def test_create_invoice_with_items(
+        self, authenticated_client, sample_client, sample_patient, sample_services
+    ):
         """Should create a new invoice with line items"""
         invoice_data = {
             "patient_id": sample_patient,
@@ -474,7 +481,9 @@ class TestInvoiceDelete:
         response = authenticated_client.delete(f"/api/invoices/{invoice_id}")
         assert response.status_code == 200
 
-    def test_delete_invoice_with_payments(self, authenticated_client, sample_client, sample_patient):
+    def test_delete_invoice_with_payments(
+        self, authenticated_client, sample_client, sample_patient
+    ):
         """Should allow delete of paid invoice (API doesn't prevent this)"""
         with authenticated_client.application.app_context():
             user = User.query.filter_by(username="testvet").first()
@@ -597,7 +606,11 @@ class TestPaymentUpdate:
             db.session.commit()
             payment_id = payment.id
 
-        update_data = {"amount": "75.00", "payment_date": datetime.utcnow().isoformat(), "reference_number": "UPDATED-123"}
+        update_data = {
+            "amount": "75.00",
+            "payment_date": datetime.utcnow().isoformat(),
+            "reference_number": "UPDATED-123",
+        }
         response = authenticated_client.put(f"/api/payments/{payment_id}", json=update_data)
         # API doesn't implement payment update endpoint yet
         assert response.status_code == 405
@@ -645,7 +658,9 @@ class TestPaymentDelete:
 
 
 class TestInvoicePaymentIntegration:
-    def test_full_invoice_workflow(self, authenticated_client, sample_client, sample_patient, sample_services):
+    def test_full_invoice_workflow(
+        self, authenticated_client, sample_client, sample_patient, sample_services
+    ):
         """Test complete invoice workflow: create, pay, check status"""
         # 1. Create invoice
         invoice_data = {
@@ -714,7 +729,9 @@ class TestInvoicePaymentIntegration:
 
 
 class TestTaxCalculation:
-    def test_tax_calculation_for_invoice_items(self, authenticated_client, sample_client, sample_patient):
+    def test_tax_calculation_for_invoice_items(
+        self, authenticated_client, sample_client, sample_patient
+    ):
         """Test that tax is correctly calculated on invoice items"""
         invoice_data = {
             "patient_id": sample_patient,

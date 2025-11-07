@@ -1,6 +1,7 @@
 """
 Tests for Inventory Management API endpoints (Vendors, Products, Purchase Orders, Transactions)
 """
+
 import pytest
 from app import db
 from app.models import User, Vendor, Product, PurchaseOrder, PurchaseOrderItem, InventoryTransaction
@@ -535,7 +536,9 @@ class TestPurchaseOrderUpdate:
 
     def test_update_purchase_order_not_found(self, authenticated_client):
         """Should return 404 for nonexistent purchase order"""
-        response = authenticated_client.put("/api/purchase-orders/99999", json={"status": "submitted"})
+        response = authenticated_client.put(
+            "/api/purchase-orders/99999", json={"status": "submitted"}
+        )
         assert response.status_code == 404
 
 
@@ -677,7 +680,9 @@ class TestInventoryTransactionList:
         data = response.json
         assert len(data["transactions"]) >= 1
 
-    def test_get_inventory_transactions_filter_by_product(self, authenticated_client, sample_product):
+    def test_get_inventory_transactions_filter_by_product(
+        self, authenticated_client, sample_product
+    ):
         """Should filter transactions by product"""
         # Create a transaction
         with authenticated_client.application.app_context():
@@ -694,7 +699,9 @@ class TestInventoryTransactionList:
             db.session.add(transaction)
             db.session.commit()
 
-        response = authenticated_client.get(f"/api/inventory-transactions?product_id={sample_product}")
+        response = authenticated_client.get(
+            f"/api/inventory-transactions?product_id={sample_product}"
+        )
         assert response.status_code == 200
         data = response.json
         assert len(data["transactions"]) >= 1

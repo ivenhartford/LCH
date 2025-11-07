@@ -21,7 +21,9 @@ class User(UserMixin, db.Model):
     session_expires_at = db.Column(db.DateTime, nullable=True)
 
     def set_password(self, password):
-        self.password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+        self.password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode(
+            "utf-8"
+        )
 
     def check_password(self, password):
         return bcrypt.checkpw(password.encode("utf-8"), self.password_hash.encode("utf-8"))
@@ -83,11 +85,15 @@ class Client(db.Model):
 
     # Metadata
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
     is_active = db.Column(db.Boolean, default=True, nullable=False)
 
     # Relationships
-    patients = db.relationship("Patient", back_populates="owner", lazy=True, cascade="all, delete-orphan")
+    patients = db.relationship(
+        "Patient", back_populates="owner", lazy=True, cascade="all, delete-orphan"
+    )
 
     def __repr__(self):
         return f"<Client {self.first_name} {self.last_name}>"
@@ -134,8 +140,12 @@ class Patient(db.Model):
 
     # Basic Info
     name = db.Column(db.String(100), nullable=False)
-    species = db.Column(db.String(50), default="Cat", nullable=False)  # Always "Cat" - feline-only clinic
-    breed = db.Column(db.String(100))  # Cat breeds: Persian, Siamese, Maine Coon, Domestic Shorthair, etc.
+    species = db.Column(
+        db.String(50), default="Cat", nullable=False
+    )  # Always "Cat" - feline-only clinic
+    breed = db.Column(
+        db.String(100)
+    )  # Cat breeds: Persian, Siamese, Maine Coon, Domestic Shorthair, etc.
     color = db.Column(db.String(100))  # Fur color: Orange Tabby, Black, Calico, etc.
     markings = db.Column(db.Text)  # Special markings or patterns
 
@@ -165,12 +175,16 @@ class Patient(db.Model):
     behavioral_notes = db.Column(db.Text)  # Temperament, behavior notes
 
     # Status
-    status = db.Column(db.String(20), default="Active", nullable=False)  # Active, Inactive, Deceased
+    status = db.Column(
+        db.String(20), default="Active", nullable=False
+    )  # Active, Inactive, Deceased
     deceased_date = db.Column(db.Date, nullable=True)
 
     # Metadata
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
 
     # Relationships
     owner = db.relationship("Client", back_populates="patients")
@@ -355,16 +369,22 @@ class Appointment(db.Model):
             "patient_id": self.patient_id,
             "patient_name": self.patient.name if self.patient else None,
             "client_id": self.client_id,
-            "client_name": f"{self.client.first_name} {self.client.last_name}" if self.client else None,
+            "client_name": (
+                f"{self.client.first_name} {self.client.last_name}" if self.client else None
+            ),
             "appointment_type_id": self.appointment_type_id,
             "appointment_type_name": self.appointment_type.name if self.appointment_type else None,
-            "appointment_type_color": self.appointment_type.color if self.appointment_type else "#2563eb",
+            "appointment_type_color": (
+                self.appointment_type.color if self.appointment_type else "#2563eb"
+            ),
             "status": self.status,
             "assigned_staff_id": self.assigned_staff_id,
             "assigned_staff_name": self.assigned_staff.username if self.assigned_staff else None,
             "room": self.room,
             "check_in_time": self.check_in_time.isoformat() if self.check_in_time else None,
-            "actual_start_time": self.actual_start_time.isoformat() if self.actual_start_time else None,
+            "actual_start_time": (
+                self.actual_start_time.isoformat() if self.actual_start_time else None
+            ),
             "actual_end_time": self.actual_end_time.isoformat() if self.actual_end_time else None,
             "cancelled_at": self.cancelled_at.isoformat() if self.cancelled_at else None,
             "cancellation_reason": self.cancellation_reason,
@@ -389,14 +409,18 @@ class Visit(db.Model):
 
     # Basic Info
     visit_date = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    visit_type = db.Column(db.String(50), nullable=False)  # Wellness, Sick, Emergency, Follow-up, Surgery, etc.
+    visit_type = db.Column(
+        db.String(50), nullable=False
+    )  # Wellness, Sick, Emergency, Follow-up, Surgery, etc.
     status = db.Column(
         db.String(20), default="scheduled", nullable=False
     )  # scheduled, in_progress, completed, cancelled
 
     # Patient and Staff Links
     patient_id = db.Column(db.Integer, db.ForeignKey("patient.id"), nullable=False)
-    veterinarian_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)  # Vet who saw the patient
+    veterinarian_id = db.Column(
+        db.Integer, db.ForeignKey("user.id"), nullable=True
+    )  # Vet who saw the patient
     appointment_id = db.Column(
         db.Integer, db.ForeignKey("appointment.id"), nullable=True
     )  # Link to appointment if created from one
@@ -407,17 +431,25 @@ class Visit(db.Model):
 
     # Metadata
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
     completed_at = db.Column(db.DateTime, nullable=True)
 
     # Relationships
     patient = db.relationship("Patient", backref="visits")
     veterinarian = db.relationship("User", backref="visits_conducted")
     soap_notes = db.relationship("SOAPNote", back_populates="visit", cascade="all, delete-orphan")
-    vital_signs = db.relationship("VitalSigns", back_populates="visit", cascade="all, delete-orphan")
+    vital_signs = db.relationship(
+        "VitalSigns", back_populates="visit", cascade="all, delete-orphan"
+    )
     diagnoses = db.relationship("Diagnosis", back_populates="visit", cascade="all, delete-orphan")
-    vaccinations = db.relationship("Vaccination", back_populates="visit", cascade="all, delete-orphan")
-    prescriptions = db.relationship("Prescription", back_populates="visit", cascade="all, delete-orphan")
+    vaccinations = db.relationship(
+        "Vaccination", back_populates="visit", cascade="all, delete-orphan"
+    )
+    prescriptions = db.relationship(
+        "Prescription", back_populates="visit", cascade="all, delete-orphan"
+    )
 
     def __repr__(self):
         return f"<Visit {self.id} - Patient {self.patient_id} - {self.visit_date}>"
@@ -516,14 +548,20 @@ class SOAPNote(db.Model):
     visit_id = db.Column(db.Integer, db.ForeignKey("visit.id"), nullable=False)
 
     # SOAP Components
-    subjective = db.Column(db.Text, nullable=True)  # Patient history, owner's observations, symptoms
-    objective = db.Column(db.Text, nullable=True)  # Physical exam findings, test results, vital signs
+    subjective = db.Column(
+        db.Text, nullable=True
+    )  # Patient history, owner's observations, symptoms
+    objective = db.Column(
+        db.Text, nullable=True
+    )  # Physical exam findings, test results, vital signs
     assessment = db.Column(db.Text, nullable=True)  # Diagnosis, differential diagnosis
     plan = db.Column(db.Text, nullable=True)  # Treatment plan, medications, follow-up instructions
 
     # Metadata
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
     created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
 
     # Relationships
@@ -616,10 +654,14 @@ class Vaccination(db.Model):
 
     # Patient and Visit Link
     patient_id = db.Column(db.Integer, db.ForeignKey("patient.id"), nullable=False)
-    visit_id = db.Column(db.Integer, db.ForeignKey("visit.id"), nullable=True)  # Visit when vaccine was given
+    visit_id = db.Column(
+        db.Integer, db.ForeignKey("visit.id"), nullable=True
+    )  # Visit when vaccine was given
 
     # Vaccine Info
-    vaccine_name = db.Column(db.String(200), nullable=False)  # FVRCP, Rabies, FeLV, etc. (cat vaccines)
+    vaccine_name = db.Column(
+        db.String(200), nullable=False
+    )  # FVRCP, Rabies, FeLV, etc. (cat vaccines)
     vaccine_type = db.Column(db.String(100), nullable=True)  # Core, Non-core, Lifestyle-dependent
     manufacturer = db.Column(db.String(100), nullable=True)
     lot_number = db.Column(db.String(100), nullable=True)
@@ -664,7 +706,9 @@ class Vaccination(db.Model):
             "manufacturer": self.manufacturer,
             "lot_number": self.lot_number,
             "serial_number": self.serial_number,
-            "administration_date": (self.administration_date.isoformat() if self.administration_date else None),
+            "administration_date": (
+                self.administration_date.isoformat() if self.administration_date else None
+            ),
             "expiration_date": self.expiration_date.isoformat() if self.expiration_date else None,
             "next_due_date": self.next_due_date.isoformat() if self.next_due_date else None,
             "dosage": self.dosage,
@@ -723,7 +767,9 @@ class Medication(db.Model):
 
     # Metadata
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
 
     # Relationships
     prescriptions = db.relationship("Prescription", back_populates="medication")
@@ -802,7 +848,9 @@ class Prescription(db.Model):
 
     # Metadata
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
 
     # Relationships
     patient = db.relationship("Patient", backref="prescriptions")
@@ -836,7 +884,9 @@ class Prescription(db.Model):
             "status": self.status,
             "start_date": self.start_date.isoformat() if self.start_date else None,
             "end_date": self.end_date.isoformat() if self.end_date else None,
-            "discontinued_date": self.discontinued_date.isoformat() if self.discontinued_date else None,
+            "discontinued_date": (
+                self.discontinued_date.isoformat() if self.discontinued_date else None
+            ),
             "discontinuation_reason": self.discontinuation_reason,
             "prescribed_by_id": self.prescribed_by_id,
             "prescribed_by_name": self.prescribed_by.username if self.prescribed_by else None,
@@ -860,7 +910,9 @@ class Service(db.Model):
     # Service Information
     name = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text, nullable=True)
-    category = db.Column(db.String(100), nullable=True)  # Exam, Surgery, Lab, Medication, Supply, etc.
+    category = db.Column(
+        db.String(100), nullable=True
+    )  # Exam, Surgery, Lab, Medication, Supply, etc.
     service_type = db.Column(db.String(50), nullable=False, default="service")  # service or product
 
     # Pricing
@@ -955,7 +1007,9 @@ class Invoice(db.Model):
         return {
             "id": self.id,
             "client_id": self.client_id,
-            "client_name": f"{self.client.first_name} {self.client.last_name}" if self.client else None,
+            "client_name": (
+                f"{self.client.first_name} {self.client.last_name}" if self.client else None
+            ),
             "patient_id": self.patient_id,
             "patient_name": self.patient.name if self.patient else None,
             "visit_id": self.visit_id,
@@ -991,7 +1045,9 @@ class InvoiceItem(db.Model):
 
     # Links
     invoice_id = db.Column(db.Integer, db.ForeignKey("invoice.id"), nullable=False)
-    service_id = db.Column(db.Integer, db.ForeignKey("service.id"), nullable=True)  # Optional link to service catalog
+    service_id = db.Column(
+        db.Integer, db.ForeignKey("service.id"), nullable=True
+    )  # Optional link to service catalog
 
     # Item Details
     description = db.Column(db.String(200), nullable=False)
@@ -1044,8 +1100,12 @@ class Payment(db.Model):
     # Payment Details
     payment_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     amount = db.Column(db.Numeric(10, 2), nullable=False)
-    payment_method = db.Column(db.String(50), nullable=False)  # cash, check, credit_card, debit_card, etc.
-    reference_number = db.Column(db.String(100), nullable=True)  # Check number, transaction ID, etc.
+    payment_method = db.Column(
+        db.String(50), nullable=False
+    )  # cash, check, credit_card, debit_card, etc.
+    reference_number = db.Column(
+        db.String(100), nullable=True
+    )  # Check number, transaction ID, etc.
 
     # Notes
     notes = db.Column(db.Text, nullable=True)
@@ -1069,7 +1129,9 @@ class Payment(db.Model):
             "invoice_id": self.invoice_id,
             "invoice_number": self.invoice.invoice_number if self.invoice else None,
             "client_id": self.client_id,
-            "client_name": f"{self.client.first_name} {self.client.last_name}" if self.client else None,
+            "client_name": (
+                f"{self.client.first_name} {self.client.last_name}" if self.client else None
+            ),
             "payment_date": self.payment_date.isoformat() if self.payment_date else None,
             "amount": float(self.amount) if self.amount else 0.0,
             "payment_method": self.payment_method,
@@ -1319,7 +1381,9 @@ class PurchaseOrder(db.Model):
 
     # Relationships
     vendor = db.relationship("Vendor", back_populates="purchase_orders")
-    items = db.relationship("PurchaseOrderItem", back_populates="purchase_order", cascade="all, delete-orphan")
+    items = db.relationship(
+        "PurchaseOrderItem", back_populates="purchase_order", cascade="all, delete-orphan"
+    )
     created_by = db.relationship("User", foreign_keys=[created_by_id])
     received_by = db.relationship("User", foreign_keys=[received_by_id])
 
@@ -1334,8 +1398,12 @@ class PurchaseOrder(db.Model):
             "vendor_id": self.vendor_id,
             "vendor_name": self.vendor.company_name if self.vendor else None,
             "order_date": self.order_date.isoformat() if self.order_date else None,
-            "expected_delivery_date": self.expected_delivery_date.isoformat() if self.expected_delivery_date else None,
-            "actual_delivery_date": self.actual_delivery_date.isoformat() if self.actual_delivery_date else None,
+            "expected_delivery_date": (
+                self.expected_delivery_date.isoformat() if self.expected_delivery_date else None
+            ),
+            "actual_delivery_date": (
+                self.actual_delivery_date.isoformat() if self.actual_delivery_date else None
+            ),
             "status": self.status,
             "subtotal": float(self.subtotal) if self.subtotal else 0.0,
             "tax": float(self.tax) if self.tax else 0.0,
@@ -1382,9 +1450,7 @@ class PurchaseOrderItem(db.Model):
     product = db.relationship("Product")
 
     def __repr__(self):
-        return (
-            f"<PurchaseOrderItem {self.id} - {self.product.name if self.product else 'N/A'} x{self.quantity_ordered}>"
-        )
+        return f"<PurchaseOrderItem {self.id} - {self.product.name if self.product else 'N/A'} x{self.quantity_ordered}>"
 
     def to_dict(self):
         """Convert purchase order item to dictionary for API responses"""
@@ -1456,7 +1522,9 @@ class InventoryTransaction(db.Model):
             "reason": self.reason,
             "reference_number": self.reference_number,
             "notes": self.notes,
-            "transaction_date": self.transaction_date.isoformat() if self.transaction_date else None,
+            "transaction_date": (
+                self.transaction_date.isoformat() if self.transaction_date else None
+            ),
             "performed_by_id": self.performed_by_id,
             "performed_by_name": self.performed_by.username if self.performed_by else None,
         }
@@ -1486,9 +1554,13 @@ class Staff(db.Model):
     emergency_contact_phone = db.Column(db.String(20), nullable=True)
 
     # Employment Details
-    position = db.Column(db.String(100), nullable=False)  # Veterinarian, Vet Tech, Receptionist, etc.
+    position = db.Column(
+        db.String(100), nullable=False
+    )  # Veterinarian, Vet Tech, Receptionist, etc.
     department = db.Column(db.String(100), nullable=True)  # Surgery, Front Desk, Pharmacy, etc.
-    employment_type = db.Column(db.String(50), nullable=False, default="full-time")  # full-time, part-time, contract
+    employment_type = db.Column(
+        db.String(50), nullable=False, default="full-time"
+    )  # full-time, part-time, contract
     hire_date = db.Column(db.Date, nullable=False)
     termination_date = db.Column(db.Date, nullable=True)
 
@@ -1514,11 +1586,15 @@ class Staff(db.Model):
     # Metadata
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
 
     # Relationships
     user = db.relationship("User", backref="staff_profile", uselist=False)
-    schedules = db.relationship("Schedule", back_populates="staff_member", lazy=True, cascade="all, delete-orphan")
+    schedules = db.relationship(
+        "Schedule", back_populates="staff_member", lazy=True, cascade="all, delete-orphan"
+    )
 
     def __repr__(self):
         return f"<Staff {self.first_name} {self.last_name} - {self.position}>"
@@ -1539,7 +1615,9 @@ class Staff(db.Model):
             "department": self.department,
             "employment_type": self.employment_type,
             "hire_date": self.hire_date.isoformat() if self.hire_date else None,
-            "termination_date": self.termination_date.isoformat() if self.termination_date else None,
+            "termination_date": (
+                self.termination_date.isoformat() if self.termination_date else None
+            ),
             "license_number": self.license_number,
             "license_state": self.license_state,
             "license_expiry": self.license_expiry.isoformat() if self.license_expiry else None,
@@ -1578,8 +1656,12 @@ class Schedule(db.Model):
     end_time = db.Column(db.Time, nullable=False)
 
     # Shift Type & Status
-    shift_type = db.Column(db.String(50), nullable=False, default="regular")  # regular, on-call, overtime
-    status = db.Column(db.String(50), nullable=False, default="scheduled")  # scheduled, completed, cancelled, no-show
+    shift_type = db.Column(
+        db.String(50), nullable=False, default="regular"
+    )  # regular, on-call, overtime
+    status = db.Column(
+        db.String(50), nullable=False, default="scheduled"
+    )  # scheduled, completed, cancelled, no-show
 
     # Break Information
     break_minutes = db.Column(db.Integer, default=30)  # Total break time in minutes
@@ -1599,14 +1681,20 @@ class Schedule(db.Model):
 
     # Metadata
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
 
     # Relationships
     staff_member = db.relationship("Staff", back_populates="schedules")
     approved_by = db.relationship("User", foreign_keys=[approved_by_id])
 
     def __repr__(self):
-        staff_name = f"{self.staff_member.first_name} {self.staff_member.last_name}" if self.staff_member else "N/A"
+        staff_name = (
+            f"{self.staff_member.first_name} {self.staff_member.last_name}"
+            if self.staff_member
+            else "N/A"
+        )
         return f"<Schedule {staff_name} on {self.shift_date}>"
 
     def to_dict(self):
@@ -1614,7 +1702,11 @@ class Schedule(db.Model):
         return {
             "id": self.id,
             "staff_id": self.staff_id,
-            "staff_name": f"{self.staff_member.first_name} {self.staff_member.last_name}" if self.staff_member else None,
+            "staff_name": (
+                f"{self.staff_member.first_name} {self.staff_member.last_name}"
+                if self.staff_member
+                else None
+            ),
             "staff_position": self.staff_member.position if self.staff_member else None,
             "shift_date": self.shift_date.isoformat() if self.shift_date else None,
             "start_time": self.start_time.isoformat() if self.start_time else None,
@@ -1659,7 +1751,9 @@ class LabTest(db.Model):
     collection_instructions = db.Column(db.Text, nullable=True)
 
     # Reference Range (stored as JSON string for flexibility)
-    reference_range = db.Column(db.Text, nullable=True)  # JSON: {"cat": {"min": 0, "max": 10, "unit": "mg/dL"}}
+    reference_range = db.Column(
+        db.Text, nullable=True
+    )  # JSON: {"cat": {"min": 0, "max": 10, "unit": "mg/dL"}}
 
     # Turnaround Time
     turnaround_time = db.Column(db.String(100), nullable=True)  # e.g., "24 hours", "2-3 days"
@@ -1676,10 +1770,14 @@ class LabTest(db.Model):
     # Metadata
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
 
     # Relationships
-    results = db.relationship("LabResult", back_populates="test", lazy=True, cascade="all, delete-orphan")
+    results = db.relationship(
+        "LabResult", back_populates="test", lazy=True, cascade="all, delete-orphan"
+    )
 
     def __repr__(self):
         return f"<LabTest {self.test_code} - {self.test_name}>"
@@ -1730,11 +1828,15 @@ class LabResult(db.Model):
     ordered_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
 
     # Status Tracking
-    status = db.Column(db.String(50), nullable=False, default="pending")  # pending, in_progress, completed, cancelled
+    status = db.Column(
+        db.String(50), nullable=False, default="pending"
+    )  # pending, in_progress, completed, cancelled
 
     # Result Information
     result_date = db.Column(db.DateTime, nullable=True)
-    result_value = db.Column(db.Text, nullable=True)  # Can be numeric, text, or JSON for complex results
+    result_value = db.Column(
+        db.Text, nullable=True
+    )  # Can be numeric, text, or JSON for complex results
     result_unit = db.Column(db.String(50), nullable=True)
 
     # Interpretation
@@ -1755,17 +1857,23 @@ class LabResult(db.Model):
 
     # Metadata
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
 
     # Relationships
     patient = db.relationship("Patient", backref="lab_results")
     visit = db.relationship("Visit", backref="lab_results")
     test = db.relationship("LabTest", back_populates="results")
     ordered_by = db.relationship("User", foreign_keys=[ordered_by_id], backref="ordered_lab_tests")
-    reviewed_by = db.relationship("User", foreign_keys=[reviewed_by_id], backref="reviewed_lab_tests")
+    reviewed_by = db.relationship(
+        "User", foreign_keys=[reviewed_by_id], backref="reviewed_lab_tests"
+    )
 
     def __repr__(self):
-        return f"<LabResult {self.id} - {self.test.test_name if self.test else 'N/A'} - {self.status}>"
+        return (
+            f"<LabResult {self.id} - {self.test.test_name if self.test else 'N/A'} - {self.status}>"
+        )
 
     def to_dict(self):
         """Convert lab result to dictionary for API responses"""
@@ -1817,9 +1925,7 @@ class NotificationTemplate(db.Model):
     template_type = db.Column(
         db.String(50), nullable=False
     )  # appointment_reminder, vaccination_reminder, etc.
-    channel = db.Column(
-        db.String(20), nullable=False
-    )  # email, sms, both
+    channel = db.Column(db.String(20), nullable=False)  # email, sms, both
 
     # Template Content
     subject = db.Column(db.String(200), nullable=True)  # For email
@@ -1831,15 +1937,11 @@ class NotificationTemplate(db.Model):
 
     # Settings
     is_active = db.Column(db.Boolean, default=True)
-    is_default = db.Column(
-        db.Boolean, default=False
-    )  # Default template for this type
+    is_default = db.Column(db.Boolean, default=False)  # Default template for this type
 
     # Metadata
     created_at = db.Column(db.DateTime, default=datetime.now)
-    updated_at = db.Column(
-        db.DateTime, default=datetime.now, onupdate=datetime.now
-    )
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
     created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
 
     # Relationships
@@ -1857,20 +1959,12 @@ class NotificationTemplate(db.Model):
             "channel": self.channel,
             "subject": self.subject,
             "body": self.body,
-            "variables": (
-                json.loads(self.variables) if self.variables else []
-            ),
+            "variables": (json.loads(self.variables) if self.variables else []),
             "is_active": self.is_active,
             "is_default": self.is_default,
-            "created_at": (
-                self.created_at.isoformat() if self.created_at else None
-            ),
-            "updated_at": (
-                self.updated_at.isoformat() if self.updated_at else None
-            ),
-            "created_by": (
-                self.created_by.username if self.created_by else None
-            ),
+            "created_at": (self.created_at.isoformat() if self.created_at else None),
+            "updated_at": (self.updated_at.isoformat() if self.updated_at else None),
+            "created_by": (self.created_by.username if self.created_by else None),
         }
 
 
@@ -1880,9 +1974,7 @@ class ClientCommunicationPreference(db.Model):
     __tablename__ = "client_communication_preference"
 
     id = db.Column(db.Integer, primary_key=True)
-    client_id = db.Column(
-        db.Integer, db.ForeignKey("client.id"), nullable=False, unique=True
-    )
+    client_id = db.Column(db.Integer, db.ForeignKey("client.id"), nullable=False, unique=True)
 
     # Communication Channels
     email_enabled = db.Column(db.Boolean, default=True)
@@ -1897,25 +1989,17 @@ class ClientCommunicationPreference(db.Model):
     newsletters = db.Column(db.Boolean, default=False)
 
     # Preferred Times
-    preferred_contact_time = db.Column(
-        db.String(50), nullable=True
-    )  # morning, afternoon, evening
+    preferred_contact_time = db.Column(db.String(50), nullable=True)  # morning, afternoon, evening
     do_not_contact_before = db.Column(db.Time, nullable=True)
     do_not_contact_after = db.Column(db.Time, nullable=True)
 
     # Reminder Timing
-    appointment_reminder_days = db.Column(
-        db.Integer, default=1
-    )  # Days before appointment
-    vaccination_reminder_days = db.Column(
-        db.Integer, default=7
-    )  # Days before due
+    appointment_reminder_days = db.Column(db.Integer, default=1)  # Days before appointment
+    vaccination_reminder_days = db.Column(db.Integer, default=7)  # Days before due
 
     # Metadata
     created_at = db.Column(db.DateTime, default=datetime.now)
-    updated_at = db.Column(
-        db.DateTime, default=datetime.now, onupdate=datetime.now
-    )
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
     # Relationships
     client = db.relationship("Client", backref="communication_preference")
@@ -1935,23 +2019,15 @@ class ClientCommunicationPreference(db.Model):
             "newsletters": self.newsletters,
             "preferred_contact_time": self.preferred_contact_time,
             "do_not_contact_before": (
-                self.do_not_contact_before.isoformat()
-                if self.do_not_contact_before
-                else None
+                self.do_not_contact_before.isoformat() if self.do_not_contact_before else None
             ),
             "do_not_contact_after": (
-                self.do_not_contact_after.isoformat()
-                if self.do_not_contact_after
-                else None
+                self.do_not_contact_after.isoformat() if self.do_not_contact_after else None
             ),
             "appointment_reminder_days": self.appointment_reminder_days,
             "vaccination_reminder_days": self.vaccination_reminder_days,
-            "created_at": (
-                self.created_at.isoformat() if self.created_at else None
-            ),
-            "updated_at": (
-                self.updated_at.isoformat() if self.updated_at else None
-            ),
+            "created_at": (self.created_at.isoformat() if self.created_at else None),
+            "updated_at": (self.updated_at.isoformat() if self.updated_at else None),
         }
 
 
@@ -1964,9 +2040,7 @@ class Reminder(db.Model):
 
     # Related Records
     client_id = db.Column(db.Integer, db.ForeignKey("client.id"), nullable=False)
-    patient_id = db.Column(
-        db.Integer, db.ForeignKey("patient.id"), nullable=True
-    )  # Optional
+    patient_id = db.Column(db.Integer, db.ForeignKey("patient.id"), nullable=True)  # Optional
     appointment_id = db.Column(
         db.Integer, db.ForeignKey("appointment.id"), nullable=True
     )  # For appointment reminders
@@ -1979,22 +2053,16 @@ class Reminder(db.Model):
     # Scheduling
     scheduled_date = db.Column(db.Date, nullable=False)
     scheduled_time = db.Column(db.Time, nullable=True)
-    send_at = db.Column(
-        db.DateTime, nullable=False
-    )  # Exact datetime to send
+    send_at = db.Column(db.DateTime, nullable=False)  # Exact datetime to send
 
     # Delivery
-    delivery_method = db.Column(
-        db.String(20), nullable=False
-    )  # email, sms, both
+    delivery_method = db.Column(db.String(20), nullable=False)  # email, sms, both
     status = db.Column(
         db.String(20), nullable=False, default="pending"
     )  # pending, sent, failed, cancelled
 
     # Template
-    template_id = db.Column(
-        db.Integer, db.ForeignKey("notification_template.id"), nullable=True
-    )
+    template_id = db.Column(db.Integer, db.ForeignKey("notification_template.id"), nullable=True)
 
     # Message Content (can override template)
     subject = db.Column(db.String(200), nullable=True)
@@ -2012,9 +2080,7 @@ class Reminder(db.Model):
     # Metadata
     notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.now)
-    updated_at = db.Column(
-        db.DateTime, default=datetime.now, onupdate=datetime.now
-    )
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
     created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
 
     # Relationships
@@ -2034,12 +2100,8 @@ class Reminder(db.Model):
             "patient_name": self.patient.name if self.patient else None,
             "appointment_id": self.appointment_id,
             "reminder_type": self.reminder_type,
-            "scheduled_date": (
-                self.scheduled_date.isoformat() if self.scheduled_date else None
-            ),
-            "scheduled_time": (
-                self.scheduled_time.isoformat() if self.scheduled_time else None
-            ),
+            "scheduled_date": (self.scheduled_date.isoformat() if self.scheduled_date else None),
+            "scheduled_time": (self.scheduled_time.isoformat() if self.scheduled_time else None),
             "send_at": self.send_at.isoformat() if self.send_at else None,
             "delivery_method": self.delivery_method,
             "status": self.status,
@@ -2053,15 +2115,9 @@ class Reminder(db.Model):
             "retry_count": self.retry_count,
             "max_retries": self.max_retries,
             "notes": self.notes,
-            "created_at": (
-                self.created_at.isoformat() if self.created_at else None
-            ),
-            "updated_at": (
-                self.updated_at.isoformat() if self.updated_at else None
-            ),
-            "created_by": (
-                self.created_by.username if self.created_by else None
-            ),
+            "created_at": (self.created_at.isoformat() if self.created_at else None),
+            "updated_at": (self.updated_at.isoformat() if self.updated_at else None),
+            "created_by": (self.created_by.username if self.created_by else None),
         }
 
 
@@ -2076,9 +2132,7 @@ class ClientPortalUser(db.Model):
     __tablename__ = "client_portal_user"
 
     id = db.Column(db.Integer, primary_key=True)
-    client_id = db.Column(
-        db.Integer, db.ForeignKey("client.id"), nullable=False, unique=True
-    )
+    client_id = db.Column(db.Integer, db.ForeignKey("client.id"), nullable=False, unique=True)
 
     # Authentication
     username = db.Column(db.String(50), unique=True, nullable=False)
@@ -2087,9 +2141,7 @@ class ClientPortalUser(db.Model):
 
     # Security
     is_active = db.Column(db.Boolean, default=True)
-    is_verified = db.Column(
-        db.Boolean, default=False
-    )  # Email verification status
+    is_verified = db.Column(db.Boolean, default=False)  # Email verification status
     verification_token = db.Column(db.String(100), nullable=True)
     reset_token = db.Column(db.String(100), nullable=True)
     reset_token_expiry = db.Column(db.DateTime, nullable=True)
@@ -2106,16 +2158,16 @@ class ClientPortalUser(db.Model):
 
     # Metadata
     created_at = db.Column(db.DateTime, default=datetime.now)
-    updated_at = db.Column(
-        db.DateTime, default=datetime.now, onupdate=datetime.now
-    )
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
     # Relationships
     client = db.relationship("Client", backref="portal_user")
 
     def set_password(self, password):
         """Set password hash using bcrypt (standardized with staff users)"""
-        self.password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+        self.password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode(
+            "utf-8"
+        )
 
     def check_password(self, password):
         """Check password against hash"""
@@ -2168,15 +2220,9 @@ class ClientPortalUser(db.Model):
             "email": self.email,
             "is_active": self.is_active,
             "is_verified": self.is_verified,
-            "last_login": (
-                self.last_login.isoformat() if self.last_login else None
-            ),
-            "created_at": (
-                self.created_at.isoformat() if self.created_at else None
-            ),
-            "updated_at": (
-                self.updated_at.isoformat() if self.updated_at else None
-            ),
+            "last_login": (self.last_login.isoformat() if self.last_login else None),
+            "created_at": (self.created_at.isoformat() if self.created_at else None),
+            "updated_at": (self.updated_at.isoformat() if self.updated_at else None),
         }
 
 
@@ -2189,12 +2235,8 @@ class AppointmentRequest(db.Model):
 
     # Related Records
     client_id = db.Column(db.Integer, db.ForeignKey("client.id"), nullable=False)
-    patient_id = db.Column(
-        db.Integer, db.ForeignKey("patient.id"), nullable=False
-    )
-    appointment_type_id = db.Column(
-        db.Integer, db.ForeignKey("appointment_type.id"), nullable=True
-    )
+    patient_id = db.Column(db.Integer, db.ForeignKey("patient.id"), nullable=False)
+    appointment_type_id = db.Column(db.Integer, db.ForeignKey("appointment_type.id"), nullable=True)
 
     # Request Details
     requested_date = db.Column(db.Date, nullable=False)
@@ -2217,24 +2259,18 @@ class AppointmentRequest(db.Model):
     )  # low, normal, high, urgent
 
     # Staff Response
-    reviewed_by_id = db.Column(
-        db.Integer, db.ForeignKey("user.id"), nullable=True
-    )
+    reviewed_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
     reviewed_at = db.Column(db.DateTime, nullable=True)
     staff_notes = db.Column(db.Text, nullable=True)
     rejection_reason = db.Column(db.Text, nullable=True)
 
     # Scheduled Appointment (if approved)
-    appointment_id = db.Column(
-        db.Integer, db.ForeignKey("appointment.id"), nullable=True
-    )
+    appointment_id = db.Column(db.Integer, db.ForeignKey("appointment.id"), nullable=True)
 
     # Metadata
     notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.now)
-    updated_at = db.Column(
-        db.DateTime, default=datetime.now, onupdate=datetime.now
-    )
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
     # Relationships
     client = db.relationship("Client", backref="appointment_requests")
@@ -2248,48 +2284,36 @@ class AppointmentRequest(db.Model):
         return {
             "id": self.id,
             "client_id": self.client_id,
-            "client_name": f"{self.client.first_name} {self.client.last_name}" if self.client else None,
+            "client_name": (
+                f"{self.client.first_name} {self.client.last_name}" if self.client else None
+            ),
             "patient_id": self.patient_id,
             "patient_name": self.patient.name if self.patient else None,
             "appointment_type_id": self.appointment_type_id,
             "appointment_type_name": (
                 self.appointment_type.name if self.appointment_type else None
             ),
-            "requested_date": (
-                self.requested_date.isoformat() if self.requested_date else None
-            ),
+            "requested_date": (self.requested_date.isoformat() if self.requested_date else None),
             "requested_time": self.requested_time,
             "alternate_date_1": (
-                self.alternate_date_1.isoformat()
-                if self.alternate_date_1
-                else None
+                self.alternate_date_1.isoformat() if self.alternate_date_1 else None
             ),
             "alternate_date_2": (
-                self.alternate_date_2.isoformat()
-                if self.alternate_date_2
-                else None
+                self.alternate_date_2.isoformat() if self.alternate_date_2 else None
             ),
             "reason": self.reason,
             "is_urgent": self.is_urgent,
             "status": self.status,
             "priority": self.priority,
             "reviewed_by_id": self.reviewed_by_id,
-            "reviewed_by_name": (
-                self.reviewed_by.username if self.reviewed_by else None
-            ),
-            "reviewed_at": (
-                self.reviewed_at.isoformat() if self.reviewed_at else None
-            ),
+            "reviewed_by_name": (self.reviewed_by.username if self.reviewed_by else None),
+            "reviewed_at": (self.reviewed_at.isoformat() if self.reviewed_at else None),
             "staff_notes": self.staff_notes,
             "rejection_reason": self.rejection_reason,
             "appointment_id": self.appointment_id,
             "notes": self.notes,
-            "created_at": (
-                self.created_at.isoformat() if self.created_at else None
-            ),
-            "updated_at": (
-                self.updated_at.isoformat() if self.updated_at else None
-            ),
+            "created_at": (self.created_at.isoformat() if self.created_at else None),
+            "updated_at": (self.updated_at.isoformat() if self.updated_at else None),
         }
 
 
@@ -2310,7 +2334,9 @@ class Document(db.Model):
     filename = db.Column(db.String(255), nullable=False)
     original_filename = db.Column(db.String(255), nullable=False)
     file_path = db.Column(db.String(500), nullable=False)
-    file_type = db.Column(db.String(100), nullable=False)  # MIME type (e.g., application/pdf, image/jpeg)
+    file_type = db.Column(
+        db.String(100), nullable=False
+    )  # MIME type (e.g., application/pdf, image/jpeg)
     file_size = db.Column(db.Integer, nullable=False)  # Size in bytes
 
     # Document Classification
@@ -2323,7 +2349,9 @@ class Document(db.Model):
 
     # Consent Form Fields
     is_consent_form = db.Column(db.Boolean, default=False)
-    consent_type = db.Column(db.String(100), nullable=True)  # e.g., surgery, anesthesia, treatment, general
+    consent_type = db.Column(
+        db.String(100), nullable=True
+    )  # e.g., surgery, anesthesia, treatment, general
     signed_date = db.Column(db.DateTime, nullable=True)
 
     # Relationships (can belong to patient, visit, or client)
@@ -2334,7 +2362,9 @@ class Document(db.Model):
 
     # Metadata
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
     is_archived = db.Column(db.Boolean, default=False)
 
     # Relationships
@@ -2399,7 +2429,9 @@ class Protocol(db.Model):
     # Basic Information
     name = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text, nullable=True)
-    category = db.Column(db.String(100), nullable=True)  # dental, surgical, wellness, chronic_care, etc.
+    category = db.Column(
+        db.String(100), nullable=True
+    )  # dental, surgical, wellness, chronic_care, etc.
 
     # Settings
     is_active = db.Column(db.Boolean, default=True, nullable=False)
@@ -2412,11 +2444,15 @@ class Protocol(db.Model):
     # Metadata
     created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
 
     # Relationships
     created_by = db.relationship("User", backref="protocols_created")
-    steps = db.relationship("ProtocolStep", backref="protocol", cascade="all, delete-orphan", lazy="dynamic")
+    steps = db.relationship(
+        "ProtocolStep", backref="protocol", cascade="all, delete-orphan", lazy="dynamic"
+    )
     treatment_plans = db.relationship("TreatmentPlan", backref="protocol", lazy="dynamic")
 
     def __repr__(self):
@@ -2466,7 +2502,9 @@ class ProtocolStep(db.Model):
     description = db.Column(db.Text, nullable=True)
 
     # Timing
-    day_offset = db.Column(db.Integer, default=0, nullable=False)  # Days from treatment start (0 = day 1)
+    day_offset = db.Column(
+        db.Integer, default=0, nullable=False
+    )  # Days from treatment start (0 = day 1)
 
     # Cost
     estimated_cost = db.Column(db.Numeric(10, 2), nullable=True)
@@ -2476,7 +2514,9 @@ class ProtocolStep(db.Model):
 
     # Metadata
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
 
     def __repr__(self):
         return f"<ProtocolStep {self.id} - {self.title}>"
@@ -2516,14 +2556,16 @@ class TreatmentPlan(db.Model):
 
     # Relationships
     patient_id = db.Column(db.Integer, db.ForeignKey("patient.id"), nullable=False)
-    visit_id = db.Column(db.Integer, db.ForeignKey("visit.id"), nullable=True)  # Initial visit that created plan
-    protocol_id = db.Column(db.Integer, db.ForeignKey("protocol.id"), nullable=True)  # If based on protocol
+    visit_id = db.Column(
+        db.Integer, db.ForeignKey("visit.id"), nullable=True
+    )  # Initial visit that created plan
+    protocol_id = db.Column(
+        db.Integer, db.ForeignKey("protocol.id"), nullable=True
+    )  # If based on protocol
 
     # Status & Timeline
     status = db.Column(
-        db.String(50),
-        default="draft",
-        nullable=False
+        db.String(50), default="draft", nullable=False
     )  # draft, active, completed, cancelled
     start_date = db.Column(db.Date, nullable=True)
     end_date = db.Column(db.Date, nullable=True)  # Estimated completion date
@@ -2540,13 +2582,17 @@ class TreatmentPlan(db.Model):
     # Metadata
     created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
 
     # Relationships
     patient = db.relationship("Patient", backref="treatment_plans")
     visit = db.relationship("Visit", backref="treatment_plans")
     created_by = db.relationship("User", backref="treatment_plans_created")
-    steps = db.relationship("TreatmentPlanStep", backref="treatment_plan", cascade="all, delete-orphan", lazy="dynamic")
+    steps = db.relationship(
+        "TreatmentPlanStep", backref="treatment_plan", cascade="all, delete-orphan", lazy="dynamic"
+    )
 
     def __repr__(self):
         return f"<TreatmentPlan {self.id} - {self.name}>"
@@ -2574,7 +2620,9 @@ class TreatmentPlan(db.Model):
             "start_date": self.start_date.isoformat() if self.start_date else None,
             "end_date": self.end_date.isoformat() if self.end_date else None,
             "completed_date": self.completed_date.isoformat() if self.completed_date else None,
-            "total_estimated_cost": float(self.total_estimated_cost) if self.total_estimated_cost else 0,
+            "total_estimated_cost": (
+                float(self.total_estimated_cost) if self.total_estimated_cost else 0
+            ),
             "total_actual_cost": float(self.total_actual_cost) if self.total_actual_cost else 0,
             "notes": self.notes,
             "cancellation_reason": self.cancellation_reason,
@@ -2613,9 +2661,7 @@ class TreatmentPlanStep(db.Model):
 
     # Status & Timeline
     status = db.Column(
-        db.String(50),
-        default="pending",
-        nullable=False
+        db.String(50), default="pending", nullable=False
     )  # pending, in_progress, completed, skipped, cancelled
     scheduled_date = db.Column(db.Date, nullable=True)
     completed_date = db.Column(db.Date, nullable=True)
@@ -2626,11 +2672,15 @@ class TreatmentPlanStep(db.Model):
 
     # Additional Information
     notes = db.Column(db.Text, nullable=True)
-    performed_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)  # Staff who performed step
+    performed_by_id = db.Column(
+        db.Integer, db.ForeignKey("user.id"), nullable=True
+    )  # Staff who performed step
 
     # Metadata
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
 
     # Relationships
     performed_by = db.relationship("User", backref="treatment_steps_performed")
