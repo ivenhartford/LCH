@@ -1,7 +1,7 @@
 import os
 import logging
 from logging.handlers import RotatingFileHandler
-from flask import Flask
+from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_restx import Api
@@ -80,6 +80,11 @@ def create_app(config_name=None, config_overrides=None):
     @login_manager.user_loader
     def load_user(user_id):
         return models.User.query.get(int(user_id))
+
+    @login_manager.unauthorized_handler
+    def unauthorized():
+        """Return 401 JSON response for unauthorized API requests"""
+        return jsonify({"error": "Authentication required"}), 401
 
     # Initialize rate limiter
     limiter.init_app(app)

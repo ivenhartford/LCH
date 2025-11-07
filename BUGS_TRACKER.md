@@ -96,20 +96,28 @@
 **Result:** All 4 portal login tests now pass
 
 ### 8. Document API - Missing Authentication
-**Status:** 🟢 MEDIUM - SECURITY ISSUE
+**Status:** ✅ FIXED
 **Error:** Endpoints returning 200 instead of 401 for unauthenticated requests
-**Location:** `backend/app/routes.py` - document endpoints
+**Location:** `backend/app/__init__.py` and `backend/tests/test_document_api.py`
 **Impact:** Security vulnerability - documents accessible without auth
-**Tests Affected:** 4 tests in test_document_api.py
-**Fix Required:** Add @login_required decorator to document endpoints
+**Tests Affected:** 6 tests in test_document_api.py
+**Fix Applied:**
+- Added `@login_manager.unauthorized_handler` in app/__init__.py to return 401 JSON response for unauthenticated API requests
+- Modified test fixtures to logout before testing unauthenticated access (sample_documents fixture logs in via authenticated_client)
+- Added logout calls in 4 tests that use both client and sample_documents fixtures
+**Result:** All 27 document API tests now passing
 
 ### 9. Admin Authorization - Delete Operations
-**Status:** 🟢 MEDIUM
+**Status:** ✅ FIXED
 **Error:** Admin delete operations returning 403 instead of 200
-**Location:** `backend/app/routes.py` - vendor/product delete endpoints
-**Impact:** Admins cannot delete vendors/products
+**Location:** `backend/app/routes.py` and `backend/tests/test_inventory_api.py`
+**Impact:** Admins cannot delete vendors/products/purchase orders
 **Tests Affected:** 6 tests in test_inventory_api.py
-**Fix Required:** Check role-based authorization decorators
+**Fix Applied:**
+- Modified `admin_required` decorator to properly apply `@login_required` by returning `login_required(decorated_function)` instead of decorating inside
+- Fixed test fixture dependencies: removed `authenticated_client` dependency from `sample_vendor` and `sample_product` fixtures
+- Issue was that fixtures were overwriting session - admin_client logged in as admin, but sample_vendor depended on authenticated_client which logged in as regular user
+**Result:** All 6 admin delete tests now passing
 
 ---
 

@@ -316,6 +316,8 @@ class TestDocumentDetail:
         WHEN GET /api/documents/<id> is called
         THEN it should return 401 Unauthorized
         """
+        # Logout to ensure unauthenticated state (sample_documents fixture logs in)
+        client.get("/api/logout")
         response = client.get(f"/api/documents/{sample_documents[0]}")
         assert response.status_code == 401
 
@@ -351,6 +353,8 @@ class TestDocumentDownload:
         WHEN GET /api/documents/<id>/download is called
         THEN it should return 401 Unauthorized
         """
+        # Logout to ensure unauthenticated state (sample_documents fixture logs in)
+        client.get("/api/logout")
         response = client.get(f"/api/documents/{sample_documents[0]}/download")
         assert response.status_code == 401
 
@@ -383,6 +387,8 @@ class TestDocumentUpdate:
         WHEN PUT /api/documents/<id> is called
         THEN it should return 401 Unauthorized
         """
+        # Logout to ensure unauthenticated state (sample_documents fixture logs in)
+        client.get("/api/logout")
         response = client.put(
             f"/api/documents/{sample_documents[0]}", json={"category": "lab_result"}
         )
@@ -429,6 +435,8 @@ class TestDocumentDelete:
         WHEN DELETE /api/documents/<id> is called
         THEN it should return 401 Unauthorized
         """
+        # Logout to ensure unauthenticated state (sample_documents fixture logs in)
+        client.get("/api/logout")
         response = client.delete(f"/api/documents/{sample_documents[0]}")
         assert response.status_code == 401
 

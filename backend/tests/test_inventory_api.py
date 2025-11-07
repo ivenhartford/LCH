@@ -36,7 +36,7 @@ def admin_client(app, client):
 
 
 @pytest.fixture
-def sample_vendor(app, authenticated_client):
+def sample_vendor(app):
     """Create a sample vendor for testing"""
     with app.app_context():
         vendor = Vendor(
@@ -66,7 +66,7 @@ def sample_vendors(app, authenticated_client):
 
 
 @pytest.fixture
-def sample_product(app, authenticated_client, sample_vendor):
+def sample_product(app, sample_vendor):
     """Create a sample product for testing"""
     with app.app_context():
         product = Product(

@@ -103,13 +103,19 @@ bp = Blueprint("main", __name__)
 
 
 def admin_required(f):
+    """Decorator that requires user to be logged in AND be an administrator"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or current_user.role != "administrator":
+        # Check if user is authenticated
+        if not current_user.is_authenticated:
+            return jsonify({"error": "Authentication required"}), 401
+        # Check if user is administrator
+        if current_user.role != "administrator":
             return jsonify({"error": "Admin access required"}), 403
         return f(*args, **kwargs)
 
-    return decorated_function
+    # Apply login_required to the decorated function
+    return login_required(decorated_function)
 
 
 @bp.route("/api/health", methods=["GET"])
