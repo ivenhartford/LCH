@@ -58,7 +58,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import abort
-from marshmallow import ValidationError
+from marshmallow import ValidationError, ValidationError as MarshmallowValidationError
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from .auth import generate_portal_token, portal_auth_required, verify_portal_token
