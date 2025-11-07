@@ -31,9 +31,9 @@ def authenticated_client(client):
 
 
 @pytest.fixture
-def sample_client(authenticated_client):
+def sample_client(app, authenticated_client):
     """Create a sample client for testing"""
-    with authenticated_client.application.app_context():
+    with app.app_context():
         owner = Client(
             first_name="John", last_name="Doe", phone_primary="555-1234", email="john@example.com"
         )
@@ -43,9 +43,9 @@ def sample_client(authenticated_client):
 
 
 @pytest.fixture
-def sample_patient(authenticated_client, sample_client):
+def sample_patient(app, authenticated_client, sample_client):
     """Create a sample patient for testing"""
-    with authenticated_client.application.app_context():
+    with app.app_context():
         patient = Patient(
             name="Whiskers",
             breed="Persian",
@@ -61,9 +61,9 @@ def sample_patient(authenticated_client, sample_client):
 
 
 @pytest.fixture
-def sample_visit(authenticated_client, sample_patient):
+def sample_visit(app, authenticated_client, sample_patient):
     """Create a sample visit for testing"""
-    with authenticated_client.application.app_context():
+    with app.app_context():
         user = User.query.filter_by(username="testuser").first()
         visit = Visit(
             patient_id=sample_patient,
@@ -78,9 +78,9 @@ def sample_visit(authenticated_client, sample_patient):
 
 
 @pytest.fixture
-def sample_documents(authenticated_client, sample_patient, sample_client):
+def sample_documents(app, authenticated_client, sample_patient, sample_client):
     """Create sample documents for testing"""
-    with authenticated_client.application.app_context():
+    with app.app_context():
         user = User.query.filter_by(username="testuser").first()
 
         # Create upload folder if it doesn't exist
@@ -453,7 +453,7 @@ class TestDocumentDelete:
         assert b"archived" in response.data
 
         # Verify document is archived
-        with authenticated_client.application.app_context():
+        with app.app_context():
             doc = Document.query.get(doc_id)
             assert doc is not None
             assert doc.is_archived == True
@@ -467,7 +467,7 @@ class TestDocumentDelete:
         doc_id = sample_documents[2]
 
         # Get file path before deletion
-        with authenticated_client.application.app_context():
+        with app.app_context():
             doc = Document.query.get(doc_id)
             file_path = doc.file_path
 
@@ -476,7 +476,7 @@ class TestDocumentDelete:
         assert b"permanently deleted" in response.data
 
         # Verify document is deleted from database
-        with authenticated_client.application.app_context():
+        with app.app_context():
             doc = Document.query.get(doc_id)
             assert doc is None
 

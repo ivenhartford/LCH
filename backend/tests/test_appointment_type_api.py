@@ -41,9 +41,9 @@ def admin_client(app):
 
 
 @pytest.fixture
-def sample_appointment_types(authenticated_client):
+def sample_appointment_types(app, authenticated_client):
     """Create sample appointment types for testing"""
-    with authenticated_client.application.app_context():
+    with app.app_context():
         types = [
             AppointmentType(
                 name="Wellness Exam",

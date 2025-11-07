@@ -36,9 +36,9 @@ def admin_client(client):
 
 
 @pytest.fixture
-def sample_vendor(authenticated_client):
+def sample_vendor(app, authenticated_client):
     """Create a sample vendor for testing"""
-    with authenticated_client.application.app_context():
+    with app.app_context():
         vendor = Vendor(
             company_name="Pet Supplies Inc",
             contact_name="Jane Smith",
@@ -52,9 +52,9 @@ def sample_vendor(authenticated_client):
 
 
 @pytest.fixture
-def sample_vendors(authenticated_client):
+def sample_vendors(app, authenticated_client):
     """Create multiple vendors for testing"""
-    with authenticated_client.application.app_context():
+    with app.app_context():
         vendors = [
             Vendor(company_name="Pet Supplies Inc", preferred_vendor=True, is_active=True),
             Vendor(company_name="Medical Distributors", preferred_vendor=False, is_active=True),
@@ -66,9 +66,9 @@ def sample_vendors(authenticated_client):
 
 
 @pytest.fixture
-def sample_product(authenticated_client, sample_vendor):
+def sample_product(app, authenticated_client, sample_vendor):
     """Create a sample product for testing"""
-    with authenticated_client.application.app_context():
+    with app.app_context():
         product = Product(
             name="Feline Antibiotic",
             sku="MED-001",
@@ -87,9 +87,9 @@ def sample_product(authenticated_client, sample_vendor):
 
 
 @pytest.fixture
-def sample_products(authenticated_client, sample_vendor):
+def sample_products(app, authenticated_client, sample_vendor):
     """Create multiple products for testing"""
-    with authenticated_client.application.app_context():
+    with app.app_context():
         products = [
             Product(
                 name="Product A",
@@ -414,7 +414,7 @@ class TestPurchaseOrderList:
     def test_get_purchase_orders_with_data(self, authenticated_client, sample_vendor):
         """Should return all purchase orders"""
         # Create a PO
-        with authenticated_client.application.app_context():
+        with app.app_context():
             user = User.query.filter_by(username="testvet").first()
             po = PurchaseOrder(
                 po_number="PO-TEST-001",
@@ -434,7 +434,7 @@ class TestPurchaseOrderList:
     def test_get_purchase_orders_filter_by_status(self, authenticated_client, sample_vendor):
         """Should filter purchase orders by status"""
         # Create POs with different statuses
-        with authenticated_client.application.app_context():
+        with app.app_context():
             user = User.query.filter_by(username="testvet").first()
             po1 = PurchaseOrder(
                 po_number="PO-001",
@@ -463,7 +463,7 @@ class TestPurchaseOrderList:
 class TestPurchaseOrderDetail:
     def test_get_purchase_order_by_id(self, authenticated_client, sample_vendor):
         """Should return purchase order by ID"""
-        with authenticated_client.application.app_context():
+        with app.app_context():
             user = User.query.filter_by(username="testvet").first()
             po = PurchaseOrder(
                 po_number="PO-DETAIL",
@@ -514,7 +514,7 @@ class TestPurchaseOrderCreate:
 class TestPurchaseOrderUpdate:
     def test_update_purchase_order(self, authenticated_client, sample_vendor):
         """Should update a purchase order"""
-        with authenticated_client.application.app_context():
+        with app.app_context():
             user = User.query.filter_by(username="testvet").first()
             po = PurchaseOrder(
                 po_number="PO-UPDATE",
@@ -546,7 +546,7 @@ class TestPurchaseOrderReceive:
     def test_receive_purchase_order(self, authenticated_client, sample_vendor, sample_product):
         """Should mark PO as received and update inventory"""
         # Create PO with items
-        with authenticated_client.application.app_context():
+        with app.app_context():
             user = User.query.filter_by(username="testvet").first()
             product = Product.query.get(sample_product)
             initial_stock = product.stock_quantity
@@ -578,13 +578,13 @@ class TestPurchaseOrderReceive:
         assert data["status"] == "received"
 
         # Verify inventory was updated
-        with authenticated_client.application.app_context():
+        with app.app_context():
             product = Product.query.get(sample_product)
             assert product.stock_quantity == initial_stock + 20
 
     def test_receive_already_received_po(self, authenticated_client, sample_vendor):
         """Should return 400 for already received PO"""
-        with authenticated_client.application.app_context():
+        with app.app_context():
             user = User.query.filter_by(username="testvet").first()
             po = PurchaseOrder(
                 po_number="PO-ALREADY-RECEIVED",
@@ -660,7 +660,7 @@ class TestInventoryTransactionList:
     def test_get_inventory_transactions_with_data(self, authenticated_client, sample_product):
         """Should return inventory transactions"""
         # Create a transaction
-        with authenticated_client.application.app_context():
+        with app.app_context():
             user = User.query.filter_by(username="testvet").first()
             transaction = InventoryTransaction(
                 product_id=sample_product,
@@ -685,7 +685,7 @@ class TestInventoryTransactionList:
     ):
         """Should filter transactions by product"""
         # Create a transaction
-        with authenticated_client.application.app_context():
+        with app.app_context():
             user = User.query.filter_by(username="testvet").first()
             transaction = InventoryTransaction(
                 product_id=sample_product,
@@ -726,7 +726,7 @@ class TestInventoryTransactionCreate:
         assert data["quantity"] == -5
 
         # Verify product stock was updated
-        with authenticated_client.application.app_context():
+        with app.app_context():
             product = Product.query.get(sample_product)
             assert product.stock_quantity == 45  # 50 - 5
 
@@ -745,7 +745,7 @@ class TestInventoryTransactionCreate:
 class TestInventoryTransactionDetail:
     def test_get_inventory_transaction_by_id(self, authenticated_client, sample_product):
         """Should return transaction by ID"""
-        with authenticated_client.application.app_context():
+        with app.app_context():
             user = User.query.filter_by(username="testvet").first()
             transaction = InventoryTransaction(
                 product_id=sample_product,

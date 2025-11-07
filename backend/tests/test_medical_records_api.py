@@ -37,9 +37,9 @@ def authenticated_client(client):
 
 
 @pytest.fixture
-def sample_patient_and_visit(authenticated_client):
+def sample_patient_and_visit(app, authenticated_client):
     """Create sample patient and visit for testing medical records"""
-    with authenticated_client.application.app_context():
+    with app.app_context():
         # Create client
         client_obj = Client(
             first_name="John",
@@ -94,7 +94,7 @@ class TestVitalSignsList:
         visit_id = sample_patient_and_visit["visit_id"]
 
         # Create vital signs for this visit
-        with authenticated_client.application.app_context():
+        with app.app_context():
             vs = VitalSigns(
                 visit_id=visit_id,
                 temperature_c=38.5,
@@ -212,7 +212,7 @@ class TestSOAPNotesList:
         user_id = sample_patient_and_visit["user_id"]
 
         # Create SOAP note
-        with authenticated_client.application.app_context():
+        with app.app_context():
             soap = SOAPNote(
                 visit_id=visit_id,
                 subjective="Owner reports cat is lethargic",
@@ -306,7 +306,7 @@ class TestDiagnosisList:
         user_id = sample_patient_and_visit["user_id"]
 
         # Create diagnoses with different statuses
-        with authenticated_client.application.app_context():
+        with app.app_context():
             diag1 = Diagnosis(
                 visit_id=visit_id,
                 diagnosis_name="Upper Respiratory Infection",
@@ -428,7 +428,7 @@ class TestVaccinationList:
         user_id = sample_patient_and_visit["user_id"]
 
         # Create vaccination
-        with authenticated_client.application.app_context():
+        with app.app_context():
             vacc = Vaccination(
                 patient_id=patient_id,
                 vaccine_name="FVRCP",

@@ -41,9 +41,9 @@ def admin_client(app):
 
 
 @pytest.fixture
-def sample_clients(authenticated_client):
+def sample_clients(app, authenticated_client):
     """Create sample clients for testing"""
-    with authenticated_client.application.app_context():
+    with app.app_context():
         clients = [
             Client(
                 first_name="John",

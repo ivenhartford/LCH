@@ -22,9 +22,9 @@ def authenticated_client(client):
 
 
 @pytest.fixture
-def sample_patient_and_visit(authenticated_client):
+def sample_patient_and_visit(app, authenticated_client):
     """Create sample patient and visit for testing"""
-    with authenticated_client.application.app_context():
+    with app.app_context():
         client_obj = Client(
             first_name="John",
             last_name="Doe",
@@ -51,9 +51,9 @@ def sample_patient_and_visit(authenticated_client):
 
 
 @pytest.fixture
-def sample_medication(authenticated_client):
+def sample_medication(app, authenticated_client):
     """Create sample medication for testing"""
-    with authenticated_client.application.app_context():
+    with app.app_context():
         medication = Medication(
             drug_name="Amoxicillin",
             drug_class="Antibiotic",
@@ -67,9 +67,9 @@ def sample_medication(authenticated_client):
 
 
 @pytest.fixture
-def sample_prescriptions(authenticated_client, sample_patient_and_visit, sample_medication):
+def sample_prescriptions(app, authenticated_client, sample_patient_and_visit, sample_medication):
     """Create sample prescriptions for testing"""
-    with authenticated_client.application.app_context():
+    with app.app_context():
         user = User.query.filter_by(username="testvet").first()
         prescriptions = [
             Prescription(
