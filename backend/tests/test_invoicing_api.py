@@ -10,9 +10,9 @@ from decimal import Decimal
 
 
 @pytest.fixture
-def authenticated_client(client):
+def authenticated_client(app, client):
     """Create authenticated test client with logged-in user"""
-    with client.application.app_context():
+    with app.app_context():
         user = User(username="testvet", role="user")
         user.set_password("password")
         db.session.add(user)
@@ -23,9 +23,9 @@ def authenticated_client(client):
 
 
 @pytest.fixture
-def sample_client(authenticated_client):
+def sample_client(app, authenticated_client):
     """Create a sample client for testing"""
-    with authenticated_client.application.app_context():
+    with app.app_context():
         client_obj = Client(
             first_name="John",
             last_name="Doe",
@@ -38,9 +38,9 @@ def sample_client(authenticated_client):
 
 
 @pytest.fixture
-def sample_patient(authenticated_client, sample_client):
+def sample_patient(app, authenticated_client, sample_client):
     """Create a sample patient for testing"""
-    with authenticated_client.application.app_context():
+    with app.app_context():
         patient = Patient(name="Fluffy", species="Cat", breed="Persian", owner_id=sample_client)
         db.session.add(patient)
         db.session.commit()
@@ -48,9 +48,9 @@ def sample_patient(authenticated_client, sample_client):
 
 
 @pytest.fixture
-def sample_services(authenticated_client):
+def sample_services(app, authenticated_client):
     """Create sample services for testing"""
-    with authenticated_client.application.app_context():
+    with app.app_context():
         services = [
             Service(
                 name="Wellness Examination",
@@ -260,7 +260,7 @@ class TestInvoiceList:
     ):
         """Should return all invoices"""
         # Create a test invoice with required fields
-        with authenticated_client.application.app_context():
+        with app.app_context():
             user = User.query.filter_by(username="testvet").first()
             invoice = Invoice(
                 invoice_number="INV-TEST-0001",
@@ -291,7 +291,7 @@ class TestInvoiceList:
     ):
         """Should filter invoices by status"""
         # Create test invoices with different statuses
-        with authenticated_client.application.app_context():
+        with app.app_context():
             user = User.query.filter_by(username="testvet").first()
             invoice1 = Invoice(
                 invoice_number="INV-001",
@@ -330,7 +330,7 @@ class TestInvoiceList:
 class TestInvoiceDetail:
     def test_get_invoice_by_id(self, authenticated_client, sample_client, sample_patient):
         """Should return invoice by ID with items and payments"""
-        with authenticated_client.application.app_context():
+        with app.app_context():
             user = User.query.filter_by(username="testvet").first()
             invoice = Invoice(
                 invoice_number="INV-DETAIL-001",
@@ -429,7 +429,7 @@ class TestInvoiceCreate:
 class TestInvoiceUpdate:
     def test_update_invoice_status(self, authenticated_client, sample_client, sample_patient):
         """Should update invoice status"""
-        with authenticated_client.application.app_context():
+        with app.app_context():
             user = User.query.filter_by(username="testvet").first()
             invoice = Invoice(
                 invoice_number="INV-UPDATE-001",
@@ -461,7 +461,7 @@ class TestInvoiceUpdate:
 class TestInvoiceDelete:
     def test_delete_draft_invoice(self, authenticated_client, sample_client, sample_patient):
         """Should delete a draft invoice"""
-        with authenticated_client.application.app_context():
+        with app.app_context():
             user = User.query.filter_by(username="testvet").first()
             invoice = Invoice(
                 invoice_number="INV-DELETE-001",
@@ -485,7 +485,7 @@ class TestInvoiceDelete:
         self, authenticated_client, sample_client, sample_patient
     ):
         """Should allow delete of paid invoice (API doesn't prevent this)"""
-        with authenticated_client.application.app_context():
+        with app.app_context():
             user = User.query.filter_by(username="testvet").first()
             invoice = Invoice(
                 invoice_number="INV-DELETE-002",
@@ -534,7 +534,7 @@ class TestPaymentCreate:
     def test_create_payment(self, authenticated_client, sample_client, sample_patient):
         """Should create a new payment"""
         # Create invoice first
-        with authenticated_client.application.app_context():
+        with app.app_context():
             user = User.query.filter_by(username="testvet").first()
             invoice = Invoice(
                 invoice_number="INV-PAYMENT-001",
@@ -579,7 +579,7 @@ class TestPaymentUpdate:
     def test_update_payment(self, authenticated_client, sample_client, sample_patient):
         """Payment update endpoint not implemented - should return 405"""
         # Create invoice and payment first
-        with authenticated_client.application.app_context():
+        with app.app_context():
             user = User.query.filter_by(username="testvet").first()
             invoice = Invoice(
                 invoice_number="INV-PAYMENT-UPDATE",
@@ -620,7 +620,7 @@ class TestPaymentDelete:
     def test_delete_payment(self, authenticated_client, sample_client, sample_patient):
         """Should delete a payment"""
         # Create invoice and payment first
-        with authenticated_client.application.app_context():
+        with app.app_context():
             user = User.query.filter_by(username="testvet").first()
             invoice = Invoice(
                 invoice_number="INV-PAYMENT-DELETE",

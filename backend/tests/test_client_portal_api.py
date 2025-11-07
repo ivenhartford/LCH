@@ -141,7 +141,7 @@ def portal_user(app, sample_client):
 @pytest.fixture
 def authenticated_staff(client):
     """Create authenticated staff client"""
-    with client.application.app_context():
+    with app.app_context():
         user = User(username="staff", role="user")
         user.set_password("password")
         db.session.add(user)
@@ -191,7 +191,7 @@ class TestPortalRegistration:
     def test_registration_duplicate_username(self, client, sample_client, portal_user):
         """Test registration with duplicate username"""
         # Create a second client
-        with client.application.app_context():
+        with app.app_context():
             client2 = Client(
                 first_name="Jane",
                 last_name="Smith",
@@ -329,7 +329,7 @@ class TestPortalPatients:
     def test_get_patient_wrong_client(self, client, sample_client, sample_patient):
         """Test fetching patient with wrong client_id"""
         # Create a different client
-        with client.application.app_context():
+        with app.app_context():
             client2 = Client(
                 first_name="Jane",
                 last_name="Smith",
@@ -382,7 +382,7 @@ class TestPortalInvoices:
     def test_get_invoice_wrong_client(self, client, sample_client, sample_invoice):
         """Test fetching invoice with wrong client_id"""
         # Create a different client
-        with client.application.app_context():
+        with app.app_context():
             client2 = Client(
                 first_name="Jane",
                 last_name="Smith",
@@ -459,7 +459,7 @@ class TestAppointmentRequests:
     def test_get_client_requests(self, client, sample_client, sample_patient):
         """Test fetching client's appointment requests"""
         # Create a request first
-        with client.application.app_context():
+        with app.app_context():
             req = AppointmentRequest(
                 client_id=sample_client,
                 patient_id=sample_patient,
@@ -481,7 +481,7 @@ class TestAppointmentRequests:
     def test_cancel_request(self, client, sample_client, sample_patient):
         """Test canceling a pending appointment request"""
         # Create a request first
-        with client.application.app_context():
+        with app.app_context():
             req = AppointmentRequest(
                 client_id=sample_client,
                 patient_id=sample_patient,
@@ -505,7 +505,7 @@ class TestAppointmentRequests:
     def test_cancel_nonpending_request(self, client, sample_client, sample_patient):
         """Test canceling a non-pending request (should fail)"""
         # Create an approved request
-        with client.application.app_context():
+        with app.app_context():
             req = AppointmentRequest(
                 client_id=sample_client,
                 patient_id=sample_patient,

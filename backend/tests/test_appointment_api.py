@@ -15,9 +15,9 @@ from app.models import User, Client, Patient, Appointment, AppointmentType, db
 
 
 @pytest.fixture
-def authenticated_client(client):
+def authenticated_client(app, client):
     """Create authenticated test client with logged-in user"""
-    with client.application.app_context():
+    with app.app_context():
         user = User(username="testuser", role="user")
         user.set_password("password")
         db.session.add(user)
@@ -42,9 +42,9 @@ def admin_client(app):
 
 
 @pytest.fixture
-def sample_client(authenticated_client):
+def sample_client(app, authenticated_client):
     """Create a sample client for testing"""
-    with authenticated_client.application.app_context():
+    with app.app_context():
         client_obj = Client(
             first_name="John", last_name="Doe", phone_primary="555-1234", email="john@example.com"
         )
@@ -54,9 +54,9 @@ def sample_client(authenticated_client):
 
 
 @pytest.fixture
-def sample_patient(authenticated_client, sample_client):
+def sample_patient(app, authenticated_client, sample_client):
     """Create a sample patient for testing"""
-    with authenticated_client.application.app_context():
+    with app.app_context():
         patient = Patient(name="Whiskers", breed="Persian", owner_id=sample_client, status="Active")
         db.session.add(patient)
         db.session.commit()
@@ -64,9 +64,9 @@ def sample_patient(authenticated_client, sample_client):
 
 
 @pytest.fixture
-def sample_appointment_type(authenticated_client):
+def sample_appointment_type(app, authenticated_client):
     """Create a sample appointment type for testing"""
-    with authenticated_client.application.app_context():
+    with app.app_context():
         apt_type = AppointmentType(
             name="Wellness Exam", default_duration_minutes=30, color="#10b981"
         )
@@ -76,9 +76,9 @@ def sample_appointment_type(authenticated_client):
 
 
 @pytest.fixture
-def sample_staff(authenticated_client):
+def sample_staff(app, authenticated_client):
     """Create a sample staff member for testing"""
-    with authenticated_client.application.app_context():
+    with app.app_context():
         staff = User(username="dr_smith", role="user")
         staff.set_password("password")
         db.session.add(staff)
@@ -91,7 +91,7 @@ def sample_appointments(
     authenticated_client, sample_client, sample_patient, sample_appointment_type, sample_staff
 ):
     """Create sample appointments for testing"""
-    with authenticated_client.application.app_context():
+    with app.app_context():
         now = datetime.utcnow()
         appointments = [
             Appointment(
@@ -299,7 +299,7 @@ class TestAppointmentDetail:
         THEN it should return the appointment details
         """
         # Create appointment directly in this test
-        with authenticated_client.application.app_context():
+        with app.app_context():
             from datetime import datetime, timedelta
 
             now = datetime.utcnow()

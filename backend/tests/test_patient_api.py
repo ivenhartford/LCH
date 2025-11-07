@@ -15,9 +15,9 @@ from app.models import User, Client, Patient, db
 
 
 @pytest.fixture
-def authenticated_client(client):
+def authenticated_client(app, client):
     """Create authenticated test client with logged-in user"""
-    with client.application.app_context():
+    with app.app_context():
         user = User(username="testuser", role="user")
         user.set_password("password")
         db.session.add(user)
@@ -42,9 +42,9 @@ def admin_client(app):
 
 
 @pytest.fixture
-def sample_owner(authenticated_client):
+def sample_owner(app, authenticated_client):
     """Create a sample client (cat owner) for testing"""
-    with authenticated_client.application.app_context():
+    with app.app_context():
         owner = Client(
             first_name="John", last_name="Doe", phone_primary="555-1234", email="john@example.com"
         )
@@ -54,9 +54,9 @@ def sample_owner(authenticated_client):
 
 
 @pytest.fixture
-def sample_patients(authenticated_client, sample_owner):
+def sample_patients(app, authenticated_client, sample_owner):
     """Create sample patients for testing"""
-    with authenticated_client.application.app_context():
+    with app.app_context():
         patients = [
             Patient(
                 name="Whiskers",

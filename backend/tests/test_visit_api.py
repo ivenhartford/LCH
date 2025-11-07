@@ -15,9 +15,9 @@ from app.models import User, Client, Patient, Visit, db
 
 
 @pytest.fixture
-def authenticated_client(client):
+def authenticated_client(app, client):
     """Create authenticated test client with logged-in user"""
-    with client.application.app_context():
+    with app.app_context():
         user = User(username="testvet", role="user")
         user.set_password("password")
         db.session.add(user)
@@ -48,9 +48,9 @@ def sample_patient(app):
 
 
 @pytest.fixture
-def sample_visits(authenticated_client, sample_patient):
+def sample_visits(app, authenticated_client, sample_patient):
     """Create sample visits for testing"""
-    with authenticated_client.application.app_context():
+    with app.app_context():
         user = User.query.filter_by(username="testvet").first()
         visits = [
             Visit(
@@ -279,7 +279,7 @@ class TestVisitCreate:
         WHEN POST /api/visits is called
         THEN it should create the visit with the veterinarian assigned
         """
-        with authenticated_client.application.app_context():
+        with app.app_context():
             user = User.query.filter_by(username="testvet").first()
             visit_data = {
                 "patient_id": sample_patient,

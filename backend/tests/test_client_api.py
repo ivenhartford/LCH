@@ -14,9 +14,9 @@ from app.models import User, Client, db
 
 
 @pytest.fixture
-def authenticated_client(client):
+def authenticated_client(app, client):
     """Create authenticated test client with logged-in user"""
-    with client.application.app_context():
+    with app.app_context():
         user = User(username="testuser", role="user")
         user.set_password("password")
         db.session.add(user)
@@ -41,9 +41,9 @@ def admin_client(app):
 
 
 @pytest.fixture
-def sample_clients(authenticated_client):
+def sample_clients(app, authenticated_client):
     """Create sample clients for testing"""
-    with authenticated_client.application.app_context():
+    with app.app_context():
         clients = [
             Client(
                 first_name="John",

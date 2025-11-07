@@ -18,7 +18,7 @@ def test_create_and_get_appointment(client):
     # We can't do that without a user, so let's create one.
     from app.models import User, db
 
-    with client.application.app_context():
+    with app.app_context():
         user = User(username="testuser", role="user")
         user.set_password("password")
         db.session.add(user)
@@ -29,7 +29,7 @@ def test_create_and_get_appointment(client):
     # Create a client first (required for appointments)
     from app.models import Client
 
-    with client.application.app_context():
+    with app.app_context():
         test_client = Client(first_name="Test", last_name="Client", phone_primary="555-1234")
         db.session.add(test_client)
         db.session.commit()
