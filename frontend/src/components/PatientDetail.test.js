@@ -33,13 +33,13 @@ const renderWithProviders = (patientId = '1') => {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <MemoryRouter>
         <NotificationProvider>
           <Routes>
             <Route path="/" element={<PatientDetail />} />
           </Routes>
         </NotificationProvider>
-      </BrowserRouter>
+      </MemoryRouter>
     </QueryClientProvider>
   );
 };
