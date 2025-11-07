@@ -427,7 +427,7 @@ class TestVaccinationList:
         assert response.status_code == 401
 
     def test_get_vaccinations_filter_by_patient(
-        self, authenticated_client, sample_patient_and_visit
+        self, app, authenticated_client, sample_patient_and_visit
     ):
         """Should filter vaccinations by patient_id"""
         patient_id = sample_patient_and_visit["patient_id"]

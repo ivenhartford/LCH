@@ -256,7 +256,7 @@ class TestInvoiceList:
         assert data["total"] == 0
 
     def test_get_invoices_with_data(
-        self, authenticated_client, sample_client, sample_patient, sample_services
+        self, app, authenticated_client, sample_client, sample_patient, sample_services
     ):
         """Should return all invoices"""
         # Create a test invoice with required fields
@@ -287,7 +287,7 @@ class TestInvoiceList:
         assert data["total"] == 1
 
     def test_get_invoices_filter_by_status(
-        self, authenticated_client, sample_client, sample_patient
+        self, app, authenticated_client, sample_client, sample_patient
     ):
         """Should filter invoices by status"""
         # Create test invoices with different statuses
@@ -482,7 +482,7 @@ class TestInvoiceDelete:
         assert response.status_code == 200
 
     def test_delete_invoice_with_payments(
-        self, authenticated_client, sample_client, sample_patient
+        self, app, authenticated_client, sample_client, sample_patient
     ):
         """Should allow delete of paid invoice (API doesn't prevent this)"""
         with app.app_context():
