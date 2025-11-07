@@ -69,7 +69,7 @@
 ## 🟢 MEDIUM PRIORITY BUGS
 
 ### 6. Schema Validation - Unknown Fields
-**Status:** 🔧 IN PROGRESS (8 of ~10 issues fixed)
+**Status:** 🔧 IN PROGRESS (10 of ~12 issues fixed)
 **Errors Fixed:**
 - Client: Changed `address_street` → `address_line1`
 - Patient: Changed `sex` from "F" → "Female" (case-sensitive enum)
@@ -79,10 +79,12 @@
 - AppointmentType: Removed `default_price` (field doesn't exist in schema)
 - Appointment: Added required `end_time`, changed status "pending" → "scheduled", removed unknown `duration_minutes`
 - Visit: Added required `visit_type`, changed `reason` → `visit_notes`
+- VitalSigns: Changed `temperature` → `temperature_c`, `weight` → `weight_kg`
+- Service: Changed `price` → `unit_price`
 **Location:** `backend/tests/test_integration_workflows.py`
-**Impact:** Integration workflow tests making significant progress
+**Impact:** Integration workflow tests making significant progress through appointment lifecycle
 **Tests Affected:** test_integration_workflows.py::TestAppointmentWorkflow::test_full_appointment_lifecycle
-**Remaining:** Vital signs schema validation (minor)
+**Remaining:** Invoice date format and invoice item total_price (minor test data issues)
 
 ### 7. Portal Authentication - Login Failures
 **Status:** 🟢 MEDIUM

@@ -192,10 +192,10 @@ class TestAppointmentWorkflow:
             # Step 9: Add vital signs
             vitals_data = {
                 "visit_id": visit_id,
-                "temperature": 101.5,
+                "temperature_c": "38.6",  # 101.5°F = 38.6°C
                 "heart_rate": 180,
                 "respiratory_rate": 30,
-                "weight": 10.5,
+                "weight_kg": "10.5",
                 "body_condition_score": 5,
             }
 
@@ -217,7 +217,7 @@ class TestAppointmentWorkflow:
             # Step 11: Create service item
             service_data = {
                 "name": "Wellness Exam",
-                "price": 75.00,
+                "unit_price": "75.00",
                 "taxable": True,
                 "category": "Examination",
             }
