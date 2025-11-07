@@ -91,7 +91,7 @@ class TestAppointmentWorkflow:
                 "last_name": "Doe",
                 "email": "john.doe@example.com",
                 "phone_primary": "555-1234",
-                "address_street": "123 Main St",
+                "address_line1": "123 Main St",
                 "city": "New York",
                 "state": "NY",
                 "zip_code": "10001",
@@ -107,12 +107,12 @@ class TestAppointmentWorkflow:
                 "name": "Fluffy",
                 "species": "Cat",
                 "breed": "Persian",
-                "sex": "F",
+                "sex": "Female",
                 "date_of_birth": "2020-01-15",
                 "color": "White",
-                "weight": 10.5,
+                "weight_kg": "10.5",
                 "owner_id": client_id,
-                "status": "active",
+                "status": "Active",
             }
 
             response = authenticated_client.post("/api/patients", json=patient_data)
@@ -123,9 +123,8 @@ class TestAppointmentWorkflow:
             # Step 3: Create appointment type
             appt_type_data = {
                 "name": "Wellness Exam",
-                "duration_minutes": 30,
+                "default_duration_minutes": 30,
                 "color": "#4CAF50",
-                "default_price": 75.00,
                 "description": "Annual wellness examination",
             }
 
@@ -134,22 +133,24 @@ class TestAppointmentWorkflow:
             appt_type_id = response.json["id"]
 
             # Step 4: Create appointment
-            tomorrow = (datetime.now() + timedelta(days=1)).isoformat()
+            tomorrow = datetime.now() + timedelta(days=1)
+            start_time = tomorrow.isoformat()
+            end_time = (tomorrow + timedelta(minutes=30)).isoformat()
             appointment_data = {
                 "client_id": client_id,
                 "patient_id": patient_id,
                 "appointment_type_id": appt_type_id,
                 "title": "Fluffy's Wellness Exam",
-                "start_time": tomorrow,
-                "duration_minutes": 30,
-                "status": "pending",
+                "start_time": start_time,
+                "end_time": end_time,
+                "status": "scheduled",
                 "notes": "First visit",
             }
 
             response = authenticated_client.post("/api/appointments", json=appointment_data)
             assert response.status_code == 201
             appointment_id = response.json["id"]
-            assert response.json["status"] == "pending"
+            assert response.json["status"] == "scheduled"
 
             # Step 5: Confirm appointment
             response = authenticated_client.put(
@@ -179,8 +180,9 @@ class TestAppointmentWorkflow:
                 "appointment_id": appointment_id,
                 "patient_id": patient_id,
                 "visit_date": datetime.now().isoformat(),
-                "reason": "Annual wellness exam",
+                "visit_type": "Wellness",
                 "chief_complaint": "Routine checkup",
+                "visit_notes": "Annual wellness exam",
             }
 
             response = authenticated_client.post("/api/visits", json=visit_data)

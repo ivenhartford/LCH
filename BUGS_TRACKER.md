@@ -69,14 +69,20 @@
 ## 🟢 MEDIUM PRIORITY BUGS
 
 ### 6. Schema Validation - Unknown Fields
-**Status:** 🟢 MEDIUM
-**Errors:**
-- Client: `{'address_street': ['Unknown field.']}`
-- Patient: `{'sex': ['Must be one of: Male, Female.'], 'status': ['Must be one of: Active, Inactive, Deceased.']}`
-**Location:** `backend/app/schemas.py`
-**Impact:** Integration tests fail, case sensitivity issues
-**Tests Affected:** test_integration_workflows.py
-**Fix Required:** Fix schema field definitions or make case-insensitive
+**Status:** 🔧 IN PROGRESS (8 of ~10 issues fixed)
+**Errors Fixed:**
+- Client: Changed `address_street` → `address_line1`
+- Patient: Changed `sex` from "F" → "Female" (case-sensitive enum)
+- Patient: Changed `status` from "active" → "Active" (case-sensitive enum)
+- Patient: Changed `weight` → `weight_kg` (correct field name)
+- AppointmentType: Changed `duration_minutes` → `default_duration_minutes`
+- AppointmentType: Removed `default_price` (field doesn't exist in schema)
+- Appointment: Added required `end_time`, changed status "pending" → "scheduled", removed unknown `duration_minutes`
+- Visit: Added required `visit_type`, changed `reason` → `visit_notes`
+**Location:** `backend/tests/test_integration_workflows.py`
+**Impact:** Integration workflow tests making significant progress
+**Tests Affected:** test_integration_workflows.py::TestAppointmentWorkflow::test_full_appointment_lifecycle
+**Remaining:** Vital signs schema validation (minor)
 
 ### 7. Portal Authentication - Login Failures
 **Status:** 🟢 MEDIUM
