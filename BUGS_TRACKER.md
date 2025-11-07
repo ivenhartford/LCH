@@ -45,12 +45,13 @@
 **Result:** 35 tests now passing, 2 minor test-specific failures remain
 
 ### 4. SQLAlchemy DetachedInstanceError
-**Status:** 🟡 HIGH
+**Status:** ✅ FIXED (Partial - 10 of 18 tests fixed)
 **Error:** `Instance <ClientPortalUser> is not bound to a Session`
-**Location:** Multiple test files accessing objects outside app context
-**Impact:** 9 security tests failing
+**Location:** backend/tests/test_security.py - test_client_user fixture
+**Impact:** 18 security tests failing
 **Tests Affected:** test_security.py JWT and authorization tests
-**Fix Required:** Refresh objects within app context or eager load attributes
+**Fix Applied:** Modified test_client_user fixture to return IDs instead of detached objects. Tests now query fresh objects within their own app context using db.session.get().
+**Result:** Reduced failures from 18 to 8 (10 tests fixed). Remaining 8 failures are unrelated to DetachedInstanceError (message assertion mismatches).
 
 ### 5. Model Schema Mismatch - PurchaseOrderItem
 **Status:** 🟡 HIGH

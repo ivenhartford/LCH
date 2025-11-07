@@ -28,7 +28,7 @@ def client(app):
 
 @pytest.fixture
 def test_client_user(app):
-    """Create test client and portal user"""
+    """Create test client and portal user - returns IDs to avoid DetachedInstanceError"""
     with app.app_context():
         # Create client
         test_client = Client(
@@ -50,9 +50,11 @@ def test_client_user(app):
         db.session.add(portal_user)
         db.session.commit()
 
+        # Return IDs instead of objects to avoid DetachedInstanceError
+        # Tests must query objects within their own app context
         return {
-            "client": test_client,
-            "portal_user": portal_user,
+            "client_id": test_client.id,
+            "portal_user_id": portal_user.id,
             "password": "TestPassword123!",
         }
 
@@ -63,7 +65,7 @@ class TestJWTAuthentication:
     def test_generate_portal_token(self, app, test_client_user):
         """Test JWT token generation"""
         with app.app_context():
-            portal_user = test_client_user["portal_user"]
+            portal_user = db.session.get(ClientPortalUser, test_client_user["portal_user_id"])
             token = generate_portal_token(portal_user)
 
             assert token is not None
@@ -73,7 +75,7 @@ class TestJWTAuthentication:
     def test_verify_valid_token(self, app, test_client_user):
         """Test JWT token verification with valid token"""
         with app.app_context():
-            portal_user = test_client_user["portal_user"]
+            portal_user = db.session.get(ClientPortalUser, test_client_user["portal_user_id"])
             token = generate_portal_token(portal_user)
 
             payload = verify_portal_token(token)
@@ -96,7 +98,7 @@ class TestJWTAuthentication:
         from datetime import datetime, timedelta
 
         with app.app_context():
-            portal_user = test_client_user["portal_user"]
+            portal_user = db.session.get(ClientPortalUser, test_client_user["portal_user_id"])
 
             # Create token with wrong type
             wrong_payload = {
@@ -145,9 +147,7 @@ class TestPortalAuthentication:
     def test_portal_register_success(self, app, client, test_client_user):
         """Test successful portal registration"""
         with app.app_context():
-            test_client_obj = test_client_user["client"]
-
-            # Create another client for new registration
+            # Create another client for new registration (test_client_user not used here)
             new_client = Client(
                 first_name="New",
                 last_name="Client",
@@ -179,7 +179,7 @@ class TestPortalAuthorization:
 
     def test_dashboard_without_token(self, client, test_client_user):
         """Test accessing dashboard without JWT token"""
-        client_id = test_client_user["client"].id
+        client_id = test_client_user["client_id"]
         response = client.get(f"/api/portal/dashboard/{client_id}")
 
         assert response.status_code == 401
@@ -189,9 +189,9 @@ class TestPortalAuthorization:
     def test_dashboard_with_valid_token(self, app, client, test_client_user):
         """Test accessing dashboard with valid JWT token"""
         with app.app_context():
-            portal_user = test_client_user["portal_user"]
+            portal_user = db.session.get(ClientPortalUser, test_client_user["portal_user_id"])
             token = generate_portal_token(portal_user)
-            client_id = test_client_user["client"].id
+            client_id = test_client_user["client_id"]
 
         response = client.get(
             f"/api/portal/dashboard/{client_id}",
@@ -202,7 +202,7 @@ class TestPortalAuthorization:
 
     def test_dashboard_with_invalid_token(self, client, test_client_user):
         """Test accessing dashboard with invalid JWT token"""
-        client_id = test_client_user["client"].id
+        client_id = test_client_user["client_id"]
         response = client.get(
             f"/api/portal/dashboard/{client_id}",
             headers={"Authorization": "Bearer invalid.token.here"},
@@ -213,7 +213,7 @@ class TestPortalAuthorization:
     def test_dashboard_wrong_client_id(self, app, client, test_client_user):
         """Test accessing another client's dashboard (authorization violation)"""
         with app.app_context():
-            portal_user = test_client_user["portal_user"]
+            portal_user = db.session.get(ClientPortalUser, test_client_user["portal_user_id"])
             token = generate_portal_token(portal_user)
 
             # Try to access different client ID
@@ -230,21 +230,21 @@ class TestPortalAuthorization:
 
     def test_patients_endpoint_requires_auth(self, client, test_client_user):
         """Test patients endpoint requires authentication"""
-        client_id = test_client_user["client"].id
+        client_id = test_client_user["client_id"]
         response = client.get(f"/api/portal/patients/{client_id}")
 
         assert response.status_code == 401
 
     def test_appointments_endpoint_requires_auth(self, client, test_client_user):
         """Test appointments endpoint requires authentication"""
-        client_id = test_client_user["client"].id
+        client_id = test_client_user["client_id"]
         response = client.get(f"/api/portal/appointments/{client_id}")
 
         assert response.status_code == 401
 
     def test_invoices_endpoint_requires_auth(self, client, test_client_user):
         """Test invoices endpoint requires authentication"""
-        client_id = test_client_user["client"].id
+        client_id = test_client_user["client_id"]
         response = client.get(f"/api/portal/invoices/{client_id}")
 
         assert response.status_code == 401
