@@ -54,12 +54,15 @@
 **Result:** Reduced failures from 18 to 8 (10 tests fixed). Remaining 8 failures are unrelated to DetachedInstanceError (message assertion mismatches).
 
 ### 5. Model Schema Mismatch - PurchaseOrderItem
-**Status:** 🟡 HIGH
+**Status:** ✅ FIXED
 **Error:** `'unit_price' is an invalid keyword argument for PurchaseOrderItem`
-**Location:** `backend/app/models.py` - PurchaseOrderItem model
-**Impact:** Purchase order receiving fails
-**Tests Affected:** test_inventory_api.py::test_receive_purchase_order
-**Fix Required:** Add unit_price column to PurchaseOrderItem model or fix test
+**Location:** `backend/tests/test_inventory_api.py` line 569
+**Impact:** Purchase order receiving test fails
+**Tests Affected:** test_inventory_api.py::TestPurchaseOrderReceive::test_receive_purchase_order
+**Fix Applied:** Changed test to use correct field names:
+- Changed `unit_price` to `unit_cost` (model uses unit_cost not unit_price)
+- Added `total_cost` field which is required by the model
+**Result:** Test now passes
 
 ---
 

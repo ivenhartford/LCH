@@ -566,7 +566,8 @@ class TestPurchaseOrderReceive:
                 product_id=sample_product,
                 quantity_ordered=20,
                 quantity_received=20,
-                unit_price=Decimal("5.00"),
+                unit_cost=Decimal("5.00"),
+                total_cost=Decimal("100.00"),  # 20 * 5.00
             )
             db.session.add(po_item)
             db.session.commit()
