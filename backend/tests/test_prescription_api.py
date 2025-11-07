@@ -9,9 +9,9 @@ from app.models import User, Client, Patient, Visit, Medication, Prescription
 
 
 @pytest.fixture
-def authenticated_client(client):
+def authenticated_client(app, client):
     """Create authenticated test client with logged-in user"""
-    with client.application.app_context():
+    with app.app_context():
         user = User(username="testvet", role="user")
         user.set_password("password")
         db.session.add(user)

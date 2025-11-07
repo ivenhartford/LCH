@@ -10,9 +10,9 @@ from decimal import Decimal
 
 
 @pytest.fixture
-def authenticated_client(client):
+def authenticated_client(app, client):
     """Create authenticated test client with logged-in user"""
-    with client.application.app_context():
+    with app.app_context():
         user = User(username="testvet", role="user")
         user.set_password("password")
         db.session.add(user)
@@ -25,7 +25,7 @@ def authenticated_client(client):
 @pytest.fixture
 def admin_client(client):
     """Create authenticated admin client"""
-    with client.application.app_context():
+    with app.app_context():
         admin = User(username="admin", role="administrator")
         admin.set_password("password")
         db.session.add(admin)

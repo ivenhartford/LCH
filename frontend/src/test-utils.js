@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { render } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NotificationProvider } from './contexts/NotificationContext';
 
@@ -35,15 +35,16 @@ function createTestQueryClient() {
 
 /**
  * Wrapper component that provides all necessary context providers for testing
+ * Uses MemoryRouter instead of BrowserRouter for better test isolation
  */
 function AllTheProviders({ children }) {
   const queryClient = createTestQueryClient();
 
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <MemoryRouter>
         <NotificationProvider>{children}</NotificationProvider>
-      </BrowserRouter>
+      </MemoryRouter>
     </QueryClientProvider>
   );
 }
