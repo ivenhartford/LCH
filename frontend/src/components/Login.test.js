@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '../test-utils';
 import userEvent from '@testing-library/user-event';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 import Login from './Login';
 
 // Mock useNavigate
@@ -12,7 +12,7 @@ jest.mock('react-router-dom', () => ({
 
 // Helper to render component with router
 const renderWithRouter = (component) => {
-  return render(<BrowserRouter>{component}</BrowserRouter>);
+  return render(<MemoryRouter>{component}</MemoryRouter>);
 };
 
 // Mock fetch

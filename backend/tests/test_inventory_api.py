@@ -681,7 +681,7 @@ class TestInventoryTransactionList:
         assert len(data["transactions"]) >= 1
 
     def test_get_inventory_transactions_filter_by_product(
-        self, authenticated_client, sample_product
+        self, app, authenticated_client, sample_product
     ):
         """Should filter transactions by product"""
         # Create a transaction
