@@ -63,6 +63,12 @@ from sqlalchemy.exc import IntegrityError
 from .auth import generate_portal_token, portal_auth_required
 from .email_verification import generate_verification_token, send_verification_email, is_token_valid
 from . import limiter
+from .audit_logger import (
+    log_audit_event,
+    log_business_operation,
+    log_performance_decorator,
+    get_changed_fields
+)
 
 bp = Blueprint("main", __name__)
 
@@ -681,6 +687,7 @@ def get_client(client_id):
 
 @bp.route("/api/clients", methods=["POST"])
 @login_required
+@log_performance_decorator
 def create_client():
     """Create a new client"""
     try:
@@ -711,6 +718,19 @@ def create_client():
 
         app.logger.info(f"Created client {new_client.id}: {new_client.first_name} {new_client.last_name}")
 
+        # Audit log: Client created
+        log_audit_event(
+            action='create',
+            entity_type='client',
+            entity_id=new_client.id,
+            entity_data={
+                'first_name': new_client.first_name,
+                'last_name': new_client.last_name,
+                'email': new_client.email,
+                'phone_primary': new_client.phone_primary
+            }
+        )
+
         result = client_schema.dump(new_client)
         return jsonify(result), 201
 
@@ -727,6 +747,7 @@ def create_client():
 
 @bp.route("/api/clients/<int:client_id>", methods=["PUT"])
 @login_required
+@log_performance_decorator
 def update_client(client_id):
     """Update an existing client"""
     try:
@@ -735,6 +756,12 @@ def update_client(client_id):
         app.logger.info(f"PUT /api/clients/{client_id} - User: {current_user.username}")
 
         client = Client.query.get_or_404(client_id)
+
+        # Capture old values for audit trail
+        old_values = {}
+        for key in data.keys():
+            if hasattr(client, key):
+                old_values[key] = getattr(client, key)
 
         # Validate request data
         try:
@@ -754,12 +781,25 @@ def update_client(client_id):
                     return jsonify({"error": "Email already exists"}), 409
 
         # Update client fields
+        new_values = {}
         for key, value in validated_data.items():
             setattr(client, key, value)
+            new_values[key] = value
 
         db.session.commit()
 
         app.logger.info(f"Updated client {client_id}: {client.first_name} {client.last_name}")
+
+        # Audit log: Client updated
+        changed_old, changed_new = get_changed_fields(old_values, new_values)
+        if changed_old:  # Only log if there were actual changes
+            log_audit_event(
+                action='update',
+                entity_type='client',
+                entity_id=client_id,
+                old_values=changed_old,
+                new_values=changed_new
+            )
 
         result = client_schema.dump(client)
         return jsonify(result), 200
@@ -779,6 +819,7 @@ def update_client(client_id):
 
 @bp.route("/api/clients/<int:client_id>", methods=["DELETE"])
 @login_required
+@log_performance_decorator
 def delete_client(client_id):
     """
     Soft delete a client (sets is_active to False)
@@ -791,6 +832,14 @@ def delete_client(client_id):
 
         client = Client.query.get_or_404(client_id)
 
+        # Capture client data for audit trail
+        client_data = {
+            'first_name': client.first_name,
+            'last_name': client.last_name,
+            'email': client.email,
+            'phone_primary': client.phone_primary
+        }
+
         if hard_delete:
             # Hard delete requires admin role
             if current_user.role != "administrator":
@@ -802,12 +851,36 @@ def delete_client(client_id):
             db.session.delete(client)
             db.session.commit()
             app.logger.info(f"Hard deleted client {client_id}: {client.first_name} {client.last_name}")
+
+            # Audit log: Hard delete
+            log_audit_event(
+                action='delete',
+                entity_type='client',
+                entity_id=client_id,
+                entity_data=client_data
+            )
+            log_business_operation(
+                operation='client_hard_delete',
+                entity_type='client',
+                entity_id=client_id,
+                details={'admin': current_user.username}
+            )
+
             return jsonify({"message": "Client permanently deleted"}), 200
         else:
             # Soft delete
             client.is_active = False
             db.session.commit()
             app.logger.info(f"Soft deleted (deactivated) client {client_id}: {client.first_name} {client.last_name}")
+
+            # Audit log: Soft delete
+            log_business_operation(
+                operation='client_deactivated',
+                entity_type='client',
+                entity_id=client_id,
+                details={'deactivated_by': current_user.username}
+            )
+
             return jsonify({"message": "Client deactivated"}), 200
 
     except Exception as e:
