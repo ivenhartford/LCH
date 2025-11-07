@@ -139,7 +139,7 @@ def portal_user(app, sample_client):
 
 
 @pytest.fixture
-def authenticated_staff(client):
+def authenticated_staff(app, client):
     """Create authenticated staff client"""
     with app.app_context():
         user = User(username="staff", role="user")
@@ -172,7 +172,7 @@ class TestPortalRegistration:
         assert data["message"] == "Registration successful"
         assert data["user"]["username"] == "newuser"
 
-    def test_registration_password_mismatch(self, client, sample_client):
+    def test_registration_password_mismatch(self, app, client, sample_client):
         """Test registration with mismatched passwords"""
         response = client.post(
             "/api/portal/register",
@@ -188,7 +188,7 @@ class TestPortalRegistration:
         assert response.status_code == 400
         assert "Passwords do not match" in response.get_json()["error"]
 
-    def test_registration_duplicate_username(self, client, sample_client, portal_user):
+    def test_registration_duplicate_username(self, app, client, sample_client, portal_user):
         """Test registration with duplicate username"""
         # Create a second client
         with app.app_context():
@@ -317,7 +317,7 @@ class TestPortalPatients:
         assert len(data) > 0
         assert data[0]["name"] == "Fluffy"
 
-    def test_get_patient_detail(self, client, sample_client, sample_patient):
+    def test_get_patient_detail(self, app, client, sample_client, sample_patient):
         """Test fetching specific patient details"""
         response = client.get(f"/api/portal/patients/{sample_client}/{sample_patient}")
 
@@ -326,7 +326,7 @@ class TestPortalPatients:
         assert data["name"] == "Fluffy"
         assert data["breed"] == "Persian"
 
-    def test_get_patient_wrong_client(self, client, sample_client, sample_patient):
+    def test_get_patient_wrong_client(self, app, client, sample_client, sample_patient):
         """Test fetching patient with wrong client_id"""
         # Create a different client
         with app.app_context():
@@ -370,7 +370,7 @@ class TestPortalInvoices:
         assert len(data) > 0
         assert data[0]["invoice_number"] == "INV-001"
 
-    def test_get_invoice_detail(self, client, sample_client, sample_invoice):
+    def test_get_invoice_detail(self, app, client, sample_client, sample_invoice):
         """Test fetching specific invoice details"""
         response = client.get(f"/api/portal/invoices/{sample_client}/{sample_invoice}")
 
@@ -379,7 +379,7 @@ class TestPortalInvoices:
         assert data["invoice"]["invoice_number"] == "INV-001"
         assert "items" in data
 
-    def test_get_invoice_wrong_client(self, client, sample_client, sample_invoice):
+    def test_get_invoice_wrong_client(self, app, client, sample_client, sample_invoice):
         """Test fetching invoice with wrong client_id"""
         # Create a different client
         with app.app_context():
@@ -442,7 +442,7 @@ class TestAppointmentRequests:
         assert data["priority"] == "urgent"
         assert data["is_urgent"] is True
 
-    def test_create_request_invalid_patient(self, client, sample_client):
+    def test_create_request_invalid_patient(self, app, client, sample_client):
         """Test creating request with invalid patient"""
         response = client.post(
             "/api/portal/appointment-requests",
@@ -456,7 +456,7 @@ class TestAppointmentRequests:
 
         assert response.status_code == 404
 
-    def test_get_client_requests(self, client, sample_client, sample_patient):
+    def test_get_client_requests(self, app, client, sample_client, sample_patient):
         """Test fetching client's appointment requests"""
         # Create a request first
         with app.app_context():
@@ -478,7 +478,7 @@ class TestAppointmentRequests:
         assert len(data) > 0
         assert data[0]["reason"] == "Test request"
 
-    def test_cancel_request(self, client, sample_client, sample_patient):
+    def test_cancel_request(self, app, client, sample_client, sample_patient):
         """Test canceling a pending appointment request"""
         # Create a request first
         with app.app_context():
@@ -502,7 +502,7 @@ class TestAppointmentRequests:
         data = response.get_json()
         assert data["status"] == "cancelled"
 
-    def test_cancel_nonpending_request(self, client, sample_client, sample_patient):
+    def test_cancel_nonpending_request(self, app, client, sample_client, sample_patient):
         """Test canceling a non-pending request (should fail)"""
         # Create an approved request
         with app.app_context():

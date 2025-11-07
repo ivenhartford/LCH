@@ -23,7 +23,7 @@ def authenticated_client(app, client):
 
 
 @pytest.fixture
-def admin_client(client):
+def admin_client(app, client):
     """Create authenticated admin client"""
     with app.app_context():
         admin = User(username="admin", role="administrator")
@@ -403,7 +403,7 @@ class TestProductDelete:
 
 
 class TestPurchaseOrderList:
-    def test_get_purchase_orders_empty_list(self, authenticated_client):
+    def test_get_purchase_orders_empty_list(self, app, authenticated_client):
         """Should return empty list when no purchase orders"""
         response = authenticated_client.get("/api/purchase-orders")
         assert response.status_code == 200
@@ -411,7 +411,7 @@ class TestPurchaseOrderList:
         assert "purchase_orders" in data
         assert len(data["purchase_orders"]) == 0
 
-    def test_get_purchase_orders_with_data(self, authenticated_client, sample_vendor):
+    def test_get_purchase_orders_with_data(self, app, authenticated_client, sample_vendor):
         """Should return all purchase orders"""
         # Create a PO
         with app.app_context():
@@ -431,7 +431,7 @@ class TestPurchaseOrderList:
         data = response.json
         assert len(data["purchase_orders"]) == 1
 
-    def test_get_purchase_orders_filter_by_status(self, authenticated_client, sample_vendor):
+    def test_get_purchase_orders_filter_by_status(self, app, authenticated_client, sample_vendor):
         """Should filter purchase orders by status"""
         # Create POs with different statuses
         with app.app_context():
@@ -461,7 +461,7 @@ class TestPurchaseOrderList:
 
 
 class TestPurchaseOrderDetail:
-    def test_get_purchase_order_by_id(self, authenticated_client, sample_vendor):
+    def test_get_purchase_order_by_id(self, app, authenticated_client, sample_vendor):
         """Should return purchase order by ID"""
         with app.app_context():
             user = User.query.filter_by(username="testvet").first()
@@ -504,7 +504,7 @@ class TestPurchaseOrderCreate:
         assert data["po_number"].startswith("PO-")
         assert data["vendor_id"] == sample_vendor
 
-    def test_create_purchase_order_validation_error(self, authenticated_client):
+    def test_create_purchase_order_validation_error(self, app, authenticated_client):
         """Should return 400 for validation errors"""
         po_data = {}  # Missing required fields
         response = authenticated_client.post("/api/purchase-orders", json=po_data)
@@ -512,7 +512,7 @@ class TestPurchaseOrderCreate:
 
 
 class TestPurchaseOrderUpdate:
-    def test_update_purchase_order(self, authenticated_client, sample_vendor):
+    def test_update_purchase_order(self, app, authenticated_client, sample_vendor):
         """Should update a purchase order"""
         with app.app_context():
             user = User.query.filter_by(username="testvet").first()
@@ -534,7 +534,7 @@ class TestPurchaseOrderUpdate:
         assert data["status"] == "submitted"
         assert data["notes"] == "Updated notes"
 
-    def test_update_purchase_order_not_found(self, authenticated_client):
+    def test_update_purchase_order_not_found(self, app, authenticated_client):
         """Should return 404 for nonexistent purchase order"""
         response = authenticated_client.put(
             "/api/purchase-orders/99999", json={"status": "submitted"}
@@ -543,7 +543,7 @@ class TestPurchaseOrderUpdate:
 
 
 class TestPurchaseOrderReceive:
-    def test_receive_purchase_order(self, authenticated_client, sample_vendor, sample_product):
+    def test_receive_purchase_order(self, app, authenticated_client, sample_vendor, sample_product):
         """Should mark PO as received and update inventory"""
         # Create PO with items
         with app.app_context():
@@ -582,7 +582,7 @@ class TestPurchaseOrderReceive:
             product = Product.query.get(sample_product)
             assert product.stock_quantity == initial_stock + 20
 
-    def test_receive_already_received_po(self, authenticated_client, sample_vendor):
+    def test_receive_already_received_po(self, app, authenticated_client, sample_vendor):
         """Should return 400 for already received PO"""
         with app.app_context():
             user = User.query.filter_by(username="testvet").first()
@@ -649,7 +649,7 @@ class TestPurchaseOrderDelete:
 
 
 class TestInventoryTransactionList:
-    def test_get_inventory_transactions_empty(self, authenticated_client):
+    def test_get_inventory_transactions_empty(self, app, authenticated_client):
         """Should return empty list when no transactions"""
         response = authenticated_client.get("/api/inventory-transactions")
         assert response.status_code == 200
@@ -657,7 +657,7 @@ class TestInventoryTransactionList:
         assert "transactions" in data
         assert len(data["transactions"]) == 0
 
-    def test_get_inventory_transactions_with_data(self, authenticated_client, sample_product):
+    def test_get_inventory_transactions_with_data(self, app, authenticated_client, sample_product):
         """Should return inventory transactions"""
         # Create a transaction
         with app.app_context():
@@ -709,7 +709,7 @@ class TestInventoryTransactionList:
 
 
 class TestInventoryTransactionCreate:
-    def test_create_inventory_transaction(self, authenticated_client, sample_product):
+    def test_create_inventory_transaction(self, app, authenticated_client, sample_product):
         """Should create a manual inventory transaction"""
         transaction_data = {
             "product_id": sample_product,
@@ -730,7 +730,7 @@ class TestInventoryTransactionCreate:
             product = Product.query.get(sample_product)
             assert product.stock_quantity == 45  # 50 - 5
 
-    def test_create_inventory_transaction_product_not_found(self, authenticated_client):
+    def test_create_inventory_transaction_product_not_found(self, app, authenticated_client):
         """Should return 404 for nonexistent product"""
         transaction_data = {
             "product_id": 99999,
@@ -743,7 +743,7 @@ class TestInventoryTransactionCreate:
 
 
 class TestInventoryTransactionDetail:
-    def test_get_inventory_transaction_by_id(self, authenticated_client, sample_product):
+    def test_get_inventory_transaction_by_id(self, app, authenticated_client, sample_product):
         """Should return transaction by ID"""
         with app.app_context():
             user = User.query.filter_by(username="testvet").first()

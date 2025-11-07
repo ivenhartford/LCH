@@ -245,7 +245,7 @@ class TestInvoiceList:
         response = client.get("/api/invoices")
         assert response.status_code == 401
 
-    def test_get_invoices_empty_list(self, authenticated_client):
+    def test_get_invoices_empty_list(self, app, authenticated_client):
         """Should return empty list when no invoices"""
         response = authenticated_client.get("/api/invoices")
         assert response.status_code == 200
@@ -328,7 +328,7 @@ class TestInvoiceList:
 
 
 class TestInvoiceDetail:
-    def test_get_invoice_by_id(self, authenticated_client, sample_client, sample_patient):
+    def test_get_invoice_by_id(self, app, authenticated_client, sample_client, sample_patient):
         """Should return invoice by ID with items and payments"""
         with app.app_context():
             user = User.query.filter_by(username="testvet").first()
@@ -414,7 +414,7 @@ class TestInvoiceCreate:
         response = authenticated_client.post("/api/invoices", json=invoice_data)
         assert response.status_code == 400
 
-    def test_create_invoice_patient_not_found(self, authenticated_client, sample_client):
+    def test_create_invoice_patient_not_found(self, app, authenticated_client, sample_client):
         """Should return 404 for nonexistent client"""
         invoice_data = {
             "patient_id": 1,
@@ -427,7 +427,7 @@ class TestInvoiceCreate:
 
 
 class TestInvoiceUpdate:
-    def test_update_invoice_status(self, authenticated_client, sample_client, sample_patient):
+    def test_update_invoice_status(self, app, authenticated_client, sample_client, sample_patient):
         """Should update invoice status"""
         with app.app_context():
             user = User.query.filter_by(username="testvet").first()
@@ -452,14 +452,14 @@ class TestInvoiceUpdate:
         data = response.json
         assert data["status"] == "sent"
 
-    def test_update_invoice_not_found(self, authenticated_client):
+    def test_update_invoice_not_found(self, app, authenticated_client):
         """Should return 404 for nonexistent invoice"""
         response = authenticated_client.put("/api/invoices/99999", json={"status": "paid"})
         assert response.status_code == 404
 
 
 class TestInvoiceDelete:
-    def test_delete_draft_invoice(self, authenticated_client, sample_client, sample_patient):
+    def test_delete_draft_invoice(self, app, authenticated_client, sample_client, sample_patient):
         """Should delete a draft invoice"""
         with app.app_context():
             user = User.query.filter_by(username="testvet").first()
@@ -519,7 +519,7 @@ class TestPaymentList:
         response = client.get("/api/payments")
         assert response.status_code == 401
 
-    def test_get_payments_empty_list(self, authenticated_client):
+    def test_get_payments_empty_list(self, app, authenticated_client):
         """Should return empty list when no payments"""
         response = authenticated_client.get("/api/payments")
         assert response.status_code == 200
@@ -531,7 +531,7 @@ class TestPaymentList:
 
 
 class TestPaymentCreate:
-    def test_create_payment(self, authenticated_client, sample_client, sample_patient):
+    def test_create_payment(self, app, authenticated_client, sample_client, sample_patient):
         """Should create a new payment"""
         # Create invoice first
         with app.app_context():
@@ -565,7 +565,7 @@ class TestPaymentCreate:
         assert float(data["amount"]) == 50.00
         assert data["payment_method"] == "credit_card"
 
-    def test_create_payment_validation_error(self, authenticated_client):
+    def test_create_payment_validation_error(self, app, authenticated_client):
         """Should return 400 for validation errors"""
         payment_data = {
             "invoice_id": 1,
@@ -576,7 +576,7 @@ class TestPaymentCreate:
 
 
 class TestPaymentUpdate:
-    def test_update_payment(self, authenticated_client, sample_client, sample_patient):
+    def test_update_payment(self, app, authenticated_client, sample_client, sample_patient):
         """Payment update endpoint not implemented - should return 405"""
         # Create invoice and payment first
         with app.app_context():
@@ -617,7 +617,7 @@ class TestPaymentUpdate:
 
 
 class TestPaymentDelete:
-    def test_delete_payment(self, authenticated_client, sample_client, sample_patient):
+    def test_delete_payment(self, app, authenticated_client, sample_client, sample_patient):
         """Should delete a payment"""
         # Create invoice and payment first
         with app.app_context():

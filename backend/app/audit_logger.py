@@ -30,7 +30,14 @@ class StructuredLogger:
     """
 
     def __init__(self, logger=None):
-        self.logger = logger or current_app.logger
+        self._logger = logger
+
+    @property
+    def logger(self):
+        """Lazy-load logger to avoid accessing current_app at import time"""
+        if self._logger:
+            return self._logger
+        return current_app.logger
 
     def log_event(self, level, event_type, message, **kwargs):
         """

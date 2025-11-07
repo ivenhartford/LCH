@@ -8,7 +8,7 @@ def test_index_route(client):
     assert response.status_code == 404  # API-only backend, no root route
 
 
-def test_create_and_get_appointment(client):
+def test_create_and_get_appointment(app, client):
     """
     GIVEN a Flask application configured for testing
     WHEN the '/api/appointments' route is posted to (POST)

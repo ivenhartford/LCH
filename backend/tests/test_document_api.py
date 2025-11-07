@@ -441,7 +441,7 @@ class TestDocumentDelete:
         response = authenticated_client.delete("/api/documents/9999")
         assert response.status_code == 404
 
-    def test_delete_document_soft_delete(self, authenticated_client, sample_documents):
+    def test_delete_document_soft_delete(self, app, authenticated_client, sample_documents):
         """
         GIVEN a valid document ID
         WHEN DELETE /api/documents/<id> is called (without force)
@@ -458,7 +458,7 @@ class TestDocumentDelete:
             assert doc is not None
             assert doc.is_archived == True
 
-    def test_delete_document_hard_delete(self, authenticated_client, sample_documents):
+    def test_delete_document_hard_delete(self, app, authenticated_client, sample_documents):
         """
         GIVEN a valid document ID
         WHEN DELETE /api/documents/<id>?force=true is called
