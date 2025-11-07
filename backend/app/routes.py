@@ -77,6 +77,26 @@ def admin_required(f):
     return decorated_function
 
 
+@bp.route("/api/health", methods=["GET"])
+def health_check():
+    """Health check endpoint for Docker and monitoring."""
+    try:
+        # Check database connection
+        db.session.execute("SELECT 1")
+        return jsonify({
+            "status": "healthy",
+            "service": "Lenox Cat Hospital API",
+            "database": "connected"
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "status": "unhealthy",
+            "service": "Lenox Cat Hospital API",
+            "database": "disconnected",
+            "error": str(e)
+        }), 503
+
+
 @bp.route("/api/register", methods=["POST"])
 @limiter.limit("5 per hour")
 def register():
