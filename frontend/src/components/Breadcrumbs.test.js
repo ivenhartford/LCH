@@ -4,7 +4,7 @@ import Breadcrumbs from './Breadcrumbs';
 
 // Helper to render component with router at specific path
 const renderWithRouter = (component, { route = '/' } = {}) => {
-  return render(<MemoryRouter future={{ v7_startTransition: true }} initialEntries={[route]}>{component}</MemoryRouter>);
+  return render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={[route]}>{component}</MemoryRouter>);
 };
 
 describe('Breadcrumbs Component', () => {
