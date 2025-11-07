@@ -130,7 +130,10 @@ def portal_user(app, sample_client):
     """Create a portal user"""
     with app.app_context():
         portal_user = ClientPortalUser(
-            client_id=sample_client, username="johndoe", email="johndoe@example.com"
+            client_id=sample_client,
+            username="johndoe",
+            email="johndoe@example.com",
+            is_verified=True  # Set verified to allow login
         )
         portal_user.set_password("password123")
         db.session.add(portal_user)

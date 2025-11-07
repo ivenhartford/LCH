@@ -13,10 +13,20 @@ Features:
 import logging
 import json
 import time
-from datetime import datetime
+from datetime import datetime, date
+from decimal import Decimal
 from functools import wraps
 from flask import current_app, request, g
 from flask_login import current_user
+
+
+def json_serial(obj):
+    """JSON serializer for objects not serializable by default json code"""
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    if isinstance(obj, Decimal):
+        return float(obj)
+    raise TypeError(f"Type {type(obj)} not serializable")
 
 
 class StructuredLogger:
@@ -77,7 +87,7 @@ class StructuredLogger:
 
         # Log as JSON
         log_method = getattr(self.logger, level, self.logger.info)
-        log_method(json.dumps(log_entry))
+        log_method(json.dumps(log_entry, default=json_serial))
 
         return log_entry
 

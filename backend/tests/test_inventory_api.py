@@ -36,7 +36,7 @@ def admin_client(app, client):
 
 
 @pytest.fixture
-def sample_vendor(app, authenticated_client):
+def sample_vendor(app):
     """Create a sample vendor for testing"""
     with app.app_context():
         vendor = Vendor(
@@ -66,7 +66,7 @@ def sample_vendors(app, authenticated_client):
 
 
 @pytest.fixture
-def sample_product(app, authenticated_client, sample_vendor):
+def sample_product(app, sample_vendor):
     """Create a sample product for testing"""
     with app.app_context():
         product = Product(
@@ -566,7 +566,8 @@ class TestPurchaseOrderReceive:
                 product_id=sample_product,
                 quantity_ordered=20,
                 quantity_received=20,
-                unit_price=Decimal("5.00"),
+                unit_cost=Decimal("5.00"),
+                total_cost=Decimal("100.00"),  # 20 * 5.00
             )
             db.session.add(po_item)
             db.session.commit()

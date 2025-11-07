@@ -33,7 +33,7 @@ const renderWithProviders = (patientId = '1') => {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true }}>
         <NotificationProvider>
           <Routes>
             <Route path="/" element={<PatientDetail />} />
