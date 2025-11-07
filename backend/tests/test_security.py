@@ -84,7 +84,7 @@ class TestJWTAuthentication:
             assert payload["username"] == portal_user.username
             assert payload["type"] == "portal_access"
 
-    def test_verify_invalid_token(self, app, app):
+    def test_verify_invalid_token(self, app):
         """Test JWT token verification with invalid token"""
         with app.app_context():
             payload = verify_portal_token("invalid.token.here")
@@ -801,7 +801,7 @@ class TestStaffAccountLockout:
 class TestBcryptPasswordHashing:
     """Test bcrypt password hashing for portal users (Phase 3)"""
 
-    def test_portal_user_uses_bcrypt(self, app, app):
+    def test_portal_user_uses_bcrypt(self, app):
         """Test new portal users use bcrypt hashing"""
         with app.app_context():
             test_client_obj = Client(
@@ -825,7 +825,7 @@ class TestBcryptPasswordHashing:
             # Check password hash starts with bcrypt prefix
             assert portal_user.password_hash.startswith("$2b$")
 
-    def test_portal_user_check_password(self, app, app):
+    def test_portal_user_check_password(self, app):
         """Test portal user password verification"""
         with app.app_context():
             test_client_obj = Client(
