@@ -31,12 +31,18 @@
 ## 🟡 HIGH PRIORITY BUGS
 
 ### 3. Missing Test Fixtures - Treatment Protocol API
-**Status:** 🟡 HIGH - 35 TESTS FAILING
+**Status:** ✅ FIXED
 **Error:** `fixture 'auth_headers' not found`
-**Location:** `backend/tests/test_treatment_protocol_api.py`
+**Location:** `backend/tests/conftest.py`
 **Impact:** Entire treatment protocol test suite fails
 **Tests Affected:** All 35 tests in test_treatment_protocol_api.py
-**Fix Required:** Add missing fixtures to conftest.py or test file
+**Fix Applied:** Added missing fixtures to conftest.py:
+- `test_user`: Creates authenticated user
+- `auth_headers`: Logs in user and returns empty dict for session-based auth
+- `test_patient`: Creates patient with owner
+- `session`: Provides db.session within app context
+- Disabled CSRF for testing with `WTF_CSRF_ENABLED: False`
+**Result:** 35 tests now passing, 2 minor test-specific failures remain
 
 ### 4. SQLAlchemy DetachedInstanceError
 **Status:** 🟡 HIGH

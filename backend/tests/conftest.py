@@ -20,6 +20,7 @@ def app():
             "TESTING": True,
             "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
             "STATIC_FOLDER": static_folder,
+            "WTF_CSRF_ENABLED": False,  # Disable CSRF for testing
         }
     )
 
@@ -56,3 +57,89 @@ def reset_db(app):
     # Clean up any remaining database sessions
     with app.app_context():
         db.session.remove()
+
+
+@pytest.fixture
+def test_user(app):
+    """Create a test user for authentication"""
+    from app.models import User
+
+    with app.app_context():
+        user = User(username="testuser", role="user")
+        user.set_password("testpassword123")
+        db.session.add(user)
+        db.session.commit()
+
+        # Return the user object (need to refresh to access outside context)
+        user_id = user.id
+        user_username = user.username
+        user_role = user.role
+
+    # Return a fresh user object accessible outside app context
+    with app.app_context():
+        return db.session.get(User, user_id)
+
+
+@pytest.fixture
+def auth_headers(app, client, test_user):
+    """
+    Create authenticated session for the test client.
+    Note: This returns an empty dict because authentication is session-based,
+    but the login is performed so the client has an authenticated session.
+    """
+    # Log in the test user to establish session
+    response = client.post(
+        "/api/login",
+        json={"username": "testuser", "password": "testpassword123"}
+    )
+
+    if response.status_code != 200:
+        # Better error message with status code
+        error_msg = f"Login failed with status {response.status_code}: {response.get_json() or response.data}"
+        print(f"DEBUG: {error_msg}")
+        raise Exception(error_msg)
+
+    # Return empty dict (headers not used for session auth, but tests expect this parameter)
+    return {}
+
+
+@pytest.fixture
+def test_patient(app, test_user):
+    """Create a test patient with owner for testing"""
+    from app.models import Client, Patient
+
+    with app.app_context():
+        # Create a client (owner) first
+        client_obj = Client(
+            first_name="Test",
+            last_name="Owner",
+            email="testowner@example.com",
+            phone_primary="555-0100"
+        )
+        db.session.add(client_obj)
+        db.session.flush()
+
+        # Create a patient
+        patient = Patient(
+            name="Test Patient",
+            species="Dog",
+            breed="Labrador",
+            sex="Male",
+            owner_id=client_obj.id,
+            status="Active"
+        )
+        db.session.add(patient)
+        db.session.commit()
+
+        patient_id = patient.id
+
+    # Return fresh patient object accessible outside app context
+    with app.app_context():
+        return db.session.get(Patient, patient_id)
+
+
+@pytest.fixture
+def session(app):
+    """Provide database session within app context"""
+    with app.app_context():
+        yield db.session
