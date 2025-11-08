@@ -6333,7 +6333,7 @@ def portal_dashboard(client_id, **kwargs):
             return jsonify({"error": "Client not found"}), 404
 
         # Get client's patients
-        patients = Patient.query.filter_by(owner_id=client_id, is_active=True).all()
+        patients = Patient.query.filter_by(owner_id=client_id, status="Active").all()
 
         # Get upcoming appointments (next 30 days)
         from datetime import timedelta
@@ -7686,6 +7686,12 @@ def create_treatment_plan():
     """Create a new treatment plan with steps"""
     try:
         data = treatment_plan_create_schema.load(request.json)
+
+        # Validate patient exists
+        if data.get("patient_id"):
+            patient = Patient.query.get(data["patient_id"])
+            if not patient:
+                return jsonify({"error": "Patient not found"}), 400
 
         # Create treatment plan
         treatment_plan = TreatmentPlan(

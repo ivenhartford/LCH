@@ -135,7 +135,7 @@ def portal_user(app, sample_client):
             email="johndoe@example.com",
             is_verified=True  # Set verified to allow login
         )
-        portal_user.set_password("password123")
+        portal_user.set_password("Password123!")
         db.session.add(portal_user)
         db.session.commit()
         return portal_user.id
@@ -154,6 +154,51 @@ def authenticated_staff(app, client):
     return client
 
 
+@pytest.fixture
+def authenticated_portal_client(app, client, sample_client, portal_user):
+    """Create authenticated portal client with JWT token"""
+    # Login to get JWT token
+    response = client.post(
+        "/api/portal/login",
+        json={"username": "johndoe", "password": "Password123!"}
+    )
+    assert response.status_code == 200
+    token = response.get_json()["token"]
+
+    # Create a new client instance with the auth header
+    class AuthenticatedClient:
+        def __init__(self, base_client, token, client_id):
+            self.base_client = base_client
+            self.token = token
+            self.client_id = client_id
+
+        def get(self, *args, **kwargs):
+            if 'headers' not in kwargs:
+                kwargs['headers'] = {}
+            kwargs['headers']['Authorization'] = f'Bearer {self.token}'
+            return self.base_client.get(*args, **kwargs)
+
+        def post(self, *args, **kwargs):
+            if 'headers' not in kwargs:
+                kwargs['headers'] = {}
+            kwargs['headers']['Authorization'] = f'Bearer {self.token}'
+            return self.base_client.post(*args, **kwargs)
+
+        def put(self, *args, **kwargs):
+            if 'headers' not in kwargs:
+                kwargs['headers'] = {}
+            kwargs['headers']['Authorization'] = f'Bearer {self.token}'
+            return self.base_client.put(*args, **kwargs)
+
+        def delete(self, *args, **kwargs):
+            if 'headers' not in kwargs:
+                kwargs['headers'] = {}
+            kwargs['headers']['Authorization'] = f'Bearer {self.token}'
+            return self.base_client.delete(*args, **kwargs)
+
+    return AuthenticatedClient(client, token, sample_client)
+
+
 class TestPortalRegistration:
     """Tests for POST /api/portal/register"""
 
@@ -165,14 +210,14 @@ class TestPortalRegistration:
                 "client_id": sample_client,
                 "username": "newuser",
                 "email": "newuser@example.com",
-                "password": "password123",
-                "password_confirm": "password123",
+                "password": "Password123!",
+                "password_confirm": "Password123!",
             },
         )
 
         assert response.status_code == 201
         data = response.get_json()
-        assert data["message"] == "Registration successful"
+        assert "Registration successful" in data["message"]
         assert data["user"]["username"] == "newuser"
 
     def test_registration_password_mismatch(self, app, client, sample_client):
@@ -183,8 +228,8 @@ class TestPortalRegistration:
                 "client_id": sample_client,
                 "username": "newuser",
                 "email": "newuser@example.com",
-                "password": "password123",
-                "password_confirm": "different",
+                "password": "Password123!",
+                "password_confirm": "Different456!",
             },
         )
 
@@ -211,8 +256,8 @@ class TestPortalRegistration:
                 "client_id": client2_id,  # Different client
                 "username": "johndoe",  # Same username as portal_user
                 "email": "different@example.com",
-                "password": "password123",
-                "password_confirm": "password123",
+                "password": "Password123!",
+                "password_confirm": "Password123!",
             },
         )
 
@@ -227,8 +272,8 @@ class TestPortalRegistration:
                 "client_id": sample_client,  # Same client as portal_user
                 "username": "different",
                 "email": "different@example.com",
-                "password": "password123",
-                "password_confirm": "password123",
+                "password": "Password123!",
+                "password_confirm": "Password123!",
             },
         )
 
@@ -282,10 +327,10 @@ class TestPortalDashboard:
     """Tests for GET /api/portal/dashboard/<client_id>"""
 
     def test_dashboard_data(
-        self, client, sample_client, sample_patient, sample_appointment, sample_invoice
+        self, authenticated_portal_client, sample_patient, sample_appointment, sample_invoice
     ):
         """Test fetching dashboard data"""
-        response = client.get(f"/api/portal/dashboard/{sample_client}")
+        response = authenticated_portal_client.get(f"/api/portal/dashboard/{authenticated_portal_client.client_id}")
 
         assert response.status_code == 200
         data = response.get_json()
@@ -301,9 +346,9 @@ class TestPortalDashboard:
         assert len(data["upcoming_appointments"]) > 0
         assert len(data["recent_invoices"]) > 0
 
-    def test_dashboard_nonexistent_client(self, client):
+    def test_dashboard_nonexistent_client(self, authenticated_portal_client):
         """Test dashboard for non-existent client"""
-        response = client.get("/api/portal/dashboard/99999")
+        response = authenticated_portal_client.get("/api/portal/dashboard/99999")
 
         assert response.status_code == 404
 
@@ -311,25 +356,25 @@ class TestPortalDashboard:
 class TestPortalPatients:
     """Tests for portal patient endpoints"""
 
-    def test_get_patients(self, client, sample_client, sample_patient):
+    def test_get_patients(self, authenticated_portal_client, sample_patient):
         """Test fetching client's patients"""
-        response = client.get(f"/api/portal/patients/{sample_client}")
+        response = authenticated_portal_client.get(f"/api/portal/patients/{authenticated_portal_client.client_id}")
 
         assert response.status_code == 200
         data = response.get_json()
         assert len(data) > 0
         assert data[0]["name"] == "Fluffy"
 
-    def test_get_patient_detail(self, app, client, sample_client, sample_patient):
+    def test_get_patient_detail(self, app, authenticated_portal_client, sample_patient):
         """Test fetching specific patient details"""
-        response = client.get(f"/api/portal/patients/{sample_client}/{sample_patient}")
+        response = authenticated_portal_client.get(f"/api/portal/patients/{authenticated_portal_client.client_id}/{sample_patient}")
 
         assert response.status_code == 200
         data = response.get_json()
         assert data["name"] == "Fluffy"
         assert data["breed"] == "Persian"
 
-    def test_get_patient_wrong_client(self, app, client, sample_client, sample_patient):
+    def test_get_patient_wrong_client(self, app, authenticated_portal_client, sample_patient):
         """Test fetching patient with wrong client_id"""
         # Create a different client
         with app.app_context():
@@ -343,7 +388,7 @@ class TestPortalPatients:
             db.session.commit()
             client2_id = client2.id
 
-        response = client.get(f"/api/portal/patients/{client2_id}/{sample_patient}")
+        response = authenticated_portal_client.get(f"/api/portal/patients/{client2_id}/{sample_patient}")
 
         assert response.status_code == 404
 
@@ -351,9 +396,9 @@ class TestPortalPatients:
 class TestPortalAppointments:
     """Tests for portal appointment endpoints"""
 
-    def test_get_appointments(self, client, sample_client, sample_appointment):
+    def test_get_appointments(self, authenticated_portal_client, sample_appointment):
         """Test fetching client's appointments"""
-        response = client.get(f"/api/portal/appointments/{sample_client}")
+        response = authenticated_portal_client.get(f"/api/portal/appointments/{authenticated_portal_client.client_id}")
 
         assert response.status_code == 200
         data = response.get_json()
@@ -364,25 +409,25 @@ class TestPortalAppointments:
 class TestPortalInvoices:
     """Tests for portal invoice endpoints"""
 
-    def test_get_invoices(self, client, sample_client, sample_invoice):
+    def test_get_invoices(self, authenticated_portal_client, sample_invoice):
         """Test fetching client's invoices"""
-        response = client.get(f"/api/portal/invoices/{sample_client}")
+        response = authenticated_portal_client.get(f"/api/portal/invoices/{authenticated_portal_client.client_id}")
 
         assert response.status_code == 200
         data = response.get_json()
         assert len(data) > 0
         assert data[0]["invoice_number"] == "INV-001"
 
-    def test_get_invoice_detail(self, app, client, sample_client, sample_invoice):
+    def test_get_invoice_detail(self, app, authenticated_portal_client, sample_invoice):
         """Test fetching specific invoice details"""
-        response = client.get(f"/api/portal/invoices/{sample_client}/{sample_invoice}")
+        response = authenticated_portal_client.get(f"/api/portal/invoices/{authenticated_portal_client.client_id}/{sample_invoice}")
 
         assert response.status_code == 200
         data = response.get_json()
         assert data["invoice"]["invoice_number"] == "INV-001"
         assert "items" in data
 
-    def test_get_invoice_wrong_client(self, app, client, sample_client, sample_invoice):
+    def test_get_invoice_wrong_client(self, app, authenticated_portal_client, sample_invoice):
         """Test fetching invoice with wrong client_id"""
         # Create a different client
         with app.app_context():
@@ -396,7 +441,7 @@ class TestPortalInvoices:
             db.session.commit()
             client2_id = client2.id
 
-        response = client.get(f"/api/portal/invoices/{client2_id}/{sample_invoice}")
+        response = authenticated_portal_client.get(f"/api/portal/invoices/{client2_id}/{sample_invoice}")
 
         assert response.status_code == 404
 
@@ -405,13 +450,13 @@ class TestAppointmentRequests:
     """Tests for appointment request endpoints"""
 
     def test_create_appointment_request(
-        self, client, sample_client, sample_patient, sample_appointment_type
+        self, authenticated_portal_client, sample_patient, sample_appointment_type
     ):
         """Test creating an appointment request"""
-        response = client.post(
+        response = authenticated_portal_client.post(
             "/api/portal/appointment-requests",
             json={
-                "client_id": sample_client,
+                "client_id": authenticated_portal_client.client_id,
                 "patient_id": sample_patient,
                 "appointment_type_id": sample_appointment_type,
                 "requested_date": (date.today() + timedelta(days=7)).isoformat(),
@@ -427,12 +472,12 @@ class TestAppointmentRequests:
         assert data["priority"] == "normal"
         assert data["reason"] == "Annual checkup"
 
-    def test_create_urgent_request(self, client, sample_client, sample_patient):
+    def test_create_urgent_request(self, authenticated_portal_client, sample_patient):
         """Test creating an urgent appointment request"""
-        response = client.post(
+        response = authenticated_portal_client.post(
             "/api/portal/appointment-requests",
             json={
-                "client_id": sample_client,
+                "client_id": authenticated_portal_client.client_id,
                 "patient_id": sample_patient,
                 "requested_date": date.today().isoformat(),
                 "reason": "Cat is injured",
@@ -445,12 +490,12 @@ class TestAppointmentRequests:
         assert data["priority"] == "urgent"
         assert data["is_urgent"] is True
 
-    def test_create_request_invalid_patient(self, app, client, sample_client):
+    def test_create_request_invalid_patient(self, app, authenticated_portal_client):
         """Test creating request with invalid patient"""
-        response = client.post(
+        response = authenticated_portal_client.post(
             "/api/portal/appointment-requests",
             json={
-                "client_id": sample_client,
+                "client_id": authenticated_portal_client.client_id,
                 "patient_id": 99999,
                 "requested_date": date.today().isoformat(),
                 "reason": "Test",
@@ -459,12 +504,12 @@ class TestAppointmentRequests:
 
         assert response.status_code == 404
 
-    def test_get_client_requests(self, app, client, sample_client, sample_patient):
+    def test_get_client_requests(self, app, authenticated_portal_client, sample_patient):
         """Test fetching client's appointment requests"""
         # Create a request first
         with app.app_context():
             req = AppointmentRequest(
-                client_id=sample_client,
+                client_id=authenticated_portal_client.client_id,
                 patient_id=sample_patient,
                 requested_date=date.today() + timedelta(days=7),
                 reason="Test request",
@@ -474,19 +519,19 @@ class TestAppointmentRequests:
             db.session.add(req)
             db.session.commit()
 
-        response = client.get(f"/api/portal/appointment-requests/{sample_client}")
+        response = authenticated_portal_client.get(f"/api/portal/appointment-requests/{authenticated_portal_client.client_id}")
 
         assert response.status_code == 200
         data = response.get_json()
         assert len(data) > 0
         assert data[0]["reason"] == "Test request"
 
-    def test_cancel_request(self, app, client, sample_client, sample_patient):
+    def test_cancel_request(self, app, authenticated_portal_client, sample_patient):
         """Test canceling a pending appointment request"""
         # Create a request first
         with app.app_context():
             req = AppointmentRequest(
-                client_id=sample_client,
+                client_id=authenticated_portal_client.client_id,
                 patient_id=sample_patient,
                 requested_date=date.today() + timedelta(days=7),
                 reason="Test request",
@@ -497,20 +542,20 @@ class TestAppointmentRequests:
             db.session.commit()
             request_id = req.id
 
-        response = client.post(
-            f"/api/portal/appointment-requests/{sample_client}/{request_id}/cancel"
+        response = authenticated_portal_client.post(
+            f"/api/portal/appointment-requests/{authenticated_portal_client.client_id}/{request_id}/cancel"
         )
 
         assert response.status_code == 200
         data = response.get_json()
         assert data["status"] == "cancelled"
 
-    def test_cancel_nonpending_request(self, app, client, sample_client, sample_patient):
+    def test_cancel_nonpending_request(self, app, authenticated_portal_client, sample_patient):
         """Test canceling a non-pending request (should fail)"""
         # Create an approved request
         with app.app_context():
             req = AppointmentRequest(
-                client_id=sample_client,
+                client_id=authenticated_portal_client.client_id,
                 patient_id=sample_patient,
                 requested_date=date.today() + timedelta(days=7),
                 reason="Test request",
@@ -521,8 +566,8 @@ class TestAppointmentRequests:
             db.session.commit()
             request_id = req.id
 
-        response = client.post(
-            f"/api/portal/appointment-requests/{sample_client}/{request_id}/cancel"
+        response = authenticated_portal_client.post(
+            f"/api/portal/appointment-requests/{authenticated_portal_client.client_id}/{request_id}/cancel"
         )
 
         assert response.status_code == 400

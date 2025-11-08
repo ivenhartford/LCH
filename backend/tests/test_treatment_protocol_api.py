@@ -547,8 +547,8 @@ def test_delete_treatment_plan(client, auth_headers, test_user, test_patient, se
 def test_filter_treatment_plans_by_patient(client, auth_headers, test_user, session):
     """Test filtering treatment plans by patient_id"""
     # Create two patients
-    client1 = Client(first_name="John", last_name="Doe", email="john@test.com", phone="555-0001")
-    client2 = Client(first_name="Jane", last_name="Smith", email="jane@test.com", phone="555-0002")
+    client1 = Client(first_name="John", last_name="Doe", email="john@test.com", phone_primary="555-0001")
+    client2 = Client(first_name="Jane", last_name="Smith", email="jane@test.com", phone_primary="555-0002")
     session.add_all([client1, client2])
     session.flush()
 
