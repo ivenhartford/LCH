@@ -4831,13 +4831,15 @@ def create_inventory_transaction():
                 **data,
                 "quantity_before": quantity_before,
                 "quantity_after": quantity_after,
-                "performed_by_id": current_user.id,
             }
         )
 
         # Set transaction_date if not provided (model default doesn't work with explicit None)
         if validated_data.get("transaction_date") is None:
             validated_data["transaction_date"] = datetime.utcnow()
+
+        # Add performed_by_id after validation (it's dump_only in schema)
+        validated_data["performed_by_id"] = current_user.id
 
         # Create transaction
         transaction = InventoryTransaction(**validated_data)
