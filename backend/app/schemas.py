@@ -856,7 +856,7 @@ class InventoryTransactionSchema(Schema):
     notes = fields.Str(allow_none=True)
 
     # Metadata
-    transaction_date = fields.DateTime(required=False, missing=None)
+    transaction_date = fields.DateTime(required=False, load_default=None)
     performed_by_id = fields.Int(dump_only=True)
     performed_by_name = fields.Str(dump_only=True)
 
