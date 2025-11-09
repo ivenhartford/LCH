@@ -226,13 +226,13 @@ describe('Patients Component', () => {
       });
 
       // Check table headers
-      expect(screen.getByText('Name')).toBeInTheDocument();
-      expect(screen.getByText('Breed')).toBeInTheDocument();
-      expect(screen.getByText('Color')).toBeInTheDocument();
-      expect(screen.getByText('Age')).toBeInTheDocument();
-      expect(screen.getByText('Sex')).toBeInTheDocument();
-      expect(screen.getByText('Owner')).toBeInTheDocument();
-      expect(screen.getByText('Status')).toBeInTheDocument();
+      expect(screen.getByRole('columnheader', { name: 'Name' })).toBeInTheDocument();
+      expect(screen.getByRole('columnheader', { name: 'Breed' })).toBeInTheDocument();
+      expect(screen.getByRole('columnheader', { name: 'Color' })).toBeInTheDocument();
+      expect(screen.getByRole('columnheader', { name: 'Age' })).toBeInTheDocument();
+      expect(screen.getByRole('columnheader', { name: 'Sex' })).toBeInTheDocument();
+      expect(screen.getByRole('columnheader', { name: 'Owner' })).toBeInTheDocument();
+      expect(screen.getByRole('columnheader', { name: 'Status' })).toBeInTheDocument();
 
       // Check patient details
       expect(screen.getByText('Persian')).toBeInTheDocument();

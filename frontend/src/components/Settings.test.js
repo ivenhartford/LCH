@@ -87,7 +87,7 @@ describe('Settings Component', () => {
 
       await waitFor(() => {
         expect(screen.getByLabelText(/Current Password/i)).toBeInTheDocument();
-        expect(screen.getByLabelText(/^New Password$/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/New Password/i, { selector: 'input[name="new_password"]' })).toBeInTheDocument();
         expect(screen.getByLabelText(/Confirm New Password/i)).toBeInTheDocument();
       });
     });
@@ -98,7 +98,7 @@ describe('Settings Component', () => {
       await userEvent.click(screen.getByText('Password'));
 
       await waitFor(() => {
-        expect(screen.getByText(/Change Password/i)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Change Password/i })).toBeInTheDocument();
       });
     });
 
@@ -112,9 +112,9 @@ describe('Settings Component', () => {
       });
 
       await userEvent.type(screen.getByLabelText(/Current Password/i), 'oldpass');
-      await userEvent.type(screen.getByLabelText(/^New Password$/i), 'newpassword123');
+      await userEvent.type(screen.getByLabelText(/New Password/i, { selector: 'input[name="new_password"]' }), 'newpassword123');
       await userEvent.type(screen.getByLabelText(/Confirm New Password/i), 'differentpass');
-      await userEvent.click(screen.getByText(/Change Password/i));
+      await userEvent.click(screen.getByRole('button', { name: /Change Password/i }));
 
       await waitFor(() => {
         expect(screen.getByText(/passwords do not match/i)).toBeInTheDocument();
@@ -131,12 +131,12 @@ describe('Settings Component', () => {
       });
 
       await userEvent.type(screen.getByLabelText(/Current Password/i), 'oldpass');
-      await userEvent.type(screen.getByLabelText(/^New Password$/i), 'short');
+      await userEvent.type(screen.getByLabelText(/New Password/i, { selector: 'input[name="new_password"]' }), 'short');
       await userEvent.type(screen.getByLabelText(/Confirm New Password/i), 'short');
-      await userEvent.click(screen.getByText(/Change Password/i));
+      await userEvent.click(screen.getByRole('button', { name: /Change Password/i }));
 
       await waitFor(() => {
-        expect(screen.getByText(/at least 8 characters/i)).toBeInTheDocument();
+        expect(screen.getByText('Password must be at least 8 characters long')).toBeInTheDocument();
       });
     });
   });
@@ -154,7 +154,7 @@ describe('Settings Component', () => {
       await userEvent.click(screen.getByText('Password'));
 
       await waitFor(() => {
-        expect(screen.getByText('Change Password')).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: /Change Password/i })).toBeInTheDocument();
       });
     });
 

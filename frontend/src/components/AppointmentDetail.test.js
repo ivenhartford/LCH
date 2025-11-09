@@ -255,7 +255,7 @@ describe('AppointmentDetail Component', () => {
       renderWithProviders(<AppointmentDetail />);
 
       await waitFor(() => {
-        expect(screen.getByText(/Start/i)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Start Appointment/i })).toBeInTheDocument();
       });
     });
 
