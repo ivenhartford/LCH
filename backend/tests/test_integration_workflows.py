@@ -153,9 +153,7 @@ class TestAppointmentWorkflow:
             assert response.json["status"] == "scheduled"
 
             # Step 5: Confirm appointment
-            response = authenticated_client.put(
-                f"/api/appointments/{appointment_id}", json={"status": "confirmed"}
-            )
+            response = authenticated_client.put(f"/api/appointments/{appointment_id}", json={"status": "confirmed"})
             assert response.status_code == 200
             assert response.json["status"] == "confirmed"
 
@@ -169,9 +167,7 @@ class TestAppointmentWorkflow:
             assert response.json["check_in_time"] is not None
 
             # Step 7: Start appointment (in progress)
-            response = authenticated_client.put(
-                f"/api/appointments/{appointment_id}", json={"status": "in_progress"}
-            )
+            response = authenticated_client.put(f"/api/appointments/{appointment_id}", json={"status": "in_progress"})
             assert response.status_code == 200
             assert response.json["status"] == "in_progress"
 
@@ -231,14 +227,15 @@ class TestAppointmentWorkflow:
                 "client_id": client_id,
                 "patient_id": patient_id,
                 "visit_id": visit_id,
-                "invoice_date": datetime.now().isoformat(),
-                "due_date": (datetime.now() + timedelta(days=30)).isoformat(),
+                "invoice_date": datetime.now().date().isoformat(),
+                "due_date": (datetime.now() + timedelta(days=30)).date().isoformat(),
                 "items": [
                     {
                         "service_id": service_id,
                         "description": "Wellness Exam",
                         "quantity": 1,
                         "unit_price": 75.00,
+                        "total_price": 75.00,
                     }
                 ],
             }
@@ -252,6 +249,7 @@ class TestAppointmentWorkflow:
             # Step 13: Process payment
             payment_data = {
                 "invoice_id": invoice_id,
+                "client_id": client_id,
                 "amount": total_amount,
                 "payment_method": "credit_card",
                 "payment_date": datetime.now().isoformat(),
@@ -329,16 +327,17 @@ class TestInvoiceWorkflow:
                     "name": "Mittens",
                     "species": "Cat",
                     "breed": "Tabby",
-                    "sex": "M",
+                    "sex": "Male",
                     "owner_id": client_id,
-                    "status": "active",
+                    "status": "Active",
                 },
             )
+            assert response.status_code == 201
             patient_id = response.json["id"]
 
             # Create service
             response = authenticated_client.post(
-                "/api/services", json={"name": "Surgery", "price": 500.00, "taxable": True}
+                "/api/services", json={"name": "Surgery", "unit_price": 500.00, "taxable": True}
             )
             service_id = response.json["id"]
 
@@ -348,14 +347,15 @@ class TestInvoiceWorkflow:
                 json={
                     "client_id": client_id,
                     "patient_id": patient_id,
-                    "invoice_date": datetime.now().isoformat(),
-                    "due_date": (datetime.now() + timedelta(days=30)).isoformat(),
+                    "invoice_date": datetime.now().date().isoformat(),
+                    "due_date": (datetime.now() + timedelta(days=30)).date().isoformat(),
                     "items": [
                         {
                             "service_id": service_id,
                             "description": "Surgery",
                             "quantity": 1,
                             "unit_price": 500.00,
+                            "total_price": 500.00,
                         }
                     ],
                 },
@@ -369,6 +369,7 @@ class TestInvoiceWorkflow:
                 "/api/payments",
                 json={
                     "invoice_id": invoice_id,
+                    "client_id": client_id,
                     "amount": total * 0.5,
                     "payment_method": "cash",
                     "payment_date": datetime.now().isoformat(),
@@ -386,6 +387,7 @@ class TestInvoiceWorkflow:
                 "/api/payments",
                 json={
                     "invoice_id": invoice_id,
+                    "client_id": client_id,
                     "amount": total * 0.5,
                     "payment_method": "credit_card",
                     "payment_date": datetime.now().isoformat(),
