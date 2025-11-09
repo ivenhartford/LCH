@@ -236,7 +236,7 @@ class TestVendorDelete:
 
         # Verify vendor is deactivated
         with admin_client.application.app_context():
-            vendor = Vendor.query.get(sample_vendor)
+            vendor = db.session.get(Vendor,sample_vendor)
             assert vendor is not None
             assert vendor.is_active is False
 
@@ -247,7 +247,7 @@ class TestVendorDelete:
 
         # Verify vendor is deleted
         with admin_client.application.app_context():
-            vendor = Vendor.query.get(sample_vendor)
+            vendor = db.session.get(Vendor,sample_vendor)
             assert vendor is None
 
     def test_delete_vendor_not_admin(self, authenticated_client, sample_vendor):
@@ -383,7 +383,7 @@ class TestProductDelete:
         assert response.status_code == 200
 
         with admin_client.application.app_context():
-            product = Product.query.get(sample_product)
+            product = db.session.get(Product,sample_product)
             assert product is not None
             assert product.is_active is False
 
@@ -393,7 +393,7 @@ class TestProductDelete:
         assert response.status_code == 200
 
         with admin_client.application.app_context():
-            product = Product.query.get(sample_product)
+            product = db.session.get(Product,sample_product)
             assert product is None
 
 
@@ -546,7 +546,7 @@ class TestPurchaseOrderReceive:
         # Create PO with items
         with app.app_context():
             user = User.query.filter_by(username="testvet").first()
-            product = Product.query.get(sample_product)
+            product = db.session.get(Product,sample_product)
             initial_stock = product.stock_quantity
 
             po = PurchaseOrder(
@@ -578,7 +578,7 @@ class TestPurchaseOrderReceive:
 
         # Verify inventory was updated
         with app.app_context():
-            product = Product.query.get(sample_product)
+            product = db.session.get(Product,sample_product)
             assert product.stock_quantity == initial_stock + 20
 
     def test_receive_already_received_po(self, app, authenticated_client, sample_vendor):
@@ -620,7 +620,7 @@ class TestPurchaseOrderDelete:
         assert response.status_code == 200
 
         with admin_client.application.app_context():
-            po = PurchaseOrder.query.get(po_id)
+            po = db.session.get(PurchaseOrder,po_id)
             assert po is None
 
     def test_delete_non_draft_purchase_order(self, admin_client, sample_vendor):
@@ -721,7 +721,7 @@ class TestInventoryTransactionCreate:
 
         # Verify product stock was updated
         with app.app_context():
-            product = Product.query.get(sample_product)
+            product = db.session.get(Product,sample_product)
             assert product.stock_quantity == 45  # 50 - 5
 
     def test_create_inventory_transaction_product_not_found(self, app, authenticated_client):

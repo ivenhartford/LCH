@@ -462,7 +462,7 @@ class TestDocumentDelete:
 
         # Verify document is archived
         with app.app_context():
-            doc = Document.query.get(doc_id)
+            doc = db.session.get(Document,doc_id)
             assert doc is not None
             assert doc.is_archived == True
 
@@ -476,7 +476,7 @@ class TestDocumentDelete:
 
         # Get file path before deletion
         with app.app_context():
-            doc = Document.query.get(doc_id)
+            doc = db.session.get(Document,doc_id)
             file_path = doc.file_path
 
         response = authenticated_client.delete(f"/api/documents/{doc_id}?force=true")
@@ -485,7 +485,7 @@ class TestDocumentDelete:
 
         # Verify document is deleted from database
         with app.app_context():
-            doc = Document.query.get(doc_id)
+            doc = db.session.get(Document,doc_id)
             assert doc is None
 
         # Verify file is deleted from disk
