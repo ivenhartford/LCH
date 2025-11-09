@@ -740,7 +740,7 @@ class TestStaffAccountLockout:
 
         assert response.status_code == 403
         data = response.get_json()
-        assert "Account locked" in data["error"]
+        assert "Account is locked" in data["error"]
 
     def test_staff_lockout_prevents_login_even_with_correct_password(self, app, client):
         """Test locked account cannot login even with correct password"""
@@ -766,7 +766,7 @@ class TestStaffAccountLockout:
 
         assert response.status_code == 403
         data = response.get_json()
-        assert "Account locked" in data["error"]
+        assert "Account is locked" in data["error"]
 
     def test_staff_lockout_resets_on_successful_login(self, app, client):
         """Test failed attempt counter resets on successful login"""

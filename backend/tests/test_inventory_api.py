@@ -711,7 +711,7 @@ class TestInventoryTransactionCreate:
             "transaction_type": "adjustment",
             "quantity": -5,
             "reason": "Damaged items",
-            "transaction_date": datetime.utcnow().date().isoformat(),
+            "transaction_date": datetime.utcnow().isoformat(),
         }
         response = authenticated_client.post("/api/inventory-transactions", json=transaction_data)
         assert response.status_code == 201
@@ -731,7 +731,7 @@ class TestInventoryTransactionCreate:
             "product_id": 99999,
             "transaction_type": "adjustment",
             "quantity": 10,
-            "transaction_date": datetime.utcnow().date().isoformat(),
+            "transaction_date": datetime.utcnow().isoformat(),
         }
         response = authenticated_client.post("/api/inventory-transactions", json=transaction_data)
         assert response.status_code == 404

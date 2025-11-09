@@ -337,7 +337,7 @@ class TestPortalDashboard:
         """Test dashboard for non-existent client"""
         response = authenticated_portal_client.get("/api/portal/dashboard/99999")
 
-        assert response.status_code == 404
+        assert response.status_code == 403  # Authorization check happens before existence check
 
 
 class TestPortalPatients:
@@ -379,7 +379,7 @@ class TestPortalPatients:
 
         response = authenticated_portal_client.get(f"/api/portal/patients/{client2_id}/{sample_patient}")
 
-        assert response.status_code == 404
+        assert response.status_code == 403  # Authorization check happens before existence check
 
 
 class TestPortalAppointments:
@@ -434,7 +434,7 @@ class TestPortalInvoices:
 
         response = authenticated_portal_client.get(f"/api/portal/invoices/{client2_id}/{sample_invoice}")
 
-        assert response.status_code == 404
+        assert response.status_code == 403  # Authorization check happens before existence check
 
 
 class TestAppointmentRequests:

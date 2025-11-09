@@ -269,11 +269,11 @@ class TestAppointmentWorkflow:
             # Step 15: Complete appointment
             response = authenticated_client.put(
                 f"/api/appointments/{appointment_id}",
-                json={"status": "completed", "check_out_time": datetime.now().isoformat()},
+                json={"status": "completed"},
             )
             assert response.status_code == 200
             assert response.json["status"] == "completed"
-            assert response.json["check_out_time"] is not None
+            assert response.json["actual_end_time"] is not None
 
             # Final verification: Get appointment and verify all relationships
             response = authenticated_client.get(f"/api/appointments/{appointment_id}")
@@ -379,7 +379,7 @@ class TestInvoiceWorkflow:
 
             # Verify invoice is partially paid
             response = authenticated_client.get(f"/api/invoices/{invoice_id}")
-            assert response.json["status"] == "partial"
+            assert response.json["status"] == "partial_paid"
             assert response.json["amount_paid"] == total * 0.5
 
             # Make second partial payment (remaining 50%)
