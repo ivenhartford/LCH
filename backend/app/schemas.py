@@ -65,9 +65,7 @@ class ClientUpdateSchema(Schema):
     zip_code = fields.Str(allow_none=True, validate=validate.Length(max=20))
 
     # Communication Preferences
-    preferred_contact = fields.Str(
-        allow_none=True, validate=validate.OneOf(["email", "phone", "sms"])
-    )
+    preferred_contact = fields.Str(allow_none=True, validate=validate.OneOf(["email", "phone", "sms"]))
     email_reminders = fields.Bool()
     sms_reminders = fields.Bool()
 
@@ -97,9 +95,7 @@ class PatientSchema(Schema):
 
     # Physical Characteristics
     sex = fields.Str(allow_none=True, validate=validate.OneOf(["Male", "Female"]))
-    reproductive_status = fields.Str(
-        allow_none=True, validate=validate.OneOf(["Intact", "Spayed", "Neutered"])
-    )
+    reproductive_status = fields.Str(allow_none=True, validate=validate.OneOf(["Intact", "Spayed", "Neutered"]))
     date_of_birth = fields.Date(allow_none=True)
     approximate_age = fields.Str(allow_none=True, validate=validate.Length(max=50))
     weight_kg = fields.Decimal(as_string=True, allow_none=True, places=2)
@@ -124,9 +120,7 @@ class PatientSchema(Schema):
     behavioral_notes = fields.Str(allow_none=True)
 
     # Status
-    status = fields.Str(
-        load_default="Active", validate=validate.OneOf(["Active", "Inactive", "Deceased"])
-    )
+    status = fields.Str(load_default="Active", validate=validate.OneOf(["Active", "Inactive", "Deceased"]))
     deceased_date = fields.Date(allow_none=True)
 
     # Calculated field
@@ -149,9 +143,7 @@ class PatientUpdateSchema(Schema):
 
     # Physical Characteristics
     sex = fields.Str(allow_none=True, validate=validate.OneOf(["Male", "Female"]))
-    reproductive_status = fields.Str(
-        allow_none=True, validate=validate.OneOf(["Intact", "Spayed", "Neutered"])
-    )
+    reproductive_status = fields.Str(allow_none=True, validate=validate.OneOf(["Intact", "Spayed", "Neutered"]))
     date_of_birth = fields.Date(allow_none=True)
     approximate_age = fields.Str(allow_none=True, validate=validate.Length(max=50))
     weight_kg = fields.Decimal(as_string=True, allow_none=True, places=2)
@@ -188,9 +180,7 @@ class VisitSchema(Schema):
     visit_date = fields.DateTime(load_default=lambda: datetime.utcnow())
     visit_type = fields.Str(
         required=True,
-        validate=validate.OneOf(
-            ["Wellness", "Sick", "Emergency", "Follow-up", "Surgery", "Dental", "Other"]
-        ),
+        validate=validate.OneOf(["Wellness", "Sick", "Emergency", "Follow-up", "Surgery", "Dental", "Other"]),
     )
     status = fields.Str(
         load_default="scheduled",
@@ -229,9 +219,7 @@ class VitalSignsSchema(Schema):
     blood_pressure_diastolic = fields.Int(allow_none=True)
     capillary_refill_time = fields.Str(allow_none=True, validate=validate.Length(max=20))
     mucous_membrane_color = fields.Str(allow_none=True, validate=validate.Length(max=50))
-    body_condition_score = fields.Int(
-        allow_none=True, validate=validate.Range(min=1, max=9)
-    )  # 1-9 scale
+    body_condition_score = fields.Int(allow_none=True, validate=validate.Range(min=1, max=9))  # 1-9 scale
 
     # Additional Info
     pain_score = fields.Int(allow_none=True, validate=validate.Range(min=0, max=10))  # 0-10 scale
@@ -307,9 +295,7 @@ class VaccinationSchema(Schema):
 
     # Vaccine Info
     vaccine_name = fields.Str(required=True, validate=validate.Length(min=1, max=200))
-    vaccine_type = fields.Str(
-        allow_none=True, validate=validate.OneOf(["Core", "Non-core", "Lifestyle-dependent"])
-    )
+    vaccine_type = fields.Str(allow_none=True, validate=validate.OneOf(["Core", "Non-core", "Lifestyle-dependent"]))
     manufacturer = fields.Str(allow_none=True, validate=validate.Length(max=100))
     lot_number = fields.Str(allow_none=True, validate=validate.Length(max=100))
     serial_number = fields.Str(allow_none=True, validate=validate.Length(max=100))
@@ -319,9 +305,7 @@ class VaccinationSchema(Schema):
     expiration_date = fields.Date(allow_none=True)
     next_due_date = fields.Date(allow_none=True)
     dosage = fields.Str(allow_none=True, validate=validate.Length(max=50))
-    route = fields.Str(
-        allow_none=True, validate=validate.OneOf(["SC", "IM", "IV", "PO", "Intranasal", "Other"])
-    )
+    route = fields.Str(allow_none=True, validate=validate.OneOf(["SC", "IM", "IV", "PO", "Intranasal", "Other"]))
     administration_site = fields.Str(allow_none=True, validate=validate.Length(max=100))
 
     # Status
@@ -469,9 +453,7 @@ class ServiceSchema(Schema):
     name = fields.Str(required=True, validate=validate.Length(min=1, max=200))
     description = fields.Str(allow_none=True)
     category = fields.Str(allow_none=True, validate=validate.Length(max=100))
-    service_type = fields.Str(
-        load_default="service", validate=validate.OneOf(["service", "product"])
-    )
+    service_type = fields.Str(load_default="service", validate=validate.OneOf(["service", "product"]))
 
     # Pricing
     unit_price = fields.Decimal(as_string=True, required=True, places=2)
@@ -568,9 +550,7 @@ class PaymentSchema(Schema):
     amount = fields.Decimal(as_string=True, required=True, places=2)
     payment_method = fields.Str(
         required=True,
-        validate=validate.OneOf(
-            ["cash", "check", "credit_card", "debit_card", "bank_transfer", "other"]
-        ),
+        validate=validate.OneOf(["cash", "check", "credit_card", "debit_card", "bank_transfer", "other"]),
     )
     reference_number = fields.Str(allow_none=True, validate=validate.Length(max=100))
 
@@ -825,9 +805,7 @@ class PurchaseOrderSchema(Schema):
     # Status
     status = fields.Str(
         load_default="draft",
-        validate=validate.OneOf(
-            ["draft", "submitted", "received", "partially_received", "cancelled"]
-        ),
+        validate=validate.OneOf(["draft", "submitted", "received", "partially_received", "cancelled"]),
     )
 
     # Amounts
@@ -866,9 +844,7 @@ class InventoryTransactionSchema(Schema):
     # Transaction Details
     transaction_type = fields.Str(
         required=True,
-        validate=validate.OneOf(
-            ["received", "dispensed", "adjustment", "return", "expired", "damaged"]
-        ),
+        validate=validate.OneOf(["received", "dispensed", "adjustment", "return", "expired", "damaged"]),
     )
     quantity = fields.Int(required=True)
     quantity_before = fields.Int(required=True)
@@ -880,7 +856,7 @@ class InventoryTransactionSchema(Schema):
     notes = fields.Str(allow_none=True)
 
     # Metadata
-    transaction_date = fields.DateTime(required=True)
+    transaction_date = fields.DateTime(required=False, missing=None)
     performed_by_id = fields.Int(dump_only=True)
     performed_by_name = fields.Str(dump_only=True)
 
@@ -1342,9 +1318,7 @@ class AppointmentRequestSchema(Schema):
         load_default="pending",
         validate=validate.OneOf(["pending", "approved", "rejected", "scheduled", "cancelled"]),
     )
-    priority = fields.Str(
-        load_default="normal", validate=validate.OneOf(["low", "normal", "high", "urgent"])
-    )
+    priority = fields.Str(load_default="normal", validate=validate.OneOf(["low", "normal", "high", "urgent"]))
 
     # Staff Response
     reviewed_by_id = fields.Int(allow_none=True, dump_only=True)
@@ -1389,12 +1363,8 @@ class AppointmentRequestCreateSchema(Schema):
 class AppointmentRequestReviewSchema(Schema):
     """Schema for staff reviewing appointment request"""
 
-    status = fields.Str(
-        required=True, validate=validate.OneOf(["approved", "rejected", "scheduled"])
-    )
-    priority = fields.Str(
-        allow_none=True, validate=validate.OneOf(["low", "normal", "high", "urgent"])
-    )
+    status = fields.Str(required=True, validate=validate.OneOf(["approved", "rejected", "scheduled"]))
+    priority = fields.Str(allow_none=True, validate=validate.OneOf(["low", "normal", "high", "urgent"]))
     staff_notes = fields.Str(allow_none=True)
     rejection_reason = fields.Str(allow_none=True)
     appointment_id = fields.Int(allow_none=True)
@@ -1596,18 +1566,12 @@ class TreatmentPlanSchema(Schema):
     visit_id = fields.Int(allow_none=True)
     protocol_id = fields.Int(allow_none=True)
     protocol_name = fields.Str(dump_only=True)
-    status = fields.Str(
-        load_default="draft", validate=validate.OneOf(["draft", "active", "completed", "cancelled"])
-    )
+    status = fields.Str(load_default="draft", validate=validate.OneOf(["draft", "active", "completed", "cancelled"]))
     start_date = fields.Date(allow_none=True)
     end_date = fields.Date(allow_none=True)
     completed_date = fields.Date(allow_none=True)
-    total_estimated_cost = fields.Decimal(
-        as_string=True, load_default="0", validate=validate.Range(min=0)
-    )
-    total_actual_cost = fields.Decimal(
-        as_string=True, load_default="0", validate=validate.Range(min=0)
-    )
+    total_estimated_cost = fields.Decimal(as_string=True, load_default="0", validate=validate.Range(min=0))
+    total_actual_cost = fields.Decimal(as_string=True, load_default="0", validate=validate.Range(min=0))
     notes = fields.Str(allow_none=True)
     cancellation_reason = fields.Str(allow_none=True)
     created_by_id = fields.Int(dump_only=True)
@@ -1627,9 +1591,7 @@ class TreatmentPlanCreateSchema(Schema):
     patient_id = fields.Int(required=True)
     visit_id = fields.Int(allow_none=True)
     protocol_id = fields.Int(allow_none=True)
-    status = fields.Str(
-        load_default="draft", validate=validate.OneOf(["draft", "active", "completed", "cancelled"])
-    )
+    status = fields.Str(load_default="draft", validate=validate.OneOf(["draft", "active", "completed", "cancelled"]))
     start_date = fields.Date(allow_none=True)
     end_date = fields.Date(allow_none=True)
     notes = fields.Str(allow_none=True)
@@ -1660,12 +1622,8 @@ class TreatmentPlanUpdateSchema(Schema):
     start_date = fields.Date(allow_none=True)
     end_date = fields.Date(allow_none=True)
     completed_date = fields.Date(allow_none=True)
-    total_estimated_cost = fields.Decimal(
-        as_string=True, allow_none=True, validate=validate.Range(min=0)
-    )
-    total_actual_cost = fields.Decimal(
-        as_string=True, allow_none=True, validate=validate.Range(min=0)
-    )
+    total_estimated_cost = fields.Decimal(as_string=True, allow_none=True, validate=validate.Range(min=0))
+    total_actual_cost = fields.Decimal(as_string=True, allow_none=True, validate=validate.Range(min=0))
     notes = fields.Str(allow_none=True)
     cancellation_reason = fields.Str(allow_none=True)
 
@@ -1675,9 +1633,7 @@ class TreatmentPlanStepUpdateSchema(Schema):
 
     title = fields.Str(validate=validate.Length(min=1, max=200))
     description = fields.Str(allow_none=True)
-    status = fields.Str(
-        validate=validate.OneOf(["pending", "in_progress", "completed", "skipped", "cancelled"])
-    )
+    status = fields.Str(validate=validate.OneOf(["pending", "in_progress", "completed", "skipped", "cancelled"]))
     scheduled_date = fields.Date(allow_none=True)
     completed_date = fields.Date(allow_none=True)
     estimated_cost = fields.Decimal(as_string=True, allow_none=True, validate=validate.Range(min=0))
