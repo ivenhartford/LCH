@@ -19,7 +19,7 @@ class Config:
 
     # API Settings
     RESTX_MASK_SWAGGER = False
-    ERROR_404_HELP = False
+    RESTX_ERROR_404_HELP = False
 
     # Pagination
     ITEMS_PER_PAGE = 50

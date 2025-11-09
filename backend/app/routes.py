@@ -396,13 +396,13 @@ def create_appointment():
         validated_data = appointment_schema.load(data)
 
         # Verify client exists
-        client = Client.query.get(validated_data["client_id"])
+        client = db.session.get(Client,validated_data["client_id"])
         if not client:
             return jsonify({"error": "Client not found"}), 404
 
         # Verify patient exists if provided
         if validated_data.get("patient_id"):
-            patient = Patient.query.get(validated_data["patient_id"])
+            patient = db.session.get(Patient,validated_data["patient_id"])
             if not patient:
                 return jsonify({"error": "Patient not found"}), 404
 
@@ -1149,7 +1149,7 @@ def create_patient():
             return jsonify({"error": "Validation error", "messages": err.messages}), 400
 
         # Verify owner exists
-        owner = Client.query.get(validated_data["owner_id"])
+        owner = db.session.get(Client,validated_data["owner_id"])
         if not owner:
             app.logger.warning(f"Attempted to create patient with non-existent owner_id: {validated_data['owner_id']}")
             return jsonify({"error": "Owner (client) not found"}), 404
@@ -1238,7 +1238,7 @@ def update_patient(patient_id):
 
         # Verify new owner exists if owner_id is being changed
         if "owner_id" in validated_data:
-            owner = Client.query.get(validated_data["owner_id"])
+            owner = db.session.get(Client,validated_data["owner_id"])
             if not owner:
                 app.logger.warning(
                     f"Attempted to update patient {patient_id} with non-existent owner_id: {validated_data['owner_id']}"
@@ -1465,7 +1465,7 @@ def create_visit():
         validated_data = visit_schema.load(data)
 
         # Verify patient exists
-        patient = Patient.query.get(validated_data["patient_id"])
+        patient = db.session.get(Patient,validated_data["patient_id"])
         if not patient:
             return jsonify({"error": "Patient not found"}), 404
 
@@ -1697,7 +1697,7 @@ def create_vital_signs():
         validated_data = vital_signs_schema.load(data)
 
         # Verify visit exists
-        visit = Visit.query.get(validated_data["visit_id"])
+        visit = db.session.get(Visit,validated_data["visit_id"])
         if not visit:
             return jsonify({"error": "Visit not found"}), 404
 
@@ -1840,7 +1840,7 @@ def create_soap_note():
         validated_data = soap_note_schema.load(data)
 
         # Verify visit exists
-        visit = Visit.query.get(validated_data["visit_id"])
+        visit = db.session.get(Visit,validated_data["visit_id"])
         if not visit:
             return jsonify({"error": "Visit not found"}), 404
 
@@ -1980,7 +1980,7 @@ def create_diagnosis():
         validated_data = diagnosis_schema.load(data)
 
         # Verify visit exists
-        visit = Visit.query.get(validated_data["visit_id"])
+        visit = db.session.get(Visit,validated_data["visit_id"])
         if not visit:
             return jsonify({"error": "Visit not found"}), 404
 
@@ -2124,7 +2124,7 @@ def create_vaccination():
         validated_data = vaccination_schema.load(data)
 
         # Verify patient exists
-        patient = Patient.query.get(validated_data["patient_id"])
+        patient = db.session.get(Patient,validated_data["patient_id"])
         if not patient:
             return jsonify({"error": "Patient not found"}), 404
 
@@ -2447,18 +2447,18 @@ def create_prescription():
         validated_data = prescription_schema.load(data)
 
         # Verify patient exists
-        patient = Patient.query.get(validated_data["patient_id"])
+        patient = db.session.get(Patient,validated_data["patient_id"])
         if not patient:
             return jsonify({"error": "Patient not found"}), 404
 
         # Verify medication exists
-        medication = Medication.query.get(validated_data["medication_id"])
+        medication = db.session.get(Medication,validated_data["medication_id"])
         if not medication:
             return jsonify({"error": "Medication not found"}), 404
 
         # Verify visit if provided
         if validated_data.get("visit_id"):
-            visit = Visit.query.get(validated_data["visit_id"])
+            visit = db.session.get(Visit,validated_data["visit_id"])
             if not visit:
                 return jsonify({"error": "Visit not found"}), 404
 
@@ -2772,7 +2772,7 @@ def create_invoice():
         validated_data = invoice_schema.load(data)
 
         # Verify client exists
-        client = Client.query.get(validated_data["client_id"])
+        client = db.session.get(Client,validated_data["client_id"])
         if not client:
             return jsonify({"error": "Client not found"}), 404
 
@@ -3116,7 +3116,7 @@ def create_payment():
         validated_data = payment_schema.load(data)
 
         # Verify invoice exists
-        invoice = Invoice.query.get(validated_data["invoice_id"])
+        invoice = db.session.get(Invoice,validated_data["invoice_id"])
         if not invoice:
             return jsonify({"error": "Invoice not found"}), 404
 
@@ -3876,7 +3876,7 @@ def get_procedure_volume():
 
         monthly_trends = []
         for (service_id,) in top_5_service_ids:
-            service = Service.query.get(service_id)
+            service = db.session.get(Service,service_id)
             trend = (
                 db.session.query(
                     func.strftime("%Y-%m", Invoice.invoice_date).label("month"),
@@ -4363,7 +4363,7 @@ def get_vendors():
 @login_required
 def get_vendor(vendor_id):
     """Get single vendor by ID"""
-    vendor = Vendor.query.get(vendor_id)
+    vendor = db.session.get(Vendor,vendor_id)
     if not vendor:
         return jsonify({"error": "Vendor not found"}), 404
 
@@ -4396,7 +4396,7 @@ def create_vendor():
 @login_required
 def update_vendor(vendor_id):
     """Update vendor"""
-    vendor = Vendor.query.get(vendor_id)
+    vendor = db.session.get(Vendor,vendor_id)
     if not vendor:
         return jsonify({"error": "Vendor not found"}), 404
 
@@ -4422,7 +4422,7 @@ def update_vendor(vendor_id):
 @admin_required
 def delete_vendor(vendor_id):
     """Delete vendor (soft delete by default, hard delete with ?hard=true)"""
-    vendor = Vendor.query.get(vendor_id)
+    vendor = db.session.get(Vendor,vendor_id)
     if not vendor:
         return jsonify({"error": "Vendor not found"}), 404
 
@@ -4513,7 +4513,7 @@ def get_low_stock_products():
 @login_required
 def get_product(product_id):
     """Get single product by ID"""
-    product = Product.query.get(product_id)
+    product = db.session.get(Product,product_id)
     if not product:
         return jsonify({"error": "Product not found"}), 404
 
@@ -4546,7 +4546,7 @@ def create_product():
 @login_required
 def update_product(product_id):
     """Update product"""
-    product = Product.query.get(product_id)
+    product = db.session.get(Product,product_id)
     if not product:
         return jsonify({"error": "Product not found"}), 404
 
@@ -4572,7 +4572,7 @@ def update_product(product_id):
 @admin_required
 def delete_product(product_id):
     """Delete product (soft delete by default)"""
-    product = Product.query.get(product_id)
+    product = db.session.get(Product,product_id)
     if not product:
         return jsonify({"error": "Product not found"}), 404
 
@@ -4630,7 +4630,7 @@ def get_purchase_orders():
 @login_required
 def get_purchase_order(po_id):
     """Get single purchase order by ID"""
-    po = PurchaseOrder.query.get(po_id)
+    po = db.session.get(PurchaseOrder,po_id)
     if not po:
         return jsonify({"error": "Purchase order not found"}), 404
 
@@ -4672,7 +4672,7 @@ def create_purchase_order():
 @login_required
 def update_purchase_order(po_id):
     """Update purchase order"""
-    po = PurchaseOrder.query.get(po_id)
+    po = db.session.get(PurchaseOrder,po_id)
     if not po:
         return jsonify({"error": "Purchase order not found"}), 404
 
@@ -4699,7 +4699,7 @@ def update_purchase_order(po_id):
 @login_required
 def receive_purchase_order(po_id):
     """Mark purchase order as received and update inventory"""
-    po = PurchaseOrder.query.get(po_id)
+    po = db.session.get(PurchaseOrder,po_id)
     if not po:
         return jsonify({"error": "Purchase order not found"}), 404
 
@@ -4716,7 +4716,7 @@ def receive_purchase_order(po_id):
 
         # Update inventory for each item
         for item in po.items:
-            product = Product.query.get(item.product_id)
+            product = db.session.get(Product,item.product_id)
             if product:
                 quantity_before = product.stock_quantity
                 product.stock_quantity += item.quantity_received
@@ -4749,7 +4749,7 @@ def receive_purchase_order(po_id):
 @admin_required
 def delete_purchase_order(po_id):
     """Delete purchase order (only if status is draft)"""
-    po = PurchaseOrder.query.get(po_id)
+    po = db.session.get(PurchaseOrder,po_id)
     if not po:
         return jsonify({"error": "Purchase order not found"}), 404
 
@@ -4816,7 +4816,7 @@ def create_inventory_transaction():
 
         # Get product
         product_id = data.get("product_id")
-        product = Product.query.get(product_id)
+        product = db.session.get(Product,product_id)
         if not product:
             return jsonify({"error": "Product not found"}), 404
 
@@ -4864,7 +4864,7 @@ def create_inventory_transaction():
 @login_required
 def get_inventory_transaction(transaction_id):
     """Get single inventory transaction by ID"""
-    transaction = InventoryTransaction.query.get(transaction_id)
+    transaction = db.session.get(InventoryTransaction,transaction_id)
     if not transaction:
         return jsonify({"error": "Inventory transaction not found"}), 404
 
@@ -4922,7 +4922,7 @@ def get_staff(staff_id):
     """Get single staff member by ID"""
     from .models import Staff
 
-    staff = Staff.query.get(staff_id)
+    staff = db.session.get(Staff,staff_id)
     if not staff:
         return jsonify({"error": "Staff member not found"}), 404
 
@@ -4970,7 +4970,7 @@ def update_staff(staff_id):
     from .models import Staff
     from .schemas import staff_schema
 
-    staff = Staff.query.get(staff_id)
+    staff = db.session.get(Staff,staff_id)
     if not staff:
         return jsonify({"error": "Staff member not found"}), 404
 
@@ -5008,7 +5008,7 @@ def delete_staff(staff_id):
     """Delete staff member (admin only) - soft delete by default"""
     from .models import Staff
 
-    staff = Staff.query.get(staff_id)
+    staff = db.session.get(Staff,staff_id)
     if not staff:
         return jsonify({"error": "Staff member not found"}), 404
 
@@ -5097,7 +5097,7 @@ def get_schedule(schedule_id):
     """Get single schedule by ID"""
     from .models import Schedule
 
-    schedule = Schedule.query.get(schedule_id)
+    schedule = db.session.get(Schedule,schedule_id)
     if not schedule:
         return jsonify({"error": "Schedule not found"}), 404
 
@@ -5117,7 +5117,7 @@ def create_schedule():
         data = schedule_schema.load(request.json)
 
         # Verify staff member exists
-        staff = Staff.query.get(data["staff_id"])
+        staff = db.session.get(Staff,data["staff_id"])
         if not staff:
             return jsonify({"error": "Staff member not found"}), 404
 
@@ -5149,7 +5149,7 @@ def update_schedule(schedule_id):
     from .models import Schedule
     from .schemas import schedule_schema
 
-    schedule = Schedule.query.get(schedule_id)
+    schedule = db.session.get(Schedule,schedule_id)
     if not schedule:
         return jsonify({"error": "Schedule not found"}), 404
 
@@ -5187,7 +5187,7 @@ def delete_schedule(schedule_id):
     """Delete schedule (admin only)"""
     from .models import Schedule
 
-    schedule = Schedule.query.get(schedule_id)
+    schedule = db.session.get(Schedule,schedule_id)
     if not schedule:
         return jsonify({"error": "Schedule not found"}), 404
 
@@ -5211,7 +5211,7 @@ def approve_time_off(schedule_id):
     """Approve time-off request (admin only)"""
     from .models import Schedule
 
-    schedule = Schedule.query.get(schedule_id)
+    schedule = db.session.get(Schedule,schedule_id)
     if not schedule:
         return jsonify({"error": "Schedule not found"}), 404
 
@@ -5284,7 +5284,7 @@ def get_lab_test(test_id):
     """Get a specific lab test by ID"""
     from .models import LabTest
 
-    lab_test = LabTest.query.get(test_id)
+    lab_test = db.session.get(LabTest,test_id)
     if not lab_test:
         return jsonify({"error": "Lab test not found"}), 404
 
@@ -5329,7 +5329,7 @@ def update_lab_test(test_id):
     from .models import LabTest
     from .schemas import LabTestSchema
 
-    lab_test = LabTest.query.get(test_id)
+    lab_test = db.session.get(LabTest,test_id)
     if not lab_test:
         return jsonify({"error": "Lab test not found"}), 404
 
@@ -5365,7 +5365,7 @@ def delete_lab_test(test_id):
     """Soft delete a lab test (Admin only)"""
     from .models import LabTest
 
-    lab_test = LabTest.query.get(test_id)
+    lab_test = db.session.get(LabTest,test_id)
     if not lab_test:
         return jsonify({"error": "Lab test not found"}), 404
 
@@ -5466,7 +5466,7 @@ def get_lab_result(result_id):
     """Get a specific lab result by ID"""
     from .models import LabResult
 
-    lab_result = LabResult.query.get(result_id)
+    lab_result = db.session.get(LabResult,result_id)
     if not lab_result:
         return jsonify({"error": "Lab result not found"}), 404
 
@@ -5485,12 +5485,12 @@ def create_lab_result():
         data = schema.load(request.json)
 
         # Verify patient exists
-        patient = Patient.query.get(data["patient_id"])
+        patient = db.session.get(Patient,data["patient_id"])
         if not patient:
             return jsonify({"error": "Patient not found"}), 404
 
         # Verify lab test exists
-        lab_test = LabTest.query.get(data["test_id"])
+        lab_test = db.session.get(LabTest,data["test_id"])
         if not lab_test:
             return jsonify({"error": "Lab test not found"}), 404
 
@@ -5518,7 +5518,7 @@ def update_lab_result(result_id):
     from .models import LabResult
     from .schemas import LabResultSchema
 
-    lab_result = LabResult.query.get(result_id)
+    lab_result = db.session.get(LabResult,result_id)
     if not lab_result:
         return jsonify({"error": "Lab result not found"}), 404
 
@@ -5548,7 +5548,7 @@ def review_lab_result(result_id):
     """Mark a lab result as reviewed"""
     from .models import LabResult
 
-    lab_result = LabResult.query.get(result_id)
+    lab_result = db.session.get(LabResult,result_id)
     if not lab_result:
         return jsonify({"error": "Lab result not found"}), 404
 
@@ -5574,7 +5574,7 @@ def delete_lab_result(result_id):
     """Delete a lab result (Admin only)"""
     from .models import LabResult
 
-    lab_result = LabResult.query.get(result_id)
+    lab_result = db.session.get(LabResult,result_id)
     if not lab_result:
         return jsonify({"error": "Lab result not found"}), 404
 
@@ -5631,7 +5631,7 @@ def get_notification_template(template_id):
     """Get a specific notification template by ID"""
     from .models import NotificationTemplate
 
-    template = NotificationTemplate.query.get(template_id)
+    template = db.session.get(NotificationTemplate,template_id)
     if not template:
         return jsonify({"error": "Notification template not found"}), 404
 
@@ -5684,7 +5684,7 @@ def update_notification_template(template_id):
     from .schemas import NotificationTemplateSchema
     import json
 
-    template = NotificationTemplate.query.get(template_id)
+    template = db.session.get(NotificationTemplate,template_id)
     if not template:
         return jsonify({"error": "Notification template not found"}), 404
 
@@ -5724,7 +5724,7 @@ def delete_notification_template(template_id):
     """Delete a notification template (Admin only)"""
     from .models import NotificationTemplate
 
-    template = NotificationTemplate.query.get(template_id)
+    template = db.session.get(NotificationTemplate,template_id)
     if not template:
         return jsonify({"error": "Notification template not found"}), 404
 
@@ -5765,7 +5765,7 @@ def get_client_preferences(client_id):
     from .models import ClientCommunicationPreference, Client
 
     # Verify client exists
-    client = Client.query.get(client_id)
+    client = db.session.get(Client,client_id)
     if not client:
         return jsonify({"error": "Client not found"}), 404
 
@@ -5790,7 +5790,7 @@ def update_client_preferences(client_id):
     from .schemas import ClientCommunicationPreferenceSchema
 
     # Verify client exists
-    client = Client.query.get(client_id)
+    client = db.session.get(Client,client_id)
     if not client:
         return jsonify({"error": "Client not found"}), 404
 
@@ -5908,7 +5908,7 @@ def get_reminder(reminder_id):
     """Get a specific reminder by ID"""
     from .models import Reminder
 
-    reminder = Reminder.query.get(reminder_id)
+    reminder = db.session.get(Reminder,reminder_id)
     if not reminder:
         return jsonify({"error": "Reminder not found"}), 404
 
@@ -5927,19 +5927,19 @@ def create_reminder():
         data = schema.load(request.json)
 
         # Verify client exists
-        client = Client.query.get(data["client_id"])
+        client = db.session.get(Client,data["client_id"])
         if not client:
             return jsonify({"error": "Client not found"}), 404
 
         # Verify patient exists if provided
         if data.get("patient_id"):
-            patient = Patient.query.get(data["patient_id"])
+            patient = db.session.get(Patient,data["patient_id"])
             if not patient:
                 return jsonify({"error": "Patient not found"}), 404
 
         # Verify template exists if provided
         if data.get("template_id"):
-            template = NotificationTemplate.query.get(data["template_id"])
+            template = db.session.get(NotificationTemplate,data["template_id"])
             if not template:
                 return jsonify({"error": "Notification template not found"}), 404
 
@@ -5967,7 +5967,7 @@ def update_reminder(reminder_id):
     from .models import Reminder
     from .schemas import ReminderSchema
 
-    reminder = Reminder.query.get(reminder_id)
+    reminder = db.session.get(Reminder,reminder_id)
     if not reminder:
         return jsonify({"error": "Reminder not found"}), 404
 
@@ -5997,7 +5997,7 @@ def cancel_reminder(reminder_id):
     """Cancel a pending reminder"""
     from .models import Reminder
 
-    reminder = Reminder.query.get(reminder_id)
+    reminder = db.session.get(Reminder,reminder_id)
     if not reminder:
         return jsonify({"error": "Reminder not found"}), 404
 
@@ -6023,7 +6023,7 @@ def delete_reminder(reminder_id):
     """Delete a reminder (Admin only)"""
     from .models import Reminder
 
-    reminder = Reminder.query.get(reminder_id)
+    reminder = db.session.get(Reminder,reminder_id)
     if not reminder:
         return jsonify({"error": "Reminder not found"}), 404
 
@@ -6058,7 +6058,7 @@ def portal_register():
             return jsonify({"error": "Passwords do not match"}), 400
 
         # Verify client exists
-        client = Client.query.get(data["client_id"])
+        client = db.session.get(Client,data["client_id"])
         if not client:
             return jsonify({"error": "Client not found"}), 404
 
@@ -6162,7 +6162,7 @@ def portal_login():
         token = generate_portal_token(portal_user)
 
         # Get client info
-        client = Client.query.get(portal_user.client_id)
+        client = db.session.get(Client,portal_user.client_id)
 
         app.logger.info(f"Client portal login: {portal_user.username}")
         return (
@@ -6195,7 +6195,7 @@ def portal_login():
 def portal_dashboard(client_id, **kwargs):
     """Get client portal dashboard data"""
     try:
-        client = Client.query.get(client_id)
+        client = db.session.get(Client,client_id)
         if not client:
             return jsonify({"error": "Client not found"}), 404
 
@@ -6414,7 +6414,7 @@ def create_appointment_request(**kwargs):
             )
 
         # Verify client and patient exist and are linked
-        client = Client.query.get(data["client_id"])
+        client = db.session.get(Client,data["client_id"])
         if not client:
             return jsonify({"error": "Client not found"}), 404
 
@@ -6472,14 +6472,14 @@ def get_client_appointment_requests(client_id, **kwargs):
             req_data = req.to_dict()
 
             # Add related names
-            client = Client.query.get(req.client_id)
+            client = db.session.get(Client,req.client_id)
             req_data["client_name"] = f"{client.first_name} {client.last_name}" if client else None
 
-            patient = Patient.query.get(req.patient_id)
+            patient = db.session.get(Patient,req.patient_id)
             req_data["patient_name"] = patient.name if patient else None
 
             if req.appointment_type_id:
-                apt_type = AppointmentType.query.get(req.appointment_type_id)
+                apt_type = db.session.get(AppointmentType,req.appointment_type_id)
                 req_data["appointment_type_name"] = apt_type.name if apt_type else None
 
             result.append(req_data)
@@ -6502,14 +6502,14 @@ def get_appointment_request_detail(client_id, request_id, **kwargs):
         req_data = req.to_dict()
 
         # Add related names
-        client = Client.query.get(req.client_id)
+        client = db.session.get(Client,req.client_id)
         req_data["client_name"] = f"{client.first_name} {client.last_name}" if client else None
 
-        patient = Patient.query.get(req.patient_id)
+        patient = db.session.get(Patient,req.patient_id)
         req_data["patient_name"] = patient.name if patient else None
 
         if req.appointment_type_id:
-            apt_type = AppointmentType.query.get(req.appointment_type_id)
+            apt_type = db.session.get(AppointmentType,req.appointment_type_id)
             req_data["appointment_type_name"] = apt_type.name if apt_type else None
 
         return jsonify(req_data), 200
@@ -6624,7 +6624,7 @@ def portal_set_pin():
         if not payload:
             return jsonify({"error": "Invalid token"}), 401
 
-        portal_user = ClientPortalUser.query.get(payload["portal_user_id"])
+        portal_user = db.session.get(ClientPortalUser,payload["portal_user_id"])
         if not portal_user:
             return jsonify({"error": "User not found"}), 404
 
@@ -6661,7 +6661,7 @@ def portal_verify_pin():
         if not payload:
             return jsonify({"error": "Invalid token"}), 401
 
-        portal_user = ClientPortalUser.query.get(payload["portal_user_id"])
+        portal_user = db.session.get(ClientPortalUser,payload["portal_user_id"])
         if not portal_user:
             return jsonify({"error": "User not found"}), 404
 
@@ -6717,7 +6717,7 @@ def portal_check_session():
         if not payload:
             return jsonify({"error": "Invalid token"}), 401
 
-        portal_user = ClientPortalUser.query.get(payload["portal_user_id"])
+        portal_user = db.session.get(ClientPortalUser,payload["portal_user_id"])
         if not portal_user:
             return jsonify({"error": "User not found"}), 404
 
@@ -6787,18 +6787,18 @@ def get_all_appointment_requests():
             req_data = req.to_dict()
 
             # Add related names
-            client = Client.query.get(req.client_id)
+            client = db.session.get(Client,req.client_id)
             req_data["client_name"] = f"{client.first_name} {client.last_name}" if client else None
 
-            patient = Patient.query.get(req.patient_id)
+            patient = db.session.get(Patient,req.patient_id)
             req_data["patient_name"] = patient.name if patient else None
 
             if req.appointment_type_id:
-                apt_type = AppointmentType.query.get(req.appointment_type_id)
+                apt_type = db.session.get(AppointmentType,req.appointment_type_id)
                 req_data["appointment_type_name"] = apt_type.name if apt_type else None
 
             if req.reviewed_by_id:
-                reviewer = User.query.get(req.reviewed_by_id)
+                reviewer = db.session.get(User,req.reviewed_by_id)
                 req_data["reviewed_by_name"] = reviewer.username if reviewer else None
 
             result.append(req_data)
@@ -6814,25 +6814,25 @@ def get_all_appointment_requests():
 def get_appointment_request(request_id):
     """Get specific appointment request (staff view)"""
     try:
-        req = AppointmentRequest.query.get(request_id)
+        req = db.session.get(AppointmentRequest,request_id)
         if not req:
             return jsonify({"error": "Appointment request not found"}), 404
 
         req_data = req.to_dict()
 
         # Add related names
-        client = Client.query.get(req.client_id)
+        client = db.session.get(Client,req.client_id)
         req_data["client_name"] = f"{client.first_name} {client.last_name}" if client else None
 
-        patient = Patient.query.get(req.patient_id)
+        patient = db.session.get(Patient,req.patient_id)
         req_data["patient_name"] = patient.name if patient else None
 
         if req.appointment_type_id:
-            apt_type = AppointmentType.query.get(req.appointment_type_id)
+            apt_type = db.session.get(AppointmentType,req.appointment_type_id)
             req_data["appointment_type_name"] = apt_type.name if apt_type else None
 
         if req.reviewed_by_id:
-            reviewer = User.query.get(req.reviewed_by_id)
+            reviewer = db.session.get(User,req.reviewed_by_id)
             req_data["reviewed_by_name"] = reviewer.username if reviewer else None
 
         return jsonify(req_data), 200
@@ -6846,7 +6846,7 @@ def get_appointment_request(request_id):
 def review_appointment_request(request_id):
     """Review/approve/reject an appointment request (staff only)"""
     try:
-        req = AppointmentRequest.query.get(request_id)
+        req = db.session.get(AppointmentRequest,request_id)
         if not req:
             return jsonify({"error": "Appointment request not found"}), 404
 
@@ -7513,7 +7513,7 @@ def create_treatment_plan():
 
         # Validate patient exists
         if data.get("patient_id"):
-            patient = Patient.query.get(data["patient_id"])
+            patient = db.session.get(Patient,data["patient_id"])
             if not patient:
                 return jsonify({"error": "Patient not found"}), 400
 
