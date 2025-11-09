@@ -4835,6 +4835,10 @@ def create_inventory_transaction():
             }
         )
 
+        # Set transaction_date if not provided (model default doesn't work with explicit None)
+        if validated_data.get("transaction_date") is None:
+            validated_data["transaction_date"] = datetime.utcnow()
+
         # Create transaction
         transaction = InventoryTransaction(**validated_data)
 
