@@ -536,9 +536,7 @@ class TestPurchaseOrderUpdate:
 
     def test_update_purchase_order_not_found(self, app, authenticated_client):
         """Should return 404 for nonexistent purchase order"""
-        response = authenticated_client.put(
-            "/api/purchase-orders/99999", json={"status": "submitted"}
-        )
+        response = authenticated_client.put("/api/purchase-orders/99999", json={"status": "submitted"})
         assert response.status_code == 404
 
 
@@ -681,9 +679,7 @@ class TestInventoryTransactionList:
         data = response.json
         assert len(data["transactions"]) >= 1
 
-    def test_get_inventory_transactions_filter_by_product(
-        self, app, authenticated_client, sample_product
-    ):
+    def test_get_inventory_transactions_filter_by_product(self, app, authenticated_client, sample_product):
         """Should filter transactions by product"""
         # Create a transaction
         with app.app_context():
@@ -700,9 +696,7 @@ class TestInventoryTransactionList:
             db.session.add(transaction)
             db.session.commit()
 
-        response = authenticated_client.get(
-            f"/api/inventory-transactions?product_id={sample_product}"
-        )
+        response = authenticated_client.get(f"/api/inventory-transactions?product_id={sample_product}")
         assert response.status_code == 200
         data = response.json
         assert len(data["transactions"]) >= 1
@@ -737,7 +731,7 @@ class TestInventoryTransactionCreate:
             "product_id": 99999,
             "transaction_type": "adjustment",
             "quantity": 10,
-            "transaction_date": datetime.utcnow().isoformat(),
+            "transaction_date": datetime.utcnow().date().isoformat(),
         }
         response = authenticated_client.post("/api/inventory-transactions", json=transaction_data)
         assert response.status_code == 404
